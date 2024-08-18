@@ -31,7 +31,7 @@ Features
     Customizable Intervals: Adjustable intervals for camera changes and race position bonuses.
     GUI Interface: A wxPython-based graphical user interface (GUI) for real-time monitoring and control, including a grid to display the leaderboard and control elements to adjust settings on the fly.
     Rich Console Integration: Uses the Rich library to provide a visually appealing console output with tables and panels for in-depth race data.
-    Dev Mode: A developer mode that can be toggled with a secret key combination (Ctrl+X), enabling or disabling additional console outputs.
+    Dev Mode: A developer mode that can be toggled with a key combination (Ctrl+X), enabling or disabling additional console outputs.
 
 # Usage
 
@@ -54,11 +54,11 @@ Features
     Exit the Application
         Press ESC to exit the application safely.
 
+
 Project Structure
 
     main.exe: The main executable that initializes the auto-director and leaderboard system.
-    LICENSE: The license file outlining the terms under which this project is distributed.
-
+    
 Key Components
 Main Logic Loop
 
@@ -73,11 +73,12 @@ wxPython GUI
 
 Rich Console Integration
 
-    Enhanced Display: Uses the Rich library to display race data in a visually appealing manner in the console.
+    Enhanced Display: Uses the Rich library to display race data in a visually appealing manner in the console, when CTRL-X Pressed
 
 Troubleshooting
 
-    Shared Memory Issues: Make sure AMS2 is running and correctly configured to share data via shared memory.
+    Shared Memory Issues: Make sure AMS2 is running and correctly configured to share data via shared memory. Replay, and driver offer Shared memory
+    UDP Issues: Make sure AMS2 is setup for UDP sharing in Project Cars 2 with a UDP frequency of 3. Using UDP only one program can access the port, so check if Simhub is using UDP too.
     GUI Display Problems: If the wxPython window appears incorrect, ensure your system supports wxPython and consider running the script in a standard desktop environment.
 
 Contributing
