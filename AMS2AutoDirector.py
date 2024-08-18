@@ -539,10 +539,6 @@ def start_wx_app():
     btn_ad_interval_up = wx.Button(panel, label="▲", size=(30, 30))
     btn_ad_interval_down = wx.Button(panel, label="▼", size=(30, 30))
 
-    hbox_ad_interval.Add(label_ad_interval, 1, wx.EXPAND | wx.ALL, border=5)
-    hbox_ad_interval.Add(btn_ad_interval_up, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, border=5)
-    hbox_ad_interval.Add(btn_ad_interval_down, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, border=5)
-
     # Buttons and labels for RACE_POSITION_BONUS_FACTOR
     hbox_race_bonus = wx.BoxSizer(wx.HORIZONTAL)
     label_race_bonus = wx.StaticText(panel, label=f"RACE_POSITION_BONUS_FACTOR: {RACE_POSITION_BONUS_FACTOR}")
@@ -550,6 +546,45 @@ def start_wx_app():
     btn_race_bonus_up = wx.Button(panel, label="▲", size=(30, 30))
     btn_race_bonus_down = wx.Button(panel, label="▼", size=(30, 30))
 
+    # Define button click event handlers
+    def on_ad_interval_up(event):
+        global AUTO_DIRECTOR_INTERVAL, auto_director_enabled
+        auto_director_enabled = False  # Disable auto director when adjusting values
+        AUTO_DIRECTOR_INTERVAL += 1
+        label_ad_interval.SetLabel(f"AUTO_DIRECTOR_INTERVAL: {AUTO_DIRECTOR_INTERVAL}")
+
+    def on_ad_interval_down(event):
+        global AUTO_DIRECTOR_INTERVAL, auto_director_enabled
+        auto_director_enabled = False  # Disable auto director when adjusting values
+        if AUTO_DIRECTOR_INTERVAL > 1:
+            AUTO_DIRECTOR_INTERVAL -= 1
+            label_ad_interval.SetLabel(f"AUTO_DIRECTOR_INTERVAL: {AUTO_DIRECTOR_INTERVAL}")
+
+    def on_race_bonus_up(event):
+        global RACE_POSITION_BONUS_FACTOR, auto_director_enabled
+        auto_director_enabled = False  # Disable auto director when adjusting values
+        RACE_POSITION_BONUS_FACTOR += 1
+        label_race_bonus.SetLabel(f"RACE_POSITION_BONUS_FACTOR: {RACE_POSITION_BONUS_FACTOR}")
+
+    def on_race_bonus_down(event):
+        global RACE_POSITION_BONUS_FACTOR, auto_director_enabled
+        auto_director_enabled = False  # Disable auto director when adjusting values
+        if RACE_POSITION_BONUS_FACTOR > 1:
+            RACE_POSITION_BONUS_FACTOR -= 1
+            label_race_bonus.SetLabel(f"RACE_POSITION_BONUS_FACTOR: {RACE_POSITION_BONUS_FACTOR}")
+
+    # Bind the buttons to their respective event handlers
+    btn_ad_interval_up.Bind(wx.EVT_BUTTON, on_ad_interval_up)
+    btn_ad_interval_down.Bind(wx.EVT_BUTTON, on_ad_interval_down)
+    btn_race_bonus_up.Bind(wx.EVT_BUTTON, on_race_bonus_up)
+    btn_race_bonus_down.Bind(wx.EVT_BUTTON, on_race_bonus_down)
+
+    # Arrange the AUTO_DIRECTOR_INTERVAL controls horizontally
+    hbox_ad_interval.Add(label_ad_interval, 1, wx.EXPAND | wx.ALL, border=5)
+    hbox_ad_interval.Add(btn_ad_interval_up, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, border=5)
+    hbox_ad_interval.Add(btn_ad_interval_down, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, border=5)
+
+    # Arrange the RACE_POSITION_BONUS_FACTOR controls horizontally
     hbox_race_bonus.Add(label_race_bonus, 1, wx.EXPAND | wx.ALL, border=5)
     hbox_race_bonus.Add(btn_race_bonus_up, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, border=5)
     hbox_race_bonus.Add(btn_race_bonus_down, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, border=5)
@@ -605,6 +640,7 @@ def start_wx_app():
     wx_race_control_panel = race_control_panel
 
     app.MainLoop()
+
 
 
 def update_auto_director_interval(value):
