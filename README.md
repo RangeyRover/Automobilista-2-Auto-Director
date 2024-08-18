@@ -4,7 +4,8 @@ This is a simplified Auto director that does not rely on Simhub, and uses UDP or
 It tracks the smallest gap and the rate of change, selecting those most likely to be racing to be in view.
 It has customisable Race Position bonus.
 It has customisable camera dwell.
-Usage is simple,
+Usage is simple:
+
 
     Start the Auto director,
     Select UDP or Shared memory.
@@ -13,6 +14,8 @@ Usage is simple,
     Enter Race Position Bonus.
     Click on a racer, in AMS2 leaderboard
     Press space to start Auto directing.
+    The program presses up, down and enter for you to select cameras
+    Press space to stop Auto directing.
 
 This is what chatGPT says this is, it should know, it wrote it.
 # AMS2 Auto Director and Leaderboard
