@@ -16,6 +16,7 @@ Usage is simple:
     Press space to start Auto directing.
     The program presses up, down and enter for you to select cameras
     Press space to stop Auto directing.
+<img width="615" alt="Auto Director UI" src="https://github.com/user-attachments/assets/cf658850-1328-43b5-bdab-05311b104682">
 
 This is what chatGPT says this is, it should know, it wrote it.
 # AMS2 Auto Director and Leaderboard
