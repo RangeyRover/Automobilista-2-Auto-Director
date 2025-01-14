@@ -279,7 +279,9 @@ class SharedMemory(ctypes.Structure):
         ('mTyreRPS', ctypes.c_float * TYRE_MAX),
         ('mTyreSlipSpeed', ctypes.c_float * TYRE_MAX),
         ('mTyreTemp', ctypes.c_float * TYRE_MAX),
+        ('_padding1', ctypes.c_char * 16),        # Add 16 bytes of padding to align to C Shared memory
         ('mTyreHeightAboveGround', ctypes.c_float * TYRE_MAX),
+        ('_padding2', ctypes.c_char * 16),        # Add 16 bytes of padding to align to C Shared memory
         ('mTyreWear', ctypes.c_float * TYRE_MAX),
         ('mBrakeDamage', ctypes.c_float * TYRE_MAX),
         ('mSuspensionDamage', ctypes.c_float * TYRE_MAX),
