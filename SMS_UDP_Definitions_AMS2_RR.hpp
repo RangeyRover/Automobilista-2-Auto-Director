@@ -212,7 +212,7 @@ struct sParticipantInfo
 	unsigned char			sCurrentLap;							// 23 -- RR Edit
 	float				sCurrentTime;							// 24 -- RR Edit
 	float				sCurrentSectorTime;						// 28 -- RR Edit
-	unsigned short			sMPParticipantIndex;						// 30 --  matching sIndex from sParticipantsData
+	unsigned short			sMPParticipantIndex;						// 30 --  matching sIndex from sParticipantsData -- RR Edit this cannot be accurate as the sector time is 4 bytes
 	
 };																							// 32
 
