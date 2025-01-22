@@ -6,18 +6,22 @@ This is a simplified Auto director that does not rely on SimHub, and uses UDP or
 
 - Customizable Race Position bonus.
 - Customizable camera dwell.
+- Race Position Bonus Factor
+- Pit Mode Penalty
+- Speed Penalty
+- Leader Cars Ahead Multiplier
+- Close Racing Max Gap
+
 
 ## Usage
 
 1. Start the Auto director.
 2. Select UDP or Shared Memory.
 3. Select UDP port if selected.
-4. Enter Camera Dwell time.
-5. Enter Race Position Bonus.
-6. Click on a racer in the AMS2 leaderboard.
-7. Press `Space` to start Auto directing.
-8. The program presses `Up`, `Down`, and `Enter` for you to select cameras.
-9. Press `Space` to stop Auto directing.
+4. Click on a racer in the AMS2 leaderboard.
+5. Press `Space` to start Auto directing.
+6. The program presses `Up`, `Down`, and `Enter` for you to select cameras.
+7. Press `Space` to stop Auto directing.
 
 ![Auto Director UI](https://github.com/user-attachments/assets/cf658850-1328-43b5-bdab-05311b104682)
 
@@ -27,7 +31,7 @@ This is a simplified Auto director that does not rely on SimHub, and uses UDP or
 
 ### Overview
 
-This project is a custom auto-director and leaderboard system for Automobilista 2 (AMS2) racing simulator. It allows for dynamic control of the camera focus during races based on participants' performance metrics, such as speed, gap to the next player, and racing position. The system supports both UDP data streaming and shared memory for real-time data acquisition from AMS2.
+This project is a custom auto-director and leaderboard system for Automobilista 2 (AMS2) racing simulator. It allows for dynamic control of the camera focus during races based on participants' performance metrics, such as speed, gap to the next player, racing position gap to driver ahead, pit status and cars ahead. The system supports both UDP data streaming and shared memory for real-time data acquisition from AMS2.
 
 ### Features
 
@@ -36,9 +40,7 @@ This project is a custom auto-director and leaderboard system for Automobilista 
 - **Data Source Flexibility**: Supports both UDP and shared memory for data collection, allowing flexibility depending on your setup.
 - **Customizable Intervals**: Adjustable intervals for camera changes and race position bonuses.
 - **GUI Interface**: A wxPython-based graphical user interface (GUI) for real-time monitoring and control, including a grid to display the leaderboard and control elements to adjust settings on the fly.
-- **Rich Console Integration**: Uses the Rich library to provide a visually appealing console output with tables and panels for in-depth race data.
-- **Dev Mode**: A developer mode that can be toggled with a key combination (`Ctrl+X`), enabling or disabling additional console outputs.
-
+- 
 ## Usage
 
 1. **Start the Application**
@@ -55,7 +57,6 @@ This project is a custom auto-director and leaderboard system for Automobilista 
 3. **Adjust Settings On-The-Fly**
     - Use the wxPython GUI to adjust the auto director interval and race position bonus factor during the race.
     - Toggle auto-director functionality with the `Spacebar`.
-    - Enable or disable developer mode with `Ctrl+X`.
 
 4. **Exit the Application**
     - Press `ESC` to exit the application safely.
@@ -76,10 +77,6 @@ This project is a custom auto-director and leaderboard system for Automobilista 
 
 - **Grid Display**: Shows the leaderboard with real-time updates.
 - **Control Panel**: Allows users to adjust key parameters like the auto-director interval and race position bonus factor.
-
-#### Rich Console Integration
-
-- **Enhanced Display**: Uses the Rich library to display race data in a visually appealing manner in the console, when `Ctrl+X` is pressed.
 
 ## Troubleshooting
 
