@@ -23,7 +23,7 @@ This is a simplified Auto director that does not rely on SimHub, and uses UDP or
 6. The program presses `Up`, `Down`, and `Enter` for you to select cameras.
 7. Press `Space` to stop Auto directing.
 
-![Auto Director UI](https://github.com/user-attachments/assets/cf658850-1328-43b5-bdab-05311b104682)
+![Auto Director UI](https://raw.githubusercontent.com/RangeyRover/Automobilista-2-Auto-Director/refs/heads/main/AutoDirector.png)
 
 ---
 
