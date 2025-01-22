@@ -202,16 +202,16 @@ struct sParticipantInfo
 {
 	signed short			sWorldPosition[3];						// 0 -- 
 	signed short			sOrientation[3];						// 6 -- Quantized heading (-PI .. +PI) , Quantized pitch (-PI / 2 .. +PI / 2),  Quantized bank (-PI .. +PI).
-	unsigned short			sCurrentLapDistance;						// 12 --
-	unsigned char			sRacePosition;							// 14 -- holds the race position, + top bit shows if the participant is active or not
-	unsigned char			sSector;							// 15 -- sector + extra precision bits for x/z position
-	unsigned char			sHighestFlag;							// 16 -- (enum 3 bits/enum 2 bits) Flag colour and reason
-	unsigned char			sPitModeSchedule;						// 17 -- (enum 3 bits/enum 2 bits) Pit mode and Pit schedule 
-	unsigned short			sCarIndex;							// 18 -- top bit shows if participant is (local or remote) human player or not
-	unsigned char			sRaceState;							// 20 -- race state flags + invalidated lap indication --
-	unsigned char			sCurrentLap;							// 21 -- 
-	float				sCurrentTime;							// 22 --
-	float				sCurrentSectorTime;						// 26 --
+	unsigned short			sCurrentLapDistance;						// 14 -- RR Edit
+	unsigned char			sRacePosition;							// 16 -- holds the race position, + top bit shows if the participant is active or not RR Edit
+	unsigned char			sSector;							// 17 -- sector + extra precision bits for x/z position RR Edit
+	unsigned char			sHighestFlag;							// 18 -- (enum 3 bits/enum 2 bits) Flag colour and reason RR Edit
+	unsigned char			sPitModeSchedule;						// 19 -- (enum 3 bits/enum 2 bits) Pit mode and Pit schedule RR Edit
+	unsigned short			sCarIndex;							// 20 -- top bit shows if participant is (local or remote) human player or not RR Edit
+	unsigned char			sRaceState;							// 22 -- race state flags + invalidated lap indication -- RR Edit
+	unsigned char			sCurrentLap;							// 23 -- RR Edit
+	float				sCurrentTime;							// 24 -- RR Edit
+	float				sCurrentSectorTime;						// 28 -- RR Edit
 	unsigned short			sMPParticipantIndex;						// 30 --  matching sIndex from sParticipantsData
 	
 };																							// 32
