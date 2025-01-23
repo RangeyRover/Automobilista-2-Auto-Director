@@ -4,14 +4,13 @@ An auto director for AMS2 in Python using UDP or AMS2 shared memory.
 
 This is a simplified Auto director that does not rely on SimHub, and uses UDP or Shared Memory. It tracks the smallest gap and the rate of change, selecting those most likely to be racing to be in view.
 
-- Customizable Race Position bonus.
-- Customizable camera dwell.
-- Race Position Bonus Factor
-- Pit Mode Penalty
-- Speed Penalty
-- Leader Cars Ahead Multiplier
-- Close Racing Max Gap
-
+- Customizable camera dwell. 
+- Race Position Bonus Factor (Adjust if leaders should show more or less)
+- Pit Mode Penalty (People in pits aren't interesting racing)
+- Speed Penalty (Less than 5 m/s isn't interesting)
+- Leader Cars Ahead Multiplier (Cars within 250m ahead of leader make the leader interesting for blue flagged cars)
+- Other Cars Ahead Multiplier (Cars within 250m ahead of this car make this car more interesting)
+- Close Racing Max Gap (distance that scoring starts for close racing)
 
 ## Usage
 
