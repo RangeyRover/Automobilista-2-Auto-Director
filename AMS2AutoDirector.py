@@ -37,16 +37,16 @@ while mode not in ["1", "2"]:
     mode = input("Select data source:\n1. UDP\n2. Shared Memory\nEnter 1 or 2: ").strip()
 
 # Prompt for the interval between camera changes in seconds
-camera_change_interval_input = input("Enter the interval between camera changes in seconds (press Enter for default 5): ")
+camera_change_interval_input = input("Enter the interval between camera changes in seconds (press Enter for default 7): ")
 
 # Set the camera change interval based on user input, or use the default if none is provided
-AUTO_DIRECTOR_INTERVAL = int(camera_change_interval_input) if camera_change_interval_input.strip() else 5
+AUTO_DIRECTOR_INTERVAL = int(camera_change_interval_input) if camera_change_interval_input.strip() else 7
 
 # Prompt for the race position bonus factor
-race_position_bonus_input = input("Enter the race position bonus factor, lower is more bonus (press Enter for default 10): ")
+race_position_bonus_input = input("Enter the race position bonus factor, (press Enter for default 12): ")
 
 # Set the race position bonus factor based on user input, or use the default if none is provided
-RACE_POSITION_BONUS_FACTOR = int(race_position_bonus_input) if race_position_bonus_input.strip() else 10
+RACE_POSITION_BONUS_FACTOR = int(race_position_bonus_input) if race_position_bonus_input.strip() else 12
 
 # Set up for the selected mode
 if mode == "1":
@@ -504,11 +504,13 @@ def next_focus(df):
         )
 
         # Race position bonus
-        def calculate_race_position_bonus(pos):
+        def calculate_race_position_bonus(pos, max_cars=32):
+
             try:
                 base_bonus = RACE_POSITION_BONUS_FACTOR
-                decrement = 0.5
-                return max(base_bonus - ((pos - 1) * decrement), 0) if pos > 0 else 0
+                if pos > 0 and pos <= max_cars:
+                    return base_bonus * (1 - (pos - 1) / max_cars)
+                return 0  # No bonus for invalid positions
             except (ZeroDivisionError, TypeError):
                 return 0
 
