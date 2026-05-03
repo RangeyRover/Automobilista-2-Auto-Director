@@ -9,6 +9,15 @@ The AMS2 Auto Director V3.0 is a **real-time telemetry-driven broadcast camera c
 
 The application uses a `wxPython` GUI to display a live leaderboard grid with scoring breakdowns, and provides runtime-tunable parameters via up/down button controls.
 
+## Clarifications
+
+### Session 2026-05-03
+- Q: How should the system determine the current `game_time` to match against replay log timestamps? → A: Read `game_time` from Shared Memory `mCurrentTime` field.
+- Q: What should the Director do when AMS2 is not running? → A: Poll silently with "Waiting for AMS2..." status, then display confirmation when connected.
+- Q: Which GUI framework for the unified V4.0? → A: tkinter (V4.0 style). GUI must be a thin shell fully abstracted from testable business logic — no tkinter testing.
+- Q: Should V4.0 eliminate the pandas dependency? → A: Yes. Remove pandas entirely — use plain dicts and lists for scoring and grid display.
+- Q: Should V4.0 keep the UDP data source pathway? → A: Yes. Keep both UDP and Shared Memory for full backwards compatibility.
+
 ## Functional Requirements (Existing)
 
 ### FR-1: Dual Data Source Ingestion
@@ -16,6 +25,7 @@ The application uses a `wxPython` GUI to display a live leaderboard grid with sc
 - **FR-1.2**: Read AMS2 telemetry from UDP packets on a configurable port (default `5606`).
 - **FR-1.3**: User selects data source mode at startup via console prompt.
 - **FR-1.4**: Shared Memory polled every `200ms`. UDP processed every `1s`.
+- **FR-1.5**: Read `game_time` from the `SharedMemory.mCurrentTime` field for synchronising replay log event windows against live telemetry.
 
 ### FR-2: Participant Data Extraction
 - **FR-2.1**: Extract per-participant fields: Race Position, Is Active, Lap Distance, Current Sector, Current Lap, Fastest/Last Lap Times, Speed, Pit Mode, Flag Colours/Reasons, Race State.
@@ -42,18 +52,12 @@ The application uses a `wxPython` GUI to display a live leaderboard grid with sc
 - **FR-4.3**: Toggle auto director on/off with Spacebar.
 - **FR-4.4**: Default interval: `7 seconds` (configurable at startup and via GUI).
 
-### FR-5: GUI (wxPython)
-- **FR-5.1**: Dark-themed wxPython grid displaying all participant data merged with scoring breakdown.
-- **FR-5.2**: Race Control panel showing: current focus, auto director status, track length.
-- **FR-5.3**: Runtime-tunable parameters via ▲/▼ buttons:
-  - Auto Director Interval
-  - Race Position Bonus Factor
-  - Pit Mode Penalty Multiplier
-  - Speed Penalty Multiplier
-  - Leader Cars Ahead Multiplier
-  - Other Cars Ahead Multiplier
-  - Close Racing Max Gap
+### FR-5: GUI (tkinter)
+- **FR-5.1**: Dark-themed tkinter UI in the style of the V4.0 prototype, displaying participant data merged with scoring breakdown.
+- **FR-5.2**: Race Control panel showing: current focus, auto director status, track length, connection status.
+- **FR-5.3**: Runtime-tunable parameters via input fields/buttons.
 - **FR-5.4**: Grid updates every `1 second`.
+- **FR-5.5**: **Strict GUI Abstraction**: The GUI is a thin rendering shell only. All scoring, telemetry, and camera logic must live in `core/` modules with no tkinter imports. No tkinter unit testing will be performed; all business logic is tested independently.
 
 ## Key Entities
 
@@ -87,7 +91,11 @@ The application uses a `wxPython` GUI to display a live leaderboard grid with sc
 
 ### Weaknesses / Technical Debt
 - **Global State Everywhere**: 20+ global variables manage state. No classes, no encapsulation.
-- **UDP Fallback is Brittle**: The UDP packet parser uses hardcoded byte offsets (e.g., `31 + i * 32 + 16`) with no validation.
+- **UDP Fallback is Brittle**: The UDP packet parser uses hardcoded byte offsets (e.g., `31 + i * 32 + 16`) with no validation. **Decision: Retain for backwards compatibility but migrate into `core/telemetry_provider.py` with improved structure.**
 - **No Driver Names**: The scoring engine works purely by participant index and race position. It never reads `mName` from shared memory, so the GUI cannot display driver names.
 - **Scroll-to-Top Every Time**: The `auto_director()` function scrolls UP 32 times before scrolling DOWN to the target. This is wasteful when positions only shift by 1-2 places.
-- **`pandas` Dependency**: Heavy use of `pd.DataFrame` for what is essentially a 32-row dictionary. The DataFrame is rebuilt from scratch every second.
+- **`pandas` Dependency**: Heavy use of `pd.DataFrame` for what is essentially a 32-row dictionary. The DataFrame is rebuilt from scratch every second. **Decision: Remove pandas entirely in V4.0. Use plain dicts/lists.**
+
+## Edge Cases & Failure Handling
+- **EC-1**: When AMS2 is not running (shared memory unavailable), the Director displays "Waiting for AMS2..." in the GUI status panel and polls silently every 200ms. When the connection is established, the status updates to confirm the connection (e.g., "Connected to AMS2").
+- **EC-2**: If AMS2 disconnects mid-session (shared memory becomes invalid), the Director reverts to "Waiting for AMS2..." status and suspends camera control until reconnection.
