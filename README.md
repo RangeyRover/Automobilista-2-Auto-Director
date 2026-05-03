@@ -1,100 +1,59 @@
-# Automobilista-2-Auto-Director
+# AMS2 Auto Director V4.0
 
-An auto director for AMS2 in Python using UDP or AMS2 shared memory.
+Real-time telemetry-driven broadcast camera controller for Automobilista 2.
 
-This is a simplified Auto director that does not rely on SimHub, and uses UDP or Shared Memory. It tracks the smallest gap and the rate of change, selecting those most likely to be racing to be in view.
+## Architecture
 
-- Customizable camera dwell. 
-- Race Position Bonus Factor (Adjust if leaders should show more or less)
-- Pit Mode Penalty (People in pits aren't interesting racing)
-- Speed Penalty (Less than 5 m/s isn't interesting)
-- Leader Cars Ahead Multiplier (Cars within 250m ahead of leader make the leader interesting for blue flagged cars)
-- Other Cars Ahead Multiplier (Cars within 250m ahead of this car make this car more interesting)
-- Close Racing Max Gap (distance that scoring starts for close racing)
+```
+main.py                    ← Thin tkinter GUI shell (no business logic)
+core/
+  scoring_engine.py        ← Stateless per-tick interest scoring (FR-3)
+  telemetry_provider.py    ← SharedMemory/UDP data extraction (FR-1, FR-2)
+  camera_controller.py     ← pyKey injection with delta navigation (FR-4)
+tests/
+  conftest.py              ← Shared fixtures (make_participant, MockSharedMemory)
+  test_fixtures.py         ← Fixture smoke tests
+  test_scoring_engine.py   ← 29 tests (SE-01 to SE-29)
+  test_telemetry_provider.py ← 26 tests (TP-01 to TP-26)
+  test_camera_controller.py  ← 13 tests (CC-01 to CC-13)
+```
 
-## Usage
+## Quick Start
 
-1. Start the Auto director.
-2. Select UDP or Shared Memory.
-3. Select UDP port if selected.
-4. Click on a racer in the AMS2 leaderboard.
-5. Press `Space` to start Auto directing.
-6. The program presses `Up`, `Down`, and `Enter` for you to select cameras.
-7. Press `Space` to stop Auto directing.
+```bash
+# Run with Shared Memory (default)
+python main.py
 
-![Auto Director UI](https://raw.githubusercontent.com/RangeyRover/Automobilista-2-Auto-Director/refs/heads/main/AutoDirector.png)
+# Run with UDP
+python main.py --mode udp
 
----
+# Run tests
+python -m pytest tests/ -v
+```
 
-## AMS2 Auto Director and Leaderboard
+## Requirements
 
-### Overview
+- Python 3.11+
+- AMS2 running (for live telemetry)
+- `pyKey` (for camera control key injection)
 
-This project is a custom auto-director and leaderboard system for Automobilista 2 (AMS2) racing simulator. It allows for dynamic control of the camera focus during races based on participants' performance metrics, such as speed, gap to the next player, racing position gap to driver ahead, pit status and cars ahead. The system supports both UDP data streaming and shared memory for real-time data acquisition from AMS2.
+## Key Controls
 
-### Features
+| Key | Action |
+|---|---|
+| **Space** | Toggle Auto Director ON/OFF |
 
-- **Auto Director**: Automatically switches camera focus to participants with the most interesting race metrics, such as close racing gaps or significant changes in position.
-- **Leaderboard Display**: Real-time leaderboard that displays essential race statistics like race position, lap times, speed, and gap to the player ahead.
-- **Data Source Flexibility**: Supports both UDP and shared memory for data collection, allowing flexibility depending on your setup.
-- **Customizable Intervals**: Adjustable intervals for camera changes and race position bonuses.
-- **GUI Interface**: A wxPython-based graphical user interface (GUI) for real-time monitoring and control, including a grid to display the leaderboard and control elements to adjust settings on the fly.
-- 
-## Usage
+## Test Suite
 
-1. **Start the Application**
-    - Launch the executable file to start the application.
-    - Upon running the application, you'll be prompted to select the data source:
-        1. for UDP
-        2. for Shared Memory
-    - After selecting the data source, you can configure the interval between camera changes and the race position bonus factor.
+| Module | Tests | Coverage |
+|---|---|---|
+| Scoring Engine | 29 | Pit/Speed penalties, Cars Ahead, Close Racing, Position Bonus, Focus Selection |
+| Telemetry Provider | 26 | SharedMemory extraction, True Distance, Gaps, Cars Ahead, Speed, UDP, Connection State |
+| Camera Controller | 13 | Delta navigation, Fallback, Key timing, Edge cases |
+| **Total** | **68** | All business logic fully tested in isolation |
 
-2. **Monitor the Race**
-    - The auto director will dynamically focus on the most interesting participant in the race based on the calculated metrics.
-    - The leaderboard will be updated in real-time both in the GUI and optionally in the console (if dev mode is enabled).
+## Strangler Refactor
 
-3. **Adjust Settings On-The-Fly**
-    - Use the wxPython GUI to adjust the auto director interval and race position bonus factor during the race.
-    - Toggle auto-director functionality with the `Spacebar`.
-
-4. **Exit the Application**
-    - Press `ESC` to exit the application safely.
-
-## Project Structure
-
-- `main.exe`: The main executable that initializes the auto-director and leaderboard system.
-
-### Key Components
-
-#### Main Logic Loop
-
-- **Data Handling**: Handles data acquisition from AMS2 through either UDP or shared memory.
-- **Leaderboard Update**: Processes the data and updates the leaderboard with real-time statistics.
-- **Auto Director**: Automatically shifts the camera focus based on calculated metrics.
-
-#### wxPython GUI
-
-- **Grid Display**: Shows the leaderboard with real-time updates.
-- **Control Panel**: Allows users to adjust key parameters like the auto-director interval and race position bonus factor.
-
-## Troubleshooting
-
-- **Shared Memory Issues**: Make sure AMS2 is running and correctly configured to share data via shared memory. Replay and driver options offer shared memory.
-- **UDP Issues**: Make sure AMS2 is set up for UDP sharing in Project Cars 2 with a UDP frequency of 3. Using UDP, only one program can access the port, so check if SimHub is using UDP too.
-- **GUI Display Problems**: If the wxPython window appears incorrect, ensure your system supports wxPython and consider running the script in a standard desktop environment.
-
-## Contributing
-
-Contributions are welcome! Please fork the repository and submit a pull request. For major changes, please open an issue first to discuss what you would like to change.
-
-## License
-
-This project is licensed under the CC0 1.0 Universal (CC0 1.0) Public Domain Dedication. See the [LICENSE](LICENSE) file for details.
-
-## Acknowledgments
-
-- **AMS2 Community**: For the support and shared knowledge about accessing and utilizing AMS2's telemetry data.
-- **Rich Library**: For providing an amazing library to enhance console output.
-- **wxPython**: For enabling easy GUI development in Python.
-
-By using this software, you acknowledge that it is provided "as is" without warranty of any kind, express or implied. Use at your own risk.
+This V4.0 was extracted from the V3.0 monolith (`AMS2AutoDirector.py`, 902 lines)
+using the Strangler Pattern. The legacy file is preserved but never imported.
+All logic was decomposed into three testable `core/` modules.
