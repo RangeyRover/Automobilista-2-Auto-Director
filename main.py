@@ -9,6 +9,7 @@ import argparse
 import time
 import mmap
 import ctypes
+import keyboard
 
 from core.telemetry_provider import TelemetryProvider
 from core.scoring_engine import ScoringEngine
@@ -173,8 +174,13 @@ class AutoDirectorApp:
                                  style='Dark.TButton', command=self._toggle_director)
         btn_toggle.pack(side=tk.LEFT, padx=5)
 
-        # Ctrl+Space binding (global so it works safely without interfering with entry fields)
-        self.root.bind_all('<Control-space>', lambda e: self._toggle_director())
+        # True OS-level global binding for Ctrl+Space
+        try:
+            keyboard.add_hotkey('ctrl+space', lambda: self.root.after(0, self._toggle_director))
+        except Exception as e:
+            print(f"Warning: Could not bind global hotkey: {e}")
+            # Fallback to application-level global binding
+            self.root.bind_all('<Control-space>', lambda e: self._toggle_director())
 
     def _apply_tuning(self):
         """Write GUI values to scorer attributes."""
