@@ -61,14 +61,23 @@ class ScoringEngine:
             return cars_ahead * self.other_cars_ahead_multiplier / 5
 
     def _calculate_close_racing_bonus(self, participant: dict) -> float:
-        """FR-3.4: (max_gap - gap) / divisor if gap in (0, max_gap], else 0."""
+        """FR-3.4: Base = (max_gap - gap) / divisor."""
         gap = participant.get('gap_ahead', 0)
+        
+        # Leader or invalid gap
         if gap <= 0 or gap >= self.close_racing_max_gap:
-            # gap == max_gap edge: (50-50)/5 = 0.0, which matches gap >= max_gap returning 0
-            # But spec says "between 0 and 50m" — need to include gap == max_gap as 0
             return 0.0
 
-        return (self.close_racing_max_gap - gap) / self.close_racing_bonus_divisor
+        # Base linear bonus curve (from V3.0)
+        base_bonus = (self.close_racing_max_gap - gap) / self.close_racing_bonus_divisor
+        return min(base_bonus, 50.0)
+
+    def _calculate_closing_speed_bonus(self, participant: dict) -> float:
+        """FR-3.6: Closing speed is an independent additive bonus, active only when within max_gap."""
+        gap = participant.get('gap_ahead', 0)
+        if gap <= 0 or gap >= self.close_racing_max_gap:
+            return 0.0
+        return participant.get('closing_speed', 0.0)
 
     def _calculate_race_position_bonus(self, participant: dict) -> float:
         """FR-3.5: FACTOR * (1 - (pos-1)/32). Linear decay P1→P32."""
@@ -97,6 +106,7 @@ class ScoringEngine:
             spd = self._calculate_speed_penalty(p)
             cars = self._calculate_cars_ahead_bonus(p)
             close = self._calculate_close_racing_bonus(p)
+            cls_spd = self._calculate_closing_speed_bonus(p)
             pos = self._calculate_race_position_bonus(p)
 
             scores[idx] = {
@@ -104,8 +114,9 @@ class ScoringEngine:
                 'speed_penalty': spd,
                 'cars_ahead_bonus': cars,
                 'close_racing_bonus': close,
+                'closing_speed_bonus': cls_spd,
                 'race_position_bonus': pos,
-                'total_score': pit + spd + cars + close + pos,
+                'total_score': pit + spd + cars + close + cls_spd + pos,
             }
 
         return scores

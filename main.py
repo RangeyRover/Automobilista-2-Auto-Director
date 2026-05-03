@@ -48,6 +48,13 @@ class AutoDirectorApp:
         self._shm_file = None
 
         self._build_ui()
+        self.root.protocol("WM_DELETE_WINDOW", self._on_closing)
+        self.provider.start_udp()
+
+    def _on_closing(self):
+        """Cleanup and close application."""
+        self.provider.stop_udp()
+        self.root.destroy()
 
     def _build_ui(self):
         """Build the tkinter GUI."""
@@ -90,6 +97,10 @@ class AutoDirectorApp:
                          font=('Consolas', 9, 'bold'))
         style.map('Dark.Treeview', background=[('selected', highlight)])
 
+        # Configure tag for highest score highlighting
+        self.tree = None # Created below, but we define the tag later
+
+
         # ── Top: Status Bar ─────────────────────────────────────────────
         status_frame = ttk.Frame(self.root, style='Panel.TFrame')
         status_frame.pack(fill=tk.X, padx=5, pady=5)
@@ -110,6 +121,10 @@ class AutoDirectorApp:
                                     style='Status.TLabel')
         self.lbl_focus.pack(side=tk.LEFT, padx=20)
 
+        self.lbl_session_time = ttk.Label(status_frame, text='Time: —',
+                                          style='Status.TLabel')
+        self.lbl_session_time.pack(side=tk.RIGHT, padx=20)
+
         self.lbl_track = ttk.Label(status_frame, text='Track: —',
                                     style='Status.TLabel')
         self.lbl_track.pack(side=tk.RIGHT, padx=10)
@@ -119,15 +134,16 @@ class AutoDirectorApp:
         grid_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=2)
 
         columns = ('pos', 'name', 'speed', 'gap', 'cars_ahead',
-                    'pit_pen', 'spd_pen', 'cars_bon', 'close_bon', 'pos_bon', 'total')
+                    'pit_pen', 'spd_pen', 'cars_bon', 'cls_spd_bon', 'close_bon', 'pos_bon', 'total')
         self.tree = ttk.Treeview(grid_frame, columns=columns, show='headings',
                                   style='Dark.Treeview', height=20)
+        self.tree.tag_configure('highest', foreground='#ffd700', font=('Consolas', 9, 'bold'))
 
         headers = {
             'pos': ('P', 30), 'name': ('Driver', 140), 'speed': ('Speed', 60),
             'gap': ('Gap', 60), 'cars_ahead': ('Cars↑', 50),
             'pit_pen': ('Pit', 45), 'spd_pen': ('Spd', 45),
-            'cars_bon': ('Cars', 45), 'close_bon': ('Close', 50),
+            'cars_bon': ('Cars', 45), 'cls_spd_bon': ('ClsSpd', 50), 'close_bon': ('Close', 50),
             'pos_bon': ('Pos', 45), 'total': ('TOTAL', 60),
         }
         for col, (heading, width) in headers.items():
@@ -147,6 +163,7 @@ class AutoDirectorApp:
 
         self._tuning_vars = {}
         tuning_params = [
+            ('UDP Port', 'udp_port', 5606),
             ('Interval (s)', 'switch_interval', self._switch_interval),
             ('Pos Factor', 'race_position_bonus_factor', self.scorer.race_position_bonus_factor),
             ('Pit Penalty', 'pit_mode_penalty', self.scorer.pit_mode_penalty),
@@ -185,6 +202,10 @@ class AutoDirectorApp:
     def _apply_tuning(self):
         """Write GUI values to scorer attributes."""
         try:
+            new_port = int(self._tuning_vars['udp_port'].get())
+            if new_port != self.provider._udp_port:
+                self.provider.set_udp_port(new_port)
+                
             self._switch_interval = float(self._tuning_vars['switch_interval'].get())
             self.scorer.race_position_bonus_factor = float(
                 self._tuning_vars['race_position_bonus_factor'].get())
@@ -235,9 +256,31 @@ class AutoDirectorApp:
             if track_info:
                 self.lbl_track.configure(
                     text=f"Track: {track_info['track_name']} ({track_info['track_length']:.0f}m)")
+            
+            session_info = self.provider.get_session_info(sm)
+            if session_info:
+                rem = session_info.get('event_time_remaining', -1.0)
+                cur = session_info.get('current_time', 0.0)
+                laps = session_info.get('laps_in_event', 0)
+                
+                cur_mins = int(cur) // 60
+                cur_secs = int(cur) % 60
+                
+                rem_str = "null"
+                if rem > 0:
+                    rem_mins = int(rem) // 60
+                    rem_secs = int(rem) % 60
+                    rem_str = f"{rem_mins:02d}:{rem_secs:02d}"
+                    
+                laps_str = str(laps) if laps > 0 else "null"
+                
+                self.lbl_session_time.configure(
+                    text=f"Laps: {laps_str} | Rem: {rem_str} | Elap: {cur_mins:02d}:{cur_secs:02d}"
+                )
         else:
             self.lbl_connection.configure(text='⏳ Waiting for AMS2...')
             self.lbl_track.configure(text='Track: —')
+            self.lbl_session_time.configure(text='Time: —')
 
         # Score
         self._scores = self.scorer.calculate_scores(self._participants)
@@ -272,6 +315,17 @@ class AutoDirectorApp:
             key=lambda i: self._participants[i].get('race_position', 99)
         )
 
+        # Find highest score for highlighting
+        best_score = float('-inf')
+        best_idx = None
+        for idx in sorted_indices:
+            p = self._participants[idx]
+            if p.get('is_active', False):
+                total = self._scores.get(idx, {}).get('total_score', float('-inf'))
+                if total > best_score:
+                    best_score = total
+                    best_idx = idx
+
         for idx in sorted_indices:
             p = self._participants[idx]
             if not p.get('is_active', False):
@@ -287,11 +341,13 @@ class AutoDirectorApp:
                 f"{s.get('pit_mode_penalty', 0):.1f}",
                 f"{s.get('speed_penalty', 0):.1f}",
                 f"{s.get('cars_ahead_bonus', 0):.1f}",
+                f"{s.get('closing_speed_bonus', 0):.1f}",
                 f"{s.get('close_racing_bonus', 0):.1f}",
                 f"{s.get('race_position_bonus', 0):.1f}",
                 f"{s.get('total_score', 0):.1f}",
             )
-            self.tree.insert('', tk.END, values=values)
+            tags = ('highest',) if idx == best_idx else ()
+            self.tree.insert('', tk.END, values=values, tags=tags)
 
         self.root.after(self.GRID_UPDATE_MS, self._update_grid)
 

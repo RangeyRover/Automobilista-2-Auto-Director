@@ -85,35 +85,47 @@ class TestCarsAheadBonus:
 # ── Close Racing Bonus (SE-11 to SE-15) ─────────────────────────────────────
 
 class TestCloseRacingBonus:
-    def test_se11_gap_10m(self, engine, make_participant):
-        """SE-11: gap=10 → bonus = 8.0 ((50-10)/5)"""
-        participants = {0: make_participant(gap_ahead=10)}
+    def test_se11_gap_10m_closing(self, engine, make_participant):
+        """SE-11: gap=10, closing=2.0 → base=(50-10)/5=8.0, cls_spd=2.0"""
+        participants = {0: make_participant(gap_ahead=10, closing_speed=2.0)}
         scores = engine.calculate_scores(participants)
         assert scores[0]['close_racing_bonus'] == pytest.approx(8.0)
+        assert scores[0]['closing_speed_bonus'] == pytest.approx(2.0)
 
     def test_se12_gap_50m_edge(self, engine, make_participant):
-        """SE-12: gap=50 → bonus = 0.0 ((50-50)/5)"""
+        """SE-12: gap=50 → base=0.0, cls_spd=0.0"""
         participants = {0: make_participant(gap_ahead=50)}
         scores = engine.calculate_scores(participants)
         assert scores[0]['close_racing_bonus'] == pytest.approx(0.0)
+        assert scores[0]['closing_speed_bonus'] == pytest.approx(0.0)
 
     def test_se13_gap_51m_outside(self, engine, make_participant):
-        """SE-13: gap=51 → bonus = 0 (outside threshold)"""
-        participants = {0: make_participant(gap_ahead=51)}
+        """SE-13: gap=51 → base=0, cls_spd=0"""
+        participants = {0: make_participant(gap_ahead=51, closing_speed=2.0)}
         scores = engine.calculate_scores(participants)
         assert scores[0]['close_racing_bonus'] == 0
+        assert scores[0]['closing_speed_bonus'] == 0
 
     def test_se14_gap_0m_leader(self, engine, make_participant):
-        """SE-14: gap=0 → bonus = 0 (leader / no gap)"""
-        participants = {0: make_participant(gap_ahead=0)}
+        """SE-14: gap=0 → base=0, cls_spd=0"""
+        participants = {0: make_participant(gap_ahead=0, closing_speed=2.0)}
         scores = engine.calculate_scores(participants)
         assert scores[0]['close_racing_bonus'] == 0
+        assert scores[0]['closing_speed_bonus'] == 0
 
-    def test_se15_gap_1m_nose_to_tail(self, engine, make_participant):
-        """SE-15: gap=1 → bonus = 9.8 ((50-1)/5)"""
-        participants = {0: make_participant(gap_ahead=1)}
+    def test_se15_gap_1m_neutral(self, engine, make_participant):
+        """SE-15: gap=1, closing=0.0 → base=(50-1)/5=9.8, cls_spd=0.0"""
+        participants = {0: make_participant(gap_ahead=1, closing_speed=0.0)}
         scores = engine.calculate_scores(participants)
         assert scores[0]['close_racing_bonus'] == pytest.approx(9.8)
+        assert scores[0]['closing_speed_bonus'] == pytest.approx(0.0)
+
+    def test_se15b_gap_1m_falling_back(self, engine, make_participant):
+        """SE-15b: gap=1, closing=-2.0 → base=9.8, cls_spd=-2.0"""
+        participants = {0: make_participant(gap_ahead=1, closing_speed=-2.0)}
+        scores = engine.calculate_scores(participants)
+        assert scores[0]['close_racing_bonus'] == pytest.approx(9.8)
+        assert scores[0]['closing_speed_bonus'] == pytest.approx(-2.0)
 
 
 # ── Race Position Bonus (SE-16 to SE-19) ────────────────────────────────────
@@ -235,12 +247,13 @@ class TestConfigurableParams:
         assert scores[0]['race_position_bonus'] == pytest.approx(20.0)
 
     def test_se28_modified_close_racing_max_gap(self, make_participant):
-        """SE-28: max_gap=100, gap=75 → bonus = 5.0 ((100-75)/5)"""
+        """SE-28: max_gap=100, gap=75 → base=(100-75)/5=5.0"""
         engine = ScoringEngine()
         engine.close_racing_max_gap = 100
-        participants = {0: make_participant(gap_ahead=75)}
+        participants = {0: make_participant(gap_ahead=75, closing_speed=2.0)}
         scores = engine.calculate_scores(participants)
         assert scores[0]['close_racing_bonus'] == pytest.approx(5.0)
+        assert scores[0]['closing_speed_bonus'] == pytest.approx(2.0)
 
     def test_se29_modified_pit_penalty(self, make_participant):
         """SE-29: penalty=-20 → applied correctly"""

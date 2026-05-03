@@ -83,10 +83,13 @@ class MockSharedMemory:
         self.mBuildVersionNumber = kwargs.get('mBuildVersionNumber', 1000)
         self.mNumParticipants = kwargs.get('mNumParticipants', 2)
         self.mTrackLocation = kwargs.get('mTrackLocation', b'Interlagos\x00')
+        self.mTrackLocation = kwargs.get('mTrackLocation', b'Interlagos\x00')
         self.mTranslatedTrackLocation = kwargs.get('mTranslatedTrackLocation', b'')
         self.mTrackVariation = kwargs.get('mTrackVariation', b'GP\x00')
         self.mTrackLength = kwargs.get('mTrackLength', 4309.0)
         self.mCurrentTime = kwargs.get('mCurrentTime', 0.0)
+        self.mEventTimeRemaining = kwargs.get('mEventTimeRemaining', 0.0)
+        self.mLapsInEvent = kwargs.get('mLapsInEvent', 0)
 
         # Per-participant arrays (up to 32)
         num = 32

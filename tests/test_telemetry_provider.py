@@ -290,3 +290,162 @@ class TestConnectionTransitions:
         assert provider.is_connected() is False
         provider._update_connection_state(data_available=True)
         assert provider.is_connected() is True
+
+
+# ── Closing Speed Calculation (TP-27 to TP-28) ──────────────────────────────
+
+class TestClosingSpeedCalc:
+    def test_tp27_positive_closing_speed(self):
+        """TP-27: Previous gap 50, current gap 40 over 0.2s → closing speed 50 m/s"""
+        provider = TelemetryProvider(mode='shared_memory')
+        provider._gap_history = {0: 50.0}
+        provider._closing_speed_ema = {}
+        speed = provider._calc_closing_speed(idx=0, current_gap=40.0, dt=0.2)
+        assert speed == pytest.approx(50.0)
+
+    def test_tp28_ema_smoothing(self):
+        """TP-28: EMA smooths the closing speed over multiple calls"""
+        provider = TelemetryProvider(mode='shared_memory')
+        provider._gap_history = {0: 50.0}
+        provider._closing_speed_ema = {0: 10.0}
+        # dt=0.2, new_val = (50-40)/0.2 = 50.0
+        # alpha = 0.3. EMA = 0.3*50 + 0.7*10 = 15 + 7 = 22
+        speed = provider._calc_closing_speed(0, 40.0, 0.2)
+        assert speed == pytest.approx(22.0)
+        assert provider._closing_speed_ema[0] == pytest.approx(22.0)
+
+
+# ── Session Info (TP-29) ────────────────────────────────────────────────────
+
+class TestSessionInfo:
+    def test_tp29_extract_session_info(self, mock_shared_memory):
+        """TP-29: mEventTimeRemaining and mCurrentTime extracted."""
+        sm = mock_shared_memory(mEventTimeRemaining=3600.0, mCurrentTime=120.0)
+        provider = TelemetryProvider(mode='shared_memory')
+        info = provider._extract_session_info(sm)
+        assert info['event_time_remaining'] == 3600.0
+        assert info['current_time'] == 120.0
+
+# ── UDP Networking & Threading (TP-30 to TP-31) ─────────────────────────────
+
+class TestUDPNetworking:
+    def test_tp30_udp_lifecycle(self):
+        """TP-30: start_udp() binds socket, stop_udp() unbinds."""
+        provider = TelemetryProvider(mode='shared_memory')
+        provider.start_udp()
+        assert getattr(provider, '_udp_running', False) is True
+        assert getattr(provider, '_udp_thread', None) is not None
+        assert provider._udp_thread.is_alive() is True
+        provider.stop_udp()
+        assert provider._udp_running is False
+        assert not provider._udp_thread.is_alive()
+
+    def test_tp31_udp_set_port(self):
+        """TP-31: set_udp_port() restarts the thread."""
+        provider = TelemetryProvider(mode='shared_memory')
+        provider.start_udp()
+        old_thread = provider._udp_thread
+        provider.set_udp_port(5607)
+        assert getattr(provider, '_udp_port', 5606) == 5607
+        assert provider._udp_thread is not old_thread
+        assert provider._udp_thread.is_alive() is True
+        provider.stop_udp()
+
+# ── UDP Binary Parsing (TP-32 to TP-34) ─────────────────────────────────────
+
+class TestUDPParsing:
+    def test_tp32_parse_extended_packet_1063(self):
+        """TP-32: Parse 1063-byte extended timing packet."""
+        provider = TelemetryProvider()
+        packet = bytearray(1063)
+        
+        # Mock participant 0: RacePosition = 5 (active), lap distance = 1000, pit mode = 2
+        # offset race_pos: 31 + 0 * 32 + 16 = 47
+        packet[47] = 5 | 0x80  # Position 5, Active True
+        # offset lap_distance: 31 + 0 * 32 + 14 = 45
+        packet[45:47] = (1000).to_bytes(2, 'little')
+        # offset pit mode: 31 + 0 * 32 + 19 = 50
+        packet[50] = 2
+        
+        provider._udp_participant_names = {0: 'Alice UDP'}
+        
+        participants = provider._parse_udp_participants(bytes(packet))
+        assert participants is not None
+        assert participants[0]['race_position'] == 5
+        assert participants[0]['is_active'] is True
+        assert participants[0]['lap_distance'] == 1000
+        assert participants[0]['pit_mode'] == 2
+        assert participants[0]['name'] == 'Alice UDP'
+
+    def test_tp33_parse_track_info_308(self):
+        """TP-33: Parse 308-byte track info packet."""
+        import struct
+        provider = TelemetryProvider()
+        packet = bytearray(308)
+        # Offset 44: float track_length
+        struct.pack_into('f', packet, 44, 4500.0)
+        
+        track_info = provider._extract_udp_track_info(bytes(packet))
+        assert track_info is not None
+        assert track_info['track_length'] == 4500.0
+
+    def test_tp34_parse_participant_names_1367(self):
+        """TP-34: Parse 1367-byte strings packet."""
+        provider = TelemetryProvider()
+        packet = bytearray(1367)
+        # Offset 16 is where 16 names of 64 bytes each start
+        name_bytes = b'Bob UDP' + b'\x00' * 57
+        packet[16:16+64] = name_bytes
+        
+        provider._parse_udp_names(bytes(packet))
+        assert provider._udp_participant_names.get(0) == 'Bob UDP'
+
+# ── Hybrid Logic Integration (TP-35 to TP-37) ───────────────────────────────
+
+class TestHybridLogic:
+    def test_tp35_shared_memory_priority(self, mock_shared_memory):
+        """TP-35: Shared memory session info takes priority."""
+        sm = mock_shared_memory(mEventTimeRemaining=600.0, mLapsInEvent=10)
+        provider = TelemetryProvider()
+        
+        info = provider.get_session_info(sm)
+        assert info['event_time_remaining'] == 600.0
+        assert info['laps_in_event'] == 10
+
+    def test_tp36_udp_fallback(self, mock_shared_memory):
+        """TP-36: UDP fallback when shared memory is 0 or null."""
+        sm = mock_shared_memory(mEventTimeRemaining=0.0, mLapsInEvent=0)
+        provider = TelemetryProvider()
+        
+        # Mock the UDP session info extraction logic directly
+        provider._extract_udp_session_info = lambda: {'event_time_remaining': 120.0, 'laps_in_event': 5}
+        
+        info = provider.get_session_info(sm)
+        # Since sm had 0.0, it should merge UDP
+        assert info['event_time_remaining'] == 120.0
+        assert info['laps_in_event'] == 5
+
+    def test_tp37_seamless_derived_calculations_hybrid(self, mock_shared_memory):
+        """TP-37: Seamless derived calculations in Hybrid mode."""
+        # When polling from UDP (e.g. if shared memory is missing entirely), speed is still calculated correctly.
+        provider = TelemetryProvider(mode='udp')
+        
+        # Mock participant extraction
+        provider._parse_udp_participants = lambda pkt: {
+            0: {'name': 'Alice', 'is_active': True, 'lap_distance': 1000.0, 'current_lap': 1, 'gap_ahead': 0.0}
+        }
+        
+        # First poll
+        provider.poll()
+        assert provider._distance_history[0][0][1] == 1000.0
+        
+        # Second poll
+        provider._parse_udp_participants = lambda pkt: {
+            0: {'name': 'Alice', 'is_active': True, 'lap_distance': 1100.0, 'current_lap': 1, 'gap_ahead': 0.0}
+        }
+        participants = provider.poll()
+        
+        # Speed should be calculated from the two polls
+        assert 'speed' in participants[0]
+        assert participants[0]['speed'] > 0.0
+
