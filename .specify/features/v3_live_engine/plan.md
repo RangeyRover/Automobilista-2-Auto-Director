@@ -195,15 +195,193 @@ graph TD
 
 Key design principle: **B, C, and D have zero dependencies on each other.** The GUI orchestrates them. This means each can be unit-tested in complete isolation.
 
+## TDD Test Plan — Tests Before Code
+
+All tests are written **before** the corresponding module code. Each test file lives in `tests/` and imports only from `core/`. No tkinter, no live AMS2 connection required.
+
+### `tests/test_scoring_engine.py` — Pure Math Validation
+
+#### Pit Mode Penalty
+| # | Test | Input | Expected |
+|---|---|---|---|
+| SE-01 | Pit penalty applied when pit_mode != 0 | `pit_mode=2` | `pit_mode_penalty = -10` |
+| SE-02 | No penalty when pit_mode == 0 | `pit_mode=0` | `pit_mode_penalty = 0` |
+| SE-03 | Cars ahead bonus zeroed when in pits | `pit_mode=1, cars_ahead_250m=3` | `cars_ahead_bonus = 0` |
+
+#### Speed Penalty
+| # | Test | Input | Expected |
+|---|---|---|---|
+| SE-04 | Speed penalty when stationary | `speed=0` | `speed_penalty = -5` |
+| SE-05 | Speed penalty at 4.9 m/s | `speed=4.9` | `speed_penalty = -5` |
+| SE-06 | No penalty at 5.0 m/s | `speed=5.0` | `speed_penalty = 0` |
+| SE-07 | No penalty at racing speed | `speed=80` | `speed_penalty = 0` |
+
+#### Cars Ahead Bonus
+| # | Test | Input | Expected |
+|---|---|---|---|
+| SE-08 | Leader with 3 cars ahead | `race_position=1, cars_ahead_250m=3` | `cars_ahead_bonus = 6.0` (3*2) |
+| SE-09 | Non-leader with 3 cars ahead | `race_position=5, cars_ahead_250m=3` | `cars_ahead_bonus = 1.2` (3*2/5) |
+| SE-10 | Zero cars ahead | `cars_ahead_250m=0` | `cars_ahead_bonus = 0` |
+
+#### Close Racing Bonus
+| # | Test | Input | Expected |
+|---|---|---|---|
+| SE-11 | Gap of 10m (close battle) | `gap_ahead=10` | `close_racing_bonus = 8.0` ((50-10)/5) |
+| SE-12 | Gap of 50m (edge of threshold) | `gap_ahead=50` | `close_racing_bonus = 0.0` ((50-50)/5) |
+| SE-13 | Gap of 51m (outside threshold) | `gap_ahead=51` | `close_racing_bonus = 0` |
+| SE-14 | Gap of 0m (leader / no gap) | `gap_ahead=0` | `close_racing_bonus = 0` |
+| SE-15 | Gap of 1m (nose-to-tail) | `gap_ahead=1` | `close_racing_bonus = 9.8` ((50-1)/5) |
+
+#### Race Position Bonus
+| # | Test | Input | Expected |
+|---|---|---|---|
+| SE-16 | P1 gets full bonus | `race_position=1` | `race_position_bonus = 12.0` |
+| SE-17 | P32 gets near-zero bonus | `race_position=32` | `race_position_bonus ≈ 0.375` |
+| SE-18 | P0 (invalid) returns 0 | `race_position=0` | `race_position_bonus = 0` |
+| SE-19 | P16 (midfield) | `race_position=16` | `race_position_bonus ≈ 6.375` |
+
+#### Total Score Aggregation
+| # | Test | Input | Expected |
+|---|---|---|---|
+| SE-20 | All components sum correctly | Mixed scenario | `total_score = sum of all 5 components` |
+| SE-21 | Empty participants dict | `{}` | Returns empty scores dict |
+| SE-22 | Single active participant | 1 entry | Returns single score entry |
+
+#### Best Focus Selection
+| # | Test | Input | Expected |
+|---|---|---|---|
+| SE-23 | Highest scorer selected | 3 participants, varied scores | Returns `race_position` of highest |
+| SE-24 | All inactive → None | All `is_active=False` | Returns `None` |
+| SE-25 | Tie-breaking | Two equal scores | Returns either (deterministic) |
+| SE-26 | Pit drivers excluded from focus | Highest score is in pits | Returns next-highest non-pit driver |
+
+#### Configurable Parameters
+| # | Test | Input | Expected |
+|---|---|---|---|
+| SE-27 | Modified race_position_bonus_factor | `factor=20` | P1 bonus = 20.0 |
+| SE-28 | Modified close_racing_max_gap | `max_gap=100, gap=75` | `bonus = 5.0` ((100-75)/5) |
+| SE-29 | Modified pit_mode_penalty | `penalty=-20` | Applied correctly |
+
+---
+
+### `tests/test_telemetry_provider.py` — Data Extraction Validation
+
+All tests use a **MockSharedMemory** fixture — a fake `ctypes.Structure` populated with known values. No live AMS2 required.
+
+#### Shared Memory Extraction
+| # | Test | Input (MockSharedMemory fields) | Expected |
+|---|---|---|---|
+| TP-01 | Active participant extracted | `mIsActive=True, mName=b"Alice", mRacePosition=3` | `{'name': 'Alice', 'race_position': 3, 'is_active': True}` |
+| TP-02 | Inactive participant skipped | `mIsActive=False` | `is_active=False` in output |
+| TP-03 | Driver name decoded and stripped | `mName=b"Bob\x00\x00\x00"` | `name = "Bob"` |
+| TP-04 | Track info extracted | `mTrackLocation=b"Interlagos", mTrackLength=4309.0` | `{'track_name': 'Interlagos', 'track_length': 4309.0}` |
+| TP-05 | Game time read from mCurrentTime | `mCurrentTime=125.5` | `get_game_time() == 125.5` |
+
+#### True Distance Calculation
+| # | Test | Input | Expected |
+|---|---|---|---|
+| TP-06 | Lap 0 at 500m | `laps_completed=0, lap_distance=500, track_length=4000` | `true_distance = 500` |
+| TP-07 | Lap 3 at 1000m | `laps_completed=3, lap_distance=1000, track_length=4000` | `true_distance = 13000` |
+| TP-08 | Lap 0 at 0m (grid start) | `laps_completed=0, lap_distance=0` | `true_distance = 0` |
+
+#### Gap Calculation
+| # | Test | Input (2 participants) | Expected |
+|---|---|---|---|
+| TP-09 | Simple gap | P1 at 5000m, P2 at 4800m | P2 `gap_ahead = 200` |
+| TP-10 | Leader has gap of 0 | P1 is first | P1 `gap_ahead = 0` |
+| TP-11 | Multiple participants sorted correctly | 5 drivers at varied distances | Gaps calculated in order |
+
+#### Cars Ahead 250m
+| # | Test | Input | Expected |
+|---|---|---|---|
+| TP-12 | One car 100m ahead | Two participants, 100m apart | `cars_ahead_250m = 1` |
+| TP-13 | Car 300m ahead (outside range) | Two participants, 300m apart | `cars_ahead_250m = 0` |
+| TP-14 | S/F line wrapping | P1 at 3900m, P2 at 100m (track_length=4000) | Correctly counts wrap-around |
+
+#### Speed Calculation
+| # | Test | Input (two sequential polls) | Expected |
+|---|---|---|---|
+| TP-15 | Normal speed | distances=[100, 200], timestamps=[0, 1] | `speed = 100 m/s` |
+| TP-16 | S/F crossing | distances=[3900, 100], track_length=4000, timestamps=[0, 1] | `speed = 200 m/s` |
+| TP-17 | Stationary | distances=[500, 500], timestamps=[0, 1] | `speed = 0` |
+| TP-18 | First poll (insufficient data) | Single distance entry | `speed = None` |
+
+#### Connection State
+| # | Test | Input | Expected |
+|---|---|---|---|
+| TP-19 | is_connected when data available | `poll()` returns valid dict | `is_connected() == True` |
+| TP-20 | is_connected when no data | `poll()` returns None | `is_connected() == False` |
+
+#### Track Change Detection
+| # | Test | Input | Expected |
+|---|---|---|---|
+| TP-21 | Track change resets participants | Poll with track A, then poll with track B | All participant data reset |
+
+---
+
+### `tests/test_camera_controller.py` — Keyboard Injection Validation
+
+All tests use a **mock pyKey** (monkeypatch `pressKey`/`releaseKey`) to capture key sequences without injecting real input.
+
+#### Delta Navigation
+| # | Test | Input | Expected key sequence |
+|---|---|---|---|
+| CC-01 | Move from P1 to P5 | `target=5, current=1` | 4x DOWN |
+| CC-02 | Move from P10 to P3 | `target=3, current=10` | 7x UP |
+| CC-03 | Same position (no move) | `target=5, current=5` | No keys pressed |
+| CC-04 | Move from P1 to P1 | `target=1, current=1` | No keys pressed |
+
+#### Fallback Navigation (current_pos is None)
+| # | Test | Input | Expected key sequence |
+|---|---|---|---|
+| CC-05 | Fallback to P1 | `target=1, current=None` | 32x UP, 0x DOWN |
+| CC-06 | Fallback to P10 | `target=10, current=None` | 32x UP, 9x DOWN |
+| CC-07 | Fallback to P32 | `target=32, current=None` | 32x UP, 31x DOWN |
+
+#### Key Timing
+| # | Test | Input | Expected |
+|---|---|---|---|
+| CC-08 | Hold duration ≥ 10ms | Any move | `time.sleep(0.01)` called after each `pressKey` |
+| CC-09 | Gap duration ≥ 10ms | Any move | `time.sleep(0.01)` called after each `releaseKey` |
+| CC-10 | ENTER pressed after move | Any move | Final key is ENTER press+release |
+
+#### Edge Cases
+| # | Test | Input | Expected |
+|---|---|---|---|
+| CC-11 | Target P0 (invalid) | `target=0` | No keys pressed (guard clause) |
+| CC-12 | Target P33 (out of range) | `target=33` | No keys pressed (guard clause) |
+| CC-13 | Large delta (P1 to P32) | `target=32, current=1` | 31x DOWN + timing verified |
+
+---
+
+### Test Execution Strategy
+
+| Phase | What | Command | Gate |
+|---|---|---|---|
+| 1 | Write `test_scoring_engine.py` (SE-01 to SE-29) | `pytest tests/test_scoring_engine.py` | All 29 tests FAIL (no implementation yet) |
+| 2 | Implement `core/scoring_engine.py` | `pytest tests/test_scoring_engine.py` | All 29 tests PASS |
+| 3 | Write `test_telemetry_provider.py` (TP-01 to TP-21) | `pytest tests/test_telemetry_provider.py` | All 21 tests FAIL |
+| 4 | Implement `core/telemetry_provider.py` | `pytest tests/test_telemetry_provider.py` | All 21 tests PASS |
+| 5 | Write `test_camera_controller.py` (CC-01 to CC-13) | `pytest tests/test_camera_controller.py` | All 13 tests FAIL |
+| 6 | Implement `core/camera_controller.py` | `pytest tests/test_camera_controller.py` | All 13 tests PASS |
+| 7 | Full regression | `pytest tests/` | All 63 tests PASS |
+| 8 | Wire `main.py` GUI shell | Manual launch | Visual verification |
+
+**Total test count: 63 tests across 3 modules.**
+
 ## Strangler Execution Order
 
 | Step | Action | Risk | Validation |
 |---|---|---|---|
-| 1 | Create `core/scoring_engine.py` | Low — pure math, no I/O | `pytest test_scoring_engine.py` |
-| 2 | Create `core/telemetry_provider.py` | Medium — ctypes/mmap | `pytest test_telemetry_provider.py` (mock SharedMemory) |
-| 3 | Create `core/camera_controller.py` | Low — thin pyKey wrapper | `pytest test_camera_controller.py` (mock pyKey) |
-| 4 | Create `main.py` GUI shell | Low — wiring only | Manual launch test |
-| 5 | Verify end-to-end | Medium | Launch with AMS2 running |
+| 1 | Write `tests/test_scoring_engine.py` (29 tests) | None — tests only | All fail (RED) |
+| 2 | Create `core/scoring_engine.py` | Low — pure math, no I/O | All 29 pass (GREEN) |
+| 3 | Write `tests/test_telemetry_provider.py` (21 tests) | None — tests only | All fail (RED) |
+| 4 | Create `core/telemetry_provider.py` | Medium — ctypes/mmap mock | All 21 pass (GREEN) |
+| 5 | Write `tests/test_camera_controller.py` (13 tests) | None — tests only | All fail (RED) |
+| 6 | Create `core/camera_controller.py` | Low — thin pyKey wrapper | All 13 pass (GREEN) |
+| 7 | Full regression | — | All 63 pass |
+| 8 | Create `main.py` GUI shell | Low — wiring only | Manual launch test |
+| 9 | Verify end-to-end | Medium | Launch with AMS2 running |
 
 ## Complexity Tracking
 
