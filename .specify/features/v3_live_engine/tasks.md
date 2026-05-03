@@ -85,7 +85,7 @@
 
 **Goal**: Extract the V3.0 shared memory and UDP reading logic into a `TelemetryProvider` class that returns normalised participant dicts, including driver names.
 
-**Independent Test**: `pytest tests/test_telemetry_provider.py` — all 21 tests pass using MockSharedMemory. No live AMS2 required.
+**Independent Test**: `pytest tests/test_telemetry_provider.py` — all 26 tests pass using MockSharedMemory. No live AMS2 required.
 
 ### Tests for US2 (TDD — Write FIRST, verify RED)
 
@@ -96,7 +96,9 @@
 - [ ] T035 [P] [US2] Write TP-15 to TP-18 (Speed Calculation tests) in `tests/test_telemetry_provider.py`
 - [ ] T036 [P] [US2] Write TP-19 to TP-20 (Connection State tests) in `tests/test_telemetry_provider.py`
 - [ ] T037 [P] [US2] Write TP-21 (Track Change Detection test) in `tests/test_telemetry_provider.py`
-- [ ] T038 [US2] Run `pytest tests/test_telemetry_provider.py` — verify all 21 tests FAIL (RED gate)
+- [ ] T037a [P] [US2] Write TP-22 to TP-24 (UDP Data Source backwards compatibility tests) in `tests/test_telemetry_provider.py`
+- [ ] T037b [P] [US2] Write TP-25 to TP-26 (Connection State Transition tests — EC-1, EC-2) in `tests/test_telemetry_provider.py`
+- [ ] T038 [US2] Run `pytest tests/test_telemetry_provider.py` — verify all 26 tests FAIL (RED gate)
 
 ### Implementation for US2
 
@@ -112,11 +114,15 @@
 - [ ] T048 [US2] Implement `get_track_info()` public method in `core/telemetry_provider.py`
 - [ ] T049 [US2] Implement `is_connected()` public method in `core/telemetry_provider.py`
 - [ ] T050 [US2] Implement track change detection (reset participants when track info changes) in `core/telemetry_provider.py`
-- [ ] T051 [US2] Run `pytest tests/test_telemetry_provider.py` — verify all 21 tests PASS (GREEN gate)
-- [ ] T052 [US2] Run full regression `pytest tests/` — verify all 50 tests PASS (29 + 21)
-- [ ] T053 [US2] Git commit: "US2: telemetry provider — 21/21 tests passing, 50 total"
+- [ ] T050a [US2] Implement UDP packet listener thread and `_process_udp_packets()` method in `core/telemetry_provider.py`
+- [ ] T050b [US2] Implement UDP packet buffer (`add_packet_to_buffer`, single-packet retention) in `core/telemetry_provider.py`
+- [ ] T050c [US2] Implement UDP extended packet parser (byte-offset extraction for 32 participants) in `core/telemetry_provider.py`
+- [ ] T050d [US2] Implement connection state tracking (`_connected` flag transitions on poll success/failure) in `core/telemetry_provider.py`
+- [ ] T051 [US2] Run `pytest tests/test_telemetry_provider.py` — verify all 26 tests PASS (GREEN gate)
+- [ ] T052 [US2] Run full regression `pytest tests/` — verify all 55 tests PASS (29 + 26)
+- [ ] T053 [US2] Git commit: "US2: telemetry provider — 26/26 tests passing, 55 total"
 
-**Checkpoint**: `pytest tests/` — 50 PASSED. Telemetry provider fully decoupled with mock-based testing.
+**Checkpoint**: `pytest tests/` — 55 PASSED. Telemetry provider fully decoupled with mock-based testing.
 
 ---
 
@@ -142,10 +148,10 @@
 - [ ] T062 [US3] Implement `press_enter()` confirmation method in `core/camera_controller.py`
 - [ ] T063 [US3] Add guard clauses for invalid positions (P0, P33+) in `core/camera_controller.py`
 - [ ] T064 [US3] Run `pytest tests/test_camera_controller.py` — verify all 13 tests PASS (GREEN gate)
-- [ ] T065 [US3] Run full regression `pytest tests/` — verify all 63 tests PASS (29 + 21 + 13)
-- [ ] T066 [US3] Git commit: "US3: camera controller — 13/13 tests passing, 63 total"
+- [ ] T065 [US3] Run full regression `pytest tests/` — verify all 68 tests PASS (29 + 26 + 13)
+- [ ] T066 [US3] Git commit: "US3: camera controller — 13/13 tests passing, 68 total"
 
-**Checkpoint**: `pytest tests/` — 63 PASSED. All three core modules fully extracted, tested, and decoupled.
+**Checkpoint**: `pytest tests/` — 68 PASSED. All three core modules fully extracted, tested, and decoupled.
 
 ---
 
@@ -165,8 +171,8 @@
 - [ ] T072 [US4] Implement main tick loop via `root.after(200, tick)` — polls telemetry, scores, updates grid in `main.py`
 - [ ] T073 [US4] Implement auto-director toggle via spacebar hotkey (`keyboard.is_pressed`) in `main.py`
 - [ ] T074 [US4] Implement auto-director camera switch logic — on interval elapsed, call `camera.move_to_position(best_focus, current_pos)` in `main.py`
-- [ ] T075 [US4] Implement mode selection at startup (shared memory vs UDP) — either via CLI arg or dialog in `main.py`
-- [ ] T076 [US4] Run full regression `pytest tests/` — verify all 63 tests still PASS (no regressions)
+- [ ] T075 [US4] Implement mode selection at startup — parse `--mode shared_memory|udp` CLI argument via `argparse`; default to `shared_memory` if not provided. Pass mode to `TelemetryProvider(mode=args.mode)` in `main.py`
+- [ ] T076 [US4] Run full regression `pytest tests/` — verify all 68 tests still PASS (no regressions)
 - [ ] T077 [US4] Manual launch test: run `python main.py` and verify GUI appears with correct layout
 - [ ] T078 [US4] Git commit: "US4: tkinter GUI shell wired to core modules"
 
@@ -182,8 +188,8 @@
 - [ ] T080 [P] Add module-level docstrings to all `core/*.py` files
 - [ ] T081 [P] Update `README.md` with V4.0 architecture overview and launch instructions
 - [ ] T082 [P] Update `.gitignore` if any new artifacts need exclusion
-- [ ] T083 Run final full regression `pytest tests/` — verify all 63 tests PASS
-- [ ] T084 Git commit: "V4.0 strangler refactor complete — 63 tests, 4 modules"
+- [ ] T083 Run final full regression `pytest tests/` — verify all 68 tests PASS
+- [ ] T084 Git commit: "V4.0 strangler refactor complete — 68 tests, 4 modules"
 - [ ] T085 Git tag: `v4.0.0-alpha`
 
 ---
@@ -232,8 +238,8 @@
 
 1. Setup + Foundational → Fixtures ready
 2. Add US1 (Scoring Engine) → 29 tests pass → Commit
-3. Add US2 (Telemetry Provider) → 50 tests pass → Commit
-4. Add US3 (Camera Controller) → 63 tests pass → Commit
+3. Add US2 (Telemetry Provider) → 55 tests pass → Commit
+4. Add US3 (Camera Controller) → 68 tests pass → Commit
 5. Add US4 (GUI Shell) → Manual verification → Commit
 6. Each module adds value without breaking previous modules
 
@@ -247,5 +253,5 @@
 - Verify tests fail before implementing (RED → GREEN cycle)
 - Git commit after each user story completes
 - Legacy monoliths (`AMS2AutoDirector.py`, `ReplayAutoDirector4.py`) are preserved but never imported
-- Total tasks: **85**
-- Total tests: **63** (29 + 21 + 13)
+- Total tasks: **95**
+- Total tests: **68** (29 + 26 + 13)

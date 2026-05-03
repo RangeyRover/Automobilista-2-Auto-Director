@@ -1,4 +1,4 @@
-# AMS2 Auto Director V3.0 (Live Engine) - Specification (Migrated)
+# AMS2 Auto Director V4.0 - Specification
 
 > This specification was reverse-engineered from `AMS2AutoDirector.py` (902 lines, 37KB).
 > Review and refine before using for future development.
@@ -7,7 +7,7 @@
 
 The AMS2 Auto Director V3.0 is a **real-time telemetry-driven broadcast camera controller** for Automobilista 2. It reads live race data (via Shared Memory or UDP), calculates a composite "interest score" for each of the 32 possible participants, and automatically injects keyboard commands (`pyKey`) to switch the in-game camera to the highest-scoring driver at a configurable interval.
 
-The application uses a `wxPython` GUI to display a live leaderboard grid with scoring breakdowns, and provides runtime-tunable parameters via up/down button controls.
+The application uses a `tkinter` GUI to display a live leaderboard grid with scoring breakdowns, and provides runtime-tunable parameters via input fields and buttons.
 
 ## Clarifications
 
@@ -33,6 +33,7 @@ The application uses a `wxPython` GUI to display a live leaderboard grid with sc
 - **FR-2.3**: Calculate **Gap to Player Ahead** (distance delta between sorted participants by true distance).
 - **FR-2.4**: Calculate **Cars Ahead within 250m** (count of active participants within 250m ahead on track).
 - **FR-2.5**: Detect track changes and reset all participant data when track info changes.
+- **FR-2.6**: Extract driver name from `SharedMemory.mParticipantInfo[i].mName` (decoded UTF-8, null-stripped) for GUI display and logging.
 
 ### FR-3: Scoring Engine
 - **FR-3.1**: **Pit Mode Penalty** (`-10` if pit mode != 0).
@@ -44,11 +45,12 @@ The application uses a `wxPython` GUI to display a live leaderboard grid with sc
 - **FR-3.7**: The participant with the highest Total Score is selected as `current_focus_position`.
 
 ### FR-4: Camera Control (Auto Director)
-- **FR-4.1**: When enabled and the configurable interval elapses, inject key presses:
-  - Move UP to top of list (32 presses).
-  - Move DOWN to `current_focus_position - 1`.
+- **FR-4.1**: When enabled and the configurable interval elapses, inject key presses using **delta navigation**:
+  - Calculate delta = `target_position - current_position`.
+  - Press DOWN (delta) times if positive, UP (|delta|) times if negative.
   - Press ENTER to confirm.
-- **FR-4.2**: Key timing: 5ms hold + 5ms gap per stroke.
+  - **Fallback** (if current position is unknown): Scroll UP 32 times to top, then DOWN to `target_position - 1`.
+- **FR-4.2**: Key timing: 10ms hold + 10ms gap per stroke.
 - **FR-4.3**: Toggle auto director on/off with Spacebar.
 - **FR-4.4**: Default interval: `7 seconds` (configurable at startup and via GUI).
 
@@ -61,13 +63,15 @@ The application uses a `wxPython` GUI to display a live leaderboard grid with sc
 
 ## Key Entities
 
-| Entity | Type | Description |
+> For the full V4.0 entity definitions, field types, and state transitions, see [data-model.md](data-model.md).
+
+| V4.0 Class | Replaces (V3.0 Global) | Description |
 |---|---|---|
-| `participants_data_dict` | `dict[int, dict]` | Per-participant telemetry keyed by index (0-31) |
-| `scores_dict` | `dict[int, dict]` | Per-participant scoring breakdown keyed by index |
-| `packet_buffer` | `defaultdict(deque)` | UDP packet ring buffer by packet type |
-| `previous_data_dict` | `dict[int, dict]` | Rolling distance/timestamp deques for speed calc |
-| `SharedMemory` | `ctypes.Structure` | 363-line memory-mapped struct for AMS2 telemetry |
+| `TelemetryProvider.poll()` → `dict[int, dict]` | `participants_data_dict` | Per-participant telemetry keyed by index (0-31) |
+| `ScoringEngine.calculate_scores()` → `dict[int, dict]` | `scores_dict` | Per-participant scoring breakdown keyed by index |
+| `TelemetryProvider._packet_buffer` | `packet_buffer` | UDP packet ring buffer by packet type |
+| `TelemetryProvider._previous_data` | `previous_data_dict` | Rolling distance/timestamp deques for speed calc |
+| `SharedMemory` (unchanged) | `SharedMemory` | 363-line ctypes struct for AMS2 telemetry |
 
 ## Key Constants
 
@@ -87,7 +91,7 @@ The application uses a `wxPython` GUI to display a live leaderboard grid with sc
 ### Strengths
 - The scoring engine is **stateless per-tick**: it recalculates everything from scratch each cycle with no memory of previous scores. This makes it inherently resilient to drift.
 - The gap/cars-ahead calculations use true distance traveled (accounting for laps) which correctly handles the start/finish line crossing edge case.
-- The GUI is decoupled from the main loop via `wx.CallAfter`, preventing UI lag from blocking telemetry processing.
+- The GUI is decoupled from the main loop via tkinter's `root.after()`, preventing UI lag from blocking telemetry processing.
 
 ### Weaknesses / Technical Debt
 - **Global State Everywhere**: 20+ global variables manage state. No classes, no encapsulation.

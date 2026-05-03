@@ -317,6 +317,19 @@ All tests use a **MockSharedMemory** fixture — a fake `ctypes.Structure` popul
 |---|---|---|---|
 | TP-21 | Track change resets participants | Poll with track A, then poll with track B | All participant data reset |
 
+#### UDP Data Source (Backwards Compatibility)
+| # | Test | Input | Expected |
+|---|---|---|---|
+| TP-22 | UDP mode initialises socket | `TelemetryProvider(mode='udp')` | Socket bound, no crash |
+| TP-23 | UDP packet buffer retains latest packet per type | Two packets of same size | Buffer has 1 entry |
+| TP-24 | UDP extended packet parsed to participant dict | Known 1063-byte packet | Correct race_position, lap_distance for participant 0 |
+
+#### Connection State Transitions (Edge Cases EC-1, EC-2)
+| # | Test | Input | Expected |
+|---|---|---|---|
+| TP-25 | Disconnected → Connected transition | `poll()` returns None then valid dict | `is_connected()` transitions False→True |
+| TP-26 | Connected → Disconnected → Reconnected | Valid → None → Valid sequence | `is_connected()` transitions True→False→True, participant data reset on reconnect |
+
 ---
 
 ### `tests/test_camera_controller.py` — Keyboard Injection Validation
@@ -360,14 +373,14 @@ All tests use a **mock pyKey** (monkeypatch `pressKey`/`releaseKey`) to capture 
 |---|---|---|---|
 | 1 | Write `test_scoring_engine.py` (SE-01 to SE-29) | `pytest tests/test_scoring_engine.py` | All 29 tests FAIL (no implementation yet) |
 | 2 | Implement `core/scoring_engine.py` | `pytest tests/test_scoring_engine.py` | All 29 tests PASS |
-| 3 | Write `test_telemetry_provider.py` (TP-01 to TP-21) | `pytest tests/test_telemetry_provider.py` | All 21 tests FAIL |
-| 4 | Implement `core/telemetry_provider.py` | `pytest tests/test_telemetry_provider.py` | All 21 tests PASS |
+| 3 | Write `test_telemetry_provider.py` (TP-01 to TP-26) | `pytest tests/test_telemetry_provider.py` | All 26 tests FAIL |
+| 4 | Implement `core/telemetry_provider.py` | `pytest tests/test_telemetry_provider.py` | All 26 tests PASS |
 | 5 | Write `test_camera_controller.py` (CC-01 to CC-13) | `pytest tests/test_camera_controller.py` | All 13 tests FAIL |
 | 6 | Implement `core/camera_controller.py` | `pytest tests/test_camera_controller.py` | All 13 tests PASS |
-| 7 | Full regression | `pytest tests/` | All 63 tests PASS |
+| 7 | Full regression | `pytest tests/` | All 68 tests PASS |
 | 8 | Wire `main.py` GUI shell | Manual launch | Visual verification |
 
-**Total test count: 63 tests across 3 modules.**
+**Total test count: 68 tests across 3 modules.**
 
 ## Strangler Execution Order
 
@@ -375,11 +388,11 @@ All tests use a **mock pyKey** (monkeypatch `pressKey`/`releaseKey`) to capture 
 |---|---|---|---|
 | 1 | Write `tests/test_scoring_engine.py` (29 tests) | None — tests only | All fail (RED) |
 | 2 | Create `core/scoring_engine.py` | Low — pure math, no I/O | All 29 pass (GREEN) |
-| 3 | Write `tests/test_telemetry_provider.py` (21 tests) | None — tests only | All fail (RED) |
-| 4 | Create `core/telemetry_provider.py` | Medium — ctypes/mmap mock | All 21 pass (GREEN) |
+| 3 | Write `tests/test_telemetry_provider.py` (26 tests) | None — tests only | All fail (RED) |
+| 4 | Create `core/telemetry_provider.py` | Medium — ctypes/mmap mock | All 26 pass (GREEN) |
 | 5 | Write `tests/test_camera_controller.py` (13 tests) | None — tests only | All fail (RED) |
 | 6 | Create `core/camera_controller.py` | Low — thin pyKey wrapper | All 13 pass (GREEN) |
-| 7 | Full regression | — | All 63 pass |
+| 7 | Full regression | — | All 68 pass |
 | 8 | Create `main.py` GUI shell | Low — wiring only | Manual launch test |
 | 9 | Verify end-to-end | Medium | Launch with AMS2 running |
 
