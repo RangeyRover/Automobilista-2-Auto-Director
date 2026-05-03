@@ -61,6 +61,35 @@ class TestSharedMemoryExtraction:
         assert info['track_length'] == 4309.0
         assert info['num_participants'] == 5
 
+    def test_tp04a_track_info_fallback_extraction(self, mock_shared_memory):
+        """TP-04a: Verify _extract_track_info falls back from translated to raw track location."""
+        # Scenario 1: Translated string exists
+        sm1 = mock_shared_memory(
+            mTranslatedTrackLocation=b'Interlagos\x00',
+            mTrackLocation=b'RawInterlagos\x00',
+            mTrackLength=4309.0,
+            mNumParticipants=10
+        )
+        provider = TelemetryProvider(mode='shared_memory')
+        info1 = provider._extract_track_info(sm1)
+        assert info1['track_name'] == 'Interlagos'
+
+        # Scenario 2: Translated string is empty, fallback to raw
+        sm2 = mock_shared_memory(
+            mTranslatedTrackLocation=b'\x00',
+            mTrackLocation=b'RawMonza\x00',
+            mTrackLength=5793.0,
+            mNumParticipants=20
+        )
+        info2 = provider._extract_track_info(sm2)
+        assert info2['track_name'] == 'RawMonza'
+        
+        # Scenario 3: Missing attributes entirely
+        class MinimalSM:
+            pass
+        info3 = provider._extract_track_info(MinimalSM())
+        assert info3['track_name'] == ''
+
     def test_tp05_game_time_from_current_time(self, mock_shared_memory):
         """TP-05: game_time from mCurrentTime."""
         sm = mock_shared_memory(mCurrentTime=125.5)
