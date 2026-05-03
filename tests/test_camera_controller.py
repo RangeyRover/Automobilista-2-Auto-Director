@@ -50,15 +50,14 @@ class TestDeltaNavigation:
         assert len(up_presses) == 7
 
     def test_cc03_same_position_no_move(self, controller, key_log):
-        """CC-03: target=5, current=5 → no keys"""
+        """CC-03: target=5, current=5 → no keys (not even enter)"""
         log, mock_press, mock_release = key_log
         with patch.object(controller, '_press_key', mock_press), \
              patch.object(controller, '_release_key', mock_release), \
              patch('time.sleep'):
             controller.move_to_position(5, 5)
-        # Only enter should be pressed, no UP/DOWN
-        direction_presses = [e for e in log if e[1] in ('UP', 'DOWN')]
-        assert len(direction_presses) == 0
+        # No keys should be pressed, not even ENTER
+        assert len(log) == 0
 
     def test_cc04_p1_to_p1(self, controller, key_log):
         """CC-04: target=1, current=1 → no keys"""
@@ -67,8 +66,7 @@ class TestDeltaNavigation:
              patch.object(controller, '_release_key', mock_release), \
              patch('time.sleep'):
             controller.move_to_position(1, 1)
-        direction_presses = [e for e in log if e[1] in ('UP', 'DOWN')]
-        assert len(direction_presses) == 0
+        assert len(log) == 0
 
 
 # ── Fallback Navigation (CC-05 to CC-07) ───────────────────────────────────

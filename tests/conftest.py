@@ -90,6 +90,7 @@ class MockSharedMemory:
         self.mCurrentTime = kwargs.get('mCurrentTime', 0.0)
         self.mEventTimeRemaining = kwargs.get('mEventTimeRemaining', 0.0)
         self.mLapsInEvent = kwargs.get('mLapsInEvent', 0)
+        self.mViewedParticipantIndex = kwargs.get('mViewedParticipantIndex', -1)
 
         # Per-participant arrays (up to 32)
         num = 32

@@ -63,13 +63,14 @@ class CameraController:
                 self._tap_key('DOWN')
         else:
             delta = target_pos - current_pos
-            if delta > 0:
+            if delta == 0:
+                return  # No movement needed, do not send ENTER
+            elif delta > 0:
                 for _ in range(delta):
                     self._tap_key('DOWN')
             elif delta < 0:
                 for _ in range(abs(delta)):
                     self._tap_key('UP')
-            # delta == 0: no movement needed
 
         # Confirm selection
         self._tap_key('ENTER')

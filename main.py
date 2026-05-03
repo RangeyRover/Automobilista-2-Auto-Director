@@ -4,7 +4,7 @@ Thin tkinter GUI shell. All business logic lives in core/ modules.
 This file owns no scoring, telemetry, or camera logic.
 """
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk, filedialog
 import argparse
 import time
 import mmap
@@ -37,9 +37,9 @@ class AutoDirectorApp:
 
         self._mode = mode
         self._director_enabled = False
-        self._current_focus_position = None
         self._last_switch_time = 0.0
         self._switch_interval = 7.0
+        self._sweep_dwell_time = 1.0
         self._participants: dict[int, dict] = {}
         self._scores: dict[int, dict] = {}
 
@@ -133,18 +133,18 @@ class AutoDirectorApp:
         grid_frame = ttk.Frame(self.root, style='Dark.TFrame')
         grid_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=2)
 
-        columns = ('pos', 'name', 'speed', 'gap', 'cars_ahead',
-                    'pit_pen', 'spd_pen', 'cars_bon', 'cls_spd_bon', 'close_bon', 'pos_bon', 'total')
+        columns = ('pos', 'name', 'lap', 'speed', 'gap', 'cars_ahead',
+                    'pit_pen', 'spd_pen', 'cars_bon', 'cls_spd_bon', 'close_bon', 'pos_bon', 'acc_bon', 'ovt_bon', 'seq_bon', 'total')
         self.tree = ttk.Treeview(grid_frame, columns=columns, show='headings',
                                   style='Dark.Treeview', height=20)
         self.tree.tag_configure('highest', foreground='#ffd700', font=('Consolas', 9, 'bold'))
 
         headers = {
-            'pos': ('P', 30), 'name': ('Driver', 140), 'speed': ('Speed', 60),
+            'pos': ('P', 30), 'name': ('Driver', 140), 'lap': ('Lap', 40), 'speed': ('Speed', 60),
             'gap': ('Gap', 60), 'cars_ahead': ('Cars↑', 50),
             'pit_pen': ('Pit', 45), 'spd_pen': ('Spd', 45),
             'cars_bon': ('Cars', 45), 'cls_spd_bon': ('ClsSpd', 50), 'close_bon': ('Close', 50),
-            'pos_bon': ('Pos', 45), 'total': ('TOTAL', 60),
+            'pos_bon': ('Pos', 45), 'acc_bon': ('Acc', 45), 'ovt_bon': ('Ovt', 45), 'seq_bon': ('Seq', 45), 'total': ('TOTAL', 60),
         }
         for col, (heading, width) in headers.items():
             self.tree.heading(col, text=heading)
@@ -165,12 +165,15 @@ class AutoDirectorApp:
         tuning_params = [
             ('UDP Port', 'udp_port', 5606),
             ('Interval (s)', 'switch_interval', self._switch_interval),
+            ('Sweep Dwell', 'sweep_dwell_time', self.scorer.sweep_dwell_time),
             ('Pos Factor', 'race_position_bonus_factor', self.scorer.race_position_bonus_factor),
             ('Pit Penalty', 'pit_mode_penalty', self.scorer.pit_mode_penalty),
             ('Speed Pen', 'speed_penalty', self.scorer.speed_penalty),
             ('Leader Mult', 'leader_cars_ahead_multiplier', self.scorer.leader_cars_ahead_multiplier),
             ('Other Mult', 'other_cars_ahead_multiplier', self.scorer.other_cars_ahead_multiplier),
             ('Max Gap', 'close_racing_max_gap', self.scorer.close_racing_max_gap),
+            ('Event Pre-Off', 'timeline_pre_offset', self.scorer.timeline_pre_offset),
+            ('Event Post-Off', 'timeline_post_offset', self.scorer.timeline_post_offset),
         ]
 
         for label_text, key, default_val in tuning_params:
@@ -191,6 +194,10 @@ class AutoDirectorApp:
                                  style='Dark.TButton', command=self._toggle_director)
         btn_toggle.pack(side=tk.LEFT, padx=5)
 
+        btn_load_log = ttk.Button(tune_frame, text='Load Replay Log',
+                                   style='Dark.TButton', command=self._load_log)
+        btn_load_log.pack(side=tk.LEFT, padx=5)
+
         # True OS-level global binding for Ctrl+Space
         try:
             keyboard.add_hotkey('ctrl+space', lambda: self.root.after(0, self._toggle_director))
@@ -207,6 +214,7 @@ class AutoDirectorApp:
                 self.provider.set_udp_port(new_port)
                 
             self._switch_interval = float(self._tuning_vars['switch_interval'].get())
+            self.scorer.sweep_dwell_time = float(self._tuning_vars['sweep_dwell_time'].get())
             self.scorer.race_position_bonus_factor = float(
                 self._tuning_vars['race_position_bonus_factor'].get())
             self.scorer.pit_mode_penalty = float(self._tuning_vars['pit_mode_penalty'].get())
@@ -217,6 +225,10 @@ class AutoDirectorApp:
                 self._tuning_vars['other_cars_ahead_multiplier'].get())
             self.scorer.close_racing_max_gap = float(
                 self._tuning_vars['close_racing_max_gap'].get())
+            self.scorer.timeline_pre_offset = float(
+                self._tuning_vars['timeline_pre_offset'].get())
+            self.scorer.timeline_post_offset = float(
+                self._tuning_vars['timeline_post_offset'].get())
         except ValueError:
             pass  # Ignore invalid input
 
@@ -225,6 +237,16 @@ class AutoDirectorApp:
         self._director_enabled = not self._director_enabled
         status = 'ON' if self._director_enabled else 'OFF'
         self.lbl_director.configure(text=f'Director: {status}')
+
+    def _load_log(self):
+        """Open a file dialog to load the Replay Analyser Log."""
+        filepath = filedialog.askopenfilename(
+            title="Select Replay Log",
+            filetypes=[("Text Files", "*.txt"), ("All Files", "*.*")]
+        )
+        if filepath:
+            self.scorer.load_timeline_log(filepath)
+            print(f"Loaded timeline events from {filepath}")
 
     def _read_shared_memory(self):
         """Attempt to read the AMS2 shared memory mapped file."""
@@ -248,6 +270,9 @@ class AutoDirectorApp:
         """Main tick loop — poll telemetry, score, update grid."""
         sm = self._read_shared_memory() if self._mode == 'shared_memory' else None
         self._participants = self.provider.poll(sm) or {}
+        
+        track_info = None
+        session_info = None
 
         # Update connection status
         if self.provider.is_connected():
@@ -262,7 +287,9 @@ class AutoDirectorApp:
                 rem = session_info.get('event_time_remaining', -1.0)
                 cur = session_info.get('current_time', 0.0)
                 laps = session_info.get('laps_in_event', 0)
-                
+                if laps <= 0:
+                    laps = self.scorer.timeline_laps_in_event
+                    
                 cur_mins = int(cur) // 60
                 cur_secs = int(cur) % 60
                 
@@ -282,18 +309,40 @@ class AutoDirectorApp:
             self.lbl_track.configure(text='Track: —')
             self.lbl_session_time.configure(text='Time: —')
 
+        cur_time = session_info.get('current_time', 0.0) if session_info else None
+
         # Score
-        self._scores = self.scorer.calculate_scores(self._participants)
+        self._scores = self.scorer.calculate_scores(
+            self._participants,
+            session_info=session_info,
+            track_info=track_info,
+            current_time=cur_time
+        )
 
         # Auto director camera switch
         if self._director_enabled and self.provider.is_connected():
             now = time.time()
-            if now - self._last_switch_time >= self._switch_interval:
+            active_interval = self._sweep_dwell_time if self.scorer.is_sweep_active else self._switch_interval
+            
+            if now - self._last_switch_time >= active_interval:
                 best = self.scorer.get_best_focus(self._scores, self._participants)
+                
+                # Extract live camera position from telemetry
+                viewed_idx = session_info.get('viewed_participant_index', -1) if session_info else -1
+                viewed_pos = None
+                if viewed_idx >= 0 and viewed_idx in self._participants:
+                    viewed_pos = self._participants[viewed_idx].get('race_position')
+                
                 if best is not None:
-                    self.camera.move_to_position(best, self._current_focus_position)
-                    self._current_focus_position = best
-                    self.lbl_focus.configure(text=f'Focus: P{best}')
+                    self.camera.move_to_position(best, viewed_pos)
+                    
+                    best_name = "Unknown"
+                    for p in self._participants.values():
+                        if p.get('race_position') == best:
+                            best_name = p.get('name', 'Unknown')
+                            break
+                            
+                    self.lbl_focus.configure(text=f'Focus: {best_name} (P{best})')
                     self._last_switch_time = now
 
         # Schedule next tick
@@ -333,10 +382,11 @@ class AutoDirectorApp:
 
             s = self._scores.get(idx, {})
             values = (
-                p.get('race_position', '—'),
-                p.get('name', '—'),
-                f"{p.get('speed', 0):.0f}",
-                f"{p.get('gap_ahead', 0):.0f}",
+                str(p.get('race_position', 0)),
+                str(p.get('name', 'Unknown')),
+                str(p.get('current_lap', 0)),
+                f"{p.get('speed', 0.0):.0f}",
+                f"{p.get('gap_ahead', 0.0):.0f}",
                 p.get('cars_ahead_250m', 0),
                 f"{s.get('pit_mode_penalty', 0):.1f}",
                 f"{s.get('speed_penalty', 0):.1f}",
@@ -344,6 +394,9 @@ class AutoDirectorApp:
                 f"{s.get('closing_speed_bonus', 0):.1f}",
                 f"{s.get('close_racing_bonus', 0):.1f}",
                 f"{s.get('race_position_bonus', 0):.1f}",
+                f"{s.get('accident_bonus', 0):.1f}",
+                f"{s.get('overtake_bonus', 0):.1f}",
+                f"{s.get('sequence_bonus', 0):.1f}",
                 f"{s.get('total_score', 0):.1f}",
             )
             tags = ('highest',) if idx == best_idx else ()

@@ -320,11 +320,12 @@ class TestClosingSpeedCalc:
 class TestSessionInfo:
     def test_tp29_extract_session_info(self, mock_shared_memory):
         """TP-29: mEventTimeRemaining and mCurrentTime extracted."""
-        sm = mock_shared_memory(mEventTimeRemaining=3600.0, mCurrentTime=120.0)
+        sm = mock_shared_memory(mEventTimeRemaining=3600.0, mCurrentTime=120.0, mViewedParticipantIndex=1)
         provider = TelemetryProvider(mode='shared_memory')
         info = provider._extract_session_info(sm)
         assert info['event_time_remaining'] == 3600.0
         assert info['current_time'] == 120.0
+        assert info['viewed_participant_index'] == 1
 
 # ── UDP Networking & Threading (TP-30 to TP-31) ─────────────────────────────
 
@@ -405,12 +406,13 @@ class TestUDPParsing:
 class TestHybridLogic:
     def test_tp35_shared_memory_priority(self, mock_shared_memory):
         """TP-35: Shared memory session info takes priority."""
-        sm = mock_shared_memory(mEventTimeRemaining=600.0, mLapsInEvent=10)
+        sm = mock_shared_memory(mEventTimeRemaining=600.0, mLapsInEvent=10, mViewedParticipantIndex=1)
         provider = TelemetryProvider()
         
         info = provider.get_session_info(sm)
         assert info['event_time_remaining'] == 600.0
         assert info['laps_in_event'] == 10
+        assert info['viewed_participant_index'] == 1
 
     def test_tp36_udp_fallback(self, mock_shared_memory):
         """TP-36: UDP fallback when shared memory is 0 or null."""

@@ -172,7 +172,7 @@ class TelemetryProvider:
                 'race_position': info.mRacePosition if hasattr(info, 'mRacePosition') else 0,
                 'is_active': is_active,
                 'lap_distance': info.mCurrentLapDistance if hasattr(info, 'mCurrentLapDistance') else 0.0,
-                'current_lap': info.mLapsCompleted if hasattr(info, 'mLapsCompleted') else 0,
+                'current_lap': info.mCurrentLap if hasattr(info, 'mCurrentLap') else 0,
                 'current_sector': info.mCurrentSector if hasattr(info, 'mCurrentSector') else 0,
                 'speed': sm.mSpeeds[i] if hasattr(sm, 'mSpeeds') else 0.0,
                 'pit_mode': sm.mPitModes[i] if hasattr(sm, 'mPitModes') else 0,
@@ -215,6 +215,7 @@ class TelemetryProvider:
             'event_time_remaining': getattr(sm, 'mEventTimeRemaining', 0.0),
             'current_time': getattr(sm, 'mCurrentTime', 0.0),
             'laps_in_event': getattr(sm, 'mLapsInEvent', 0),
+            'viewed_participant_index': getattr(sm, 'mViewedParticipantIndex', -1),
         }
 
     # ── Derived Calculations ────────────────────────────────────────────────
