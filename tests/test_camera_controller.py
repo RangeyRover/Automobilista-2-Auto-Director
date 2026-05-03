@@ -36,7 +36,7 @@ class TestDeltaNavigation:
              patch.object(controller, '_release_key', mock_release), \
              patch('time.sleep'):
             controller.move_to_position(5, 1)
-        down_presses = [e for e in log if e == ('press', 'down')]
+        down_presses = [e for e in log if e == ('press', 'DOWN')]
         assert len(down_presses) == 4
 
     def test_cc02_move_p10_to_p3(self, controller, key_log):
@@ -46,7 +46,7 @@ class TestDeltaNavigation:
              patch.object(controller, '_release_key', mock_release), \
              patch('time.sleep'):
             controller.move_to_position(3, 10)
-        up_presses = [e for e in log if e == ('press', 'up')]
+        up_presses = [e for e in log if e == ('press', 'UP')]
         assert len(up_presses) == 7
 
     def test_cc03_same_position_no_move(self, controller, key_log):
@@ -57,7 +57,7 @@ class TestDeltaNavigation:
              patch('time.sleep'):
             controller.move_to_position(5, 5)
         # Only enter should be pressed, no UP/DOWN
-        direction_presses = [e for e in log if e[1] in ('up', 'down')]
+        direction_presses = [e for e in log if e[1] in ('UP', 'DOWN')]
         assert len(direction_presses) == 0
 
     def test_cc04_p1_to_p1(self, controller, key_log):
@@ -67,7 +67,7 @@ class TestDeltaNavigation:
              patch.object(controller, '_release_key', mock_release), \
              patch('time.sleep'):
             controller.move_to_position(1, 1)
-        direction_presses = [e for e in log if e[1] in ('up', 'down')]
+        direction_presses = [e for e in log if e[1] in ('UP', 'DOWN')]
         assert len(direction_presses) == 0
 
 
@@ -81,8 +81,8 @@ class TestFallbackNavigation:
              patch.object(controller, '_release_key', mock_release), \
              patch('time.sleep'):
             controller.move_to_position(1, None)
-        up_presses = [e for e in log if e == ('press', 'up')]
-        down_presses = [e for e in log if e == ('press', 'down')]
+        up_presses = [e for e in log if e == ('press', 'UP')]
+        down_presses = [e for e in log if e == ('press', 'DOWN')]
         assert len(up_presses) == 32
         assert len(down_presses) == 0
 
@@ -93,8 +93,8 @@ class TestFallbackNavigation:
              patch.object(controller, '_release_key', mock_release), \
              patch('time.sleep'):
             controller.move_to_position(10, None)
-        up_presses = [e for e in log if e == ('press', 'up')]
-        down_presses = [e for e in log if e == ('press', 'down')]
+        up_presses = [e for e in log if e == ('press', 'UP')]
+        down_presses = [e for e in log if e == ('press', 'DOWN')]
         assert len(up_presses) == 32
         assert len(down_presses) == 9
 
@@ -105,8 +105,8 @@ class TestFallbackNavigation:
              patch.object(controller, '_release_key', mock_release), \
              patch('time.sleep'):
             controller.move_to_position(32, None)
-        up_presses = [e for e in log if e == ('press', 'up')]
-        down_presses = [e for e in log if e == ('press', 'down')]
+        up_presses = [e for e in log if e == ('press', 'UP')]
+        down_presses = [e for e in log if e == ('press', 'DOWN')]
         assert len(up_presses) == 32
         assert len(down_presses) == 31
 
@@ -143,9 +143,9 @@ class TestKeyTiming:
              patch.object(controller, '_release_key', mock_release), \
              patch('time.sleep'):
             controller.move_to_position(3, 1)
-        # Last press should be 'enter'
+        # Last press should be 'ENTER'
         press_events = [e for e in log if e[0] == 'press']
-        assert press_events[-1] == ('press', 'enter')
+        assert press_events[-1] == ('press', 'ENTER')
 
 
 # ── Edge Cases (CC-11 to CC-13) ────────────────────────────────────────────
@@ -176,5 +176,5 @@ class TestEdgeCases:
              patch.object(controller, '_release_key', mock_release), \
              patch('time.sleep'):
             controller.move_to_position(32, 1)
-        down_presses = [e for e in log if e == ('press', 'down')]
+        down_presses = [e for e in log if e == ('press', 'DOWN')]
         assert len(down_presses) == 31

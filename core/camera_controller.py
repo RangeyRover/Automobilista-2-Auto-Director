@@ -58,25 +58,25 @@ class CameraController:
         if current_pos is None:
             # Fallback: scroll to top (32x UP) then down to target
             for _ in range(32):
-                self._tap_key('up')
+                self._tap_key('UP')
             for _ in range(target_pos - 1):
-                self._tap_key('down')
+                self._tap_key('DOWN')
         else:
             delta = target_pos - current_pos
             if delta > 0:
                 for _ in range(delta):
-                    self._tap_key('down')
+                    self._tap_key('DOWN')
             elif delta < 0:
                 for _ in range(abs(delta)):
-                    self._tap_key('up')
+                    self._tap_key('UP')
             # delta == 0: no movement needed
 
         # Confirm selection
-        self._tap_key('enter')
+        self._tap_key('ENTER')
 
     def press_enter(self):
         """Confirm camera selection."""
-        self._tap_key('enter')
+        self._tap_key('ENTER')
 
     def switch_camera_type(self, camera_name: str):
         """Switch to a specific camera type.
