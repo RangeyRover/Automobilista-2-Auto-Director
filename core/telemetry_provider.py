@@ -119,11 +119,11 @@ class TelemetryProvider:
 
             participants[i] = {
                 'name': name,
-                'race_position': sm.mRacePosition[i] if hasattr(sm, 'mRacePosition') else 0,
+                'race_position': info.mRacePosition if hasattr(info, 'mRacePosition') else 0,
                 'is_active': is_active,
-                'lap_distance': sm.mCurrentLapDistance[i] if hasattr(sm, 'mCurrentLapDistance') else 0.0,
-                'current_lap': sm.mLapsCompleted[i] if hasattr(sm, 'mLapsCompleted') else 0,
-                'current_sector': sm.mCurrentSector[i] if hasattr(sm, 'mCurrentSector') else 0,
+                'lap_distance': info.mCurrentLapDistance if hasattr(info, 'mCurrentLapDistance') else 0.0,
+                'current_lap': info.mLapsCompleted if hasattr(info, 'mLapsCompleted') else 0,
+                'current_sector': info.mCurrentSector if hasattr(info, 'mCurrentSector') else 0,
                 'speed': sm.mSpeeds[i] if hasattr(sm, 'mSpeeds') else 0.0,
                 'pit_mode': sm.mPitModes[i] if hasattr(sm, 'mPitModes') else 0,
                 'race_state': sm.mRaceStates[i] if hasattr(sm, 'mRaceStates') else 0,
@@ -140,7 +140,10 @@ class TelemetryProvider:
 
     def _extract_track_info(self, sm) -> dict:
         """Extract track information from shared memory."""
-        track_name_raw = getattr(sm, 'mTrackLocation', b'')
+        track_name_raw = getattr(sm, 'mTranslatedTrackLocation', b'')
+        if not track_name_raw or track_name_raw.startswith(b'\x00'):
+            track_name_raw = getattr(sm, 'mTrackLocation', b'')
+            
         if isinstance(track_name_raw, bytes):
             track_name = track_name_raw.split(b'\x00')[0].decode('utf-8', errors='replace').strip()
         else:

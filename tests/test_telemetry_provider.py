@@ -11,14 +11,11 @@ class TestSharedMemoryExtraction:
     def test_tp01_active_participant_extracted(self, mock_shared_memory):
         """TP-01: Active participant with known fields is extracted correctly."""
         from tests.conftest import MockParticipantInfo
-        info = [MockParticipantInfo(name=b'Alice\x00', is_active=True)] + \
+        info = [MockParticipantInfo(name=b'Alice\x00', is_active=True, race_position=3, lap_distance=500.0, laps_completed=1)] + \
                [MockParticipantInfo(is_active=False)] * 31
         sm = mock_shared_memory(
             mParticipantInfo=info,
             mNumParticipants=1,
-            mRacePosition=[3] + [0] * 31,
-            mCurrentLapDistance=[500.0] + [0.0] * 31,
-            mLapsCompleted=[1] + [0] * 31,
             mSpeeds=[60.0] + [0.0] * 31,
             mPitModes=[0] + [0] * 31,
             mRaceStates=[2] + [0] * 31,

@@ -173,8 +173,8 @@ class AutoDirectorApp:
                                  style='Dark.TButton', command=self._toggle_director)
         btn_toggle.pack(side=tk.LEFT, padx=5)
 
-        # Spacebar binding
-        self.root.bind('<space>', lambda e: self._toggle_director())
+        # Ctrl+Space binding (global so it works safely without interfering with entry fields)
+        self.root.bind_all('<Control-space>', lambda e: self._toggle_director())
 
     def _apply_tuning(self):
         """Write GUI values to scorer attributes."""

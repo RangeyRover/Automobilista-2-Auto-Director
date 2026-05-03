@@ -65,9 +65,13 @@ def make_participants(make_participant):
 
 class MockParticipantInfo:
     """Mimics SharedMemory.mParticipantInfo[i] struct."""
-    def __init__(self, name=b"Driver\x00", is_active=True):
+    def __init__(self, name=b"Driver\x00", is_active=True, race_position=0, lap_distance=0.0, laps_completed=0, current_sector=0):
         self.mName = name if isinstance(name, bytes) else name.encode('utf-8')
         self.mIsActive = is_active
+        self.mRacePosition = race_position
+        self.mCurrentLapDistance = lap_distance
+        self.mLapsCompleted = laps_completed
+        self.mCurrentSector = current_sector
 
 
 class MockSharedMemory:
