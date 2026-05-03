@@ -5,12 +5,7 @@ import pandas as pd
 import keyboard
 import time
 from shared_memory_struct import SharedMemory, SHARED_MEMORY_VERSION
-from collections import deque
 from pyKey import pressKey, releaseKey
-from rich.console import Console
-from rich.table import Table
-from rich.live import Live
-from rich.panel import Panel
 import ctypes
 import mmap
 import wx
@@ -24,9 +19,6 @@ packet_buffer = defaultdict(deque)
 
 # Store the timestamp of the last processed set
 last_processed_time = None
-
-# Initialize the Rich console
-console = Console()
 
 # Threading locks
 data_lock = threading.Lock()
