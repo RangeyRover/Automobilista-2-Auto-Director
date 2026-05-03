@@ -297,6 +297,13 @@ class AutoDirectorApp:
 
 
 def main():
+    # Enable High DPI awareness for Windows
+    try:
+        import ctypes
+        ctypes.windll.shcore.SetProcessDpiAwareness(1)
+    except Exception:
+        pass
+
     parser = argparse.ArgumentParser(description='AMS2 Auto Director V4.0')
     parser.add_argument('--mode', choices=['shared_memory', 'udp'],
                         default='shared_memory',
