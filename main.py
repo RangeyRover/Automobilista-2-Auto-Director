@@ -39,8 +39,8 @@ class AutoDirectorApp:
         self._current_focus_position = None
         self._last_switch_time = 0.0
         self._switch_interval = 7.0
-        self._participants = {}
-        self._scores = {}
+        self._participants: dict[int, dict] = {}
+        self._scores: dict[int, dict] = {}
 
         # Shared memory handle
         self._shm = None

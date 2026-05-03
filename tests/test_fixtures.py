@@ -1,5 +1,4 @@
 """Smoke tests for shared test fixtures — validates factory output shapes."""
-from tests.conftest import MockSharedMemory, MockParticipantInfo
 
 
 class TestMakeParticipant:

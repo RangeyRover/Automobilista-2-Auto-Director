@@ -3,7 +3,7 @@ Written BEFORE implementation. All must FAIL initially (RED).
 Uses monkeypatched pyKey to capture key sequences.
 """
 import pytest
-from unittest.mock import patch, call
+from unittest.mock import patch
 from core.camera_controller import CameraController
 
 

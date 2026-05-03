@@ -4,7 +4,7 @@ import os
 import pandas as pd
 import keyboard
 import time
-from shared_memory_struct import SharedMemory, SHARED_MEMORY_VERSION
+from shared_memory_struct import SharedMemory
 from pyKey import pressKey, releaseKey
 import ctypes
 import mmap
@@ -105,7 +105,7 @@ def read_shared_memory():
         ctypes.memmove(ctypes.addressof(data), file_handle.read(ctypes.sizeof(data)), ctypes.sizeof(data))
         
         return data
-    except Exception as e:
+    except Exception:
         #print(f"Error reading shared memory: {e}")
         return None
 
@@ -390,7 +390,7 @@ def decode_track_info_packet(data):
     # Decode track location (string)
     try:
         track_location = data[track_location_offset:track_location_offset + trackname_length_max].decode('utf-8').strip('\x00')
-    except UnicodeDecodeError as e:
+    except UnicodeDecodeError:
         track_location = "Unknown Location"
         #print(f"[DEBUG] Failed to decode track location: {e}")
 
@@ -603,7 +603,7 @@ def populate_grid_from_df(grid, df, race_control_panel, current_focus_position, 
 
                 # Merge scores into the main DataFrame
                 df = df.join(scores_df, how="left")
-            except Exception as e:
+            except Exception:
                 #print(f"Error merging scores_dict: {e}")
                 #print("Continuing with original DataFrame.")
                 return

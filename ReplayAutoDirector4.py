@@ -681,7 +681,7 @@ class DirectorApp(tk.Tk):
             
         sys_time = time.time()
         if sys_time - self.last_debug_print >= 1.0:
-            print(f"\n--- TIMELINE TRACKER ---")
+            print("\n--- TIMELINE TRACKER ---")
             print(f"Raw Game Time: {game_time_raw:.2f}s | Offset: {offset:.2f}s | Evaluating Timeline At: {game_time:.2f}s")
             print(f"Currently Viewing: '{viewed_name}' (P{viewed_pos}) | GameState: {data.mGameState} | SessionState: {data.mSessionState}")
             
@@ -697,7 +697,7 @@ class DirectorApp(tk.Tk):
             if active_event:
                 print(f"-> ACTIVE NOW: {active_event.get('target_driver')} for {active_event.get('duration', 0):.1f}s")
             else:
-                print(f"-> ACTIVE NOW: [None]")
+                print("-> ACTIVE NOW: [None]")
                 
             self.last_debug_print = sys_time
                     
@@ -748,7 +748,7 @@ class DirectorApp(tk.Tk):
                 return # Live Abort: Drop the camera from this driver
                 
             if target_pos and self.current_focus_participant != target_driver:
-                print(f"!!! TRIGGERING KEYPRESSES !!!")
+                print("!!! TRIGGERING KEYPRESSES !!!")
                 print(f"Scheduled switch to '{target_driver}' (P{target_pos}). Camera was on '{viewed_name}' (P{viewed_pos}).")
                 self.move_focus_to_position(target_pos, viewed_pos)
                 self.current_focus_participant = target_driver

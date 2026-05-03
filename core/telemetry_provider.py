@@ -7,7 +7,6 @@ dicts including driver names.
 No GUI imports. Fully testable with mock objects.
 """
 import time
-from collections import defaultdict
 
 
 class TelemetryProvider:
@@ -249,7 +248,7 @@ class TelemetryProvider:
         # This is the V3.0 format — retained for backwards compatibility
         # Actual parsing uses hardcoded byte offsets from the original
         try:
-            participants = {}
+            participants: dict[int, dict] = {}
             # Basic validation
             if len(packet) < 100:
                 return None
