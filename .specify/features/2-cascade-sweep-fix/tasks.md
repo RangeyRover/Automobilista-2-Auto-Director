@@ -19,8 +19,8 @@
 
 **Purpose**: Create feature branch infrastructure and verify baseline
 
-- [ ] T001 Verify all 110 existing tests pass as baseline in `tests/`
-- [ ] T002 Review current `_calculate_sequence_bonus` and `calculate_scores` in `core/scoring_engine.py` to confirm root cause understanding
+- [x] T001 Verify all 110 existing tests pass as baseline in `tests/`
+- [x] T002 Review current `_calculate_sequence_bonus` and `calculate_scores` in `core/scoring_engine.py` to confirm root cause understanding
 
 **Checkpoint**: Baseline green, root cause confirmed
 
@@ -34,7 +34,7 @@
 
 ### Bug Reproduction Test
 
-- [ ] T003 [US1] Write test `test_bug_sweep_activates_same_tick` in `tests/test_scoring_engine_sweep.py` — Call `calculate_scores()` with a full grid where P1 has `current_lap > laps_in_event` and P2-P5 are still racing. Assert that P2's `sequence_bonus` in the returned results dict is `5000.0`. **This test MUST FAIL against current code.**
+- [x] T003 [US1] Write test `test_bug_sweep_activates_same_tick` in `tests/test_scoring_engine_sweep.py` — Call `calculate_scores()` with a full grid where P1 has `current_lap > laps_in_event` and P2-P5 are still racing. Assert that P2's `sequence_bonus` in the returned results dict is `5000.0`. **This test MUST FAIL against current code.**
 
 **Checkpoint**: T003 confirmed FAILING — bug is proven
 
@@ -50,22 +50,22 @@
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T004 [P] [US1] Write test `test_prescan_detects_leader_finish` in `tests/test_scoring_engine_sweep.py` — After `calculate_scores()` with P1 at `current_lap > laps_in_event`, assert `scorer._sweep_active == True`
-- [ ] T005 [P] [US1] Write test `test_prescan_selects_p2_as_target` in `tests/test_scoring_engine_sweep.py` — After `calculate_scores()` with P1 finished and P2-P5 racing, assert `scorer._sweep_target_name == 'P2'`
-- [ ] T006 [P] [US1] Write test `test_prescan_skips_inactive_drivers` in `tests/test_scoring_engine_sweep.py` — P2 inactive, P3 active → assert `scorer._sweep_target_name == 'P3'`
-- [ ] T007 [P] [US1] Write test `test_prescan_skips_finished_drivers` in `tests/test_scoring_engine_sweep.py` — P1 and P2 both finished → assert `scorer._sweep_target_name == 'P3'`
-- [ ] T008 [P] [US1] Write test `test_exactly_one_driver_gets_sweep_bonus` in `tests/test_scoring_engine_sweep.py` — Full grid of 5, P1 finished. Count drivers in results with `sequence_bonus == 5000.0`. Assert count == 1.
-- [ ] T009 [P] [US1] Write test `test_sweep_bonus_goes_to_highest_position` in `tests/test_scoring_engine_sweep.py` — P1 finished, P2-P5 racing. The driver with `sequence_bonus == 5000.0` must have `race_position == 2`.
-- [ ] T010 [P] [US1] Write test `test_sweep_bonus_injected_into_total_score` in `tests/test_scoring_engine_sweep.py` — P1 finished, P2 is sweep target. Assert P2's `total_score` includes the 5000.0 bonus (total_score >= 5000.0).
-- [ ] T011 [US1] Run all new tests, confirm they FAIL against current code
+- [x] T004 [P] [US1] Write test `test_prescan_detects_leader_finish` in `tests/test_scoring_engine_sweep.py` — After `calculate_scores()` with P1 at `current_lap > laps_in_event`, assert `scorer._sweep_active == True`
+- [x] T005 [P] [US1] Write test `test_prescan_selects_p2_as_target` in `tests/test_scoring_engine_sweep.py` — After `calculate_scores()` with P1 finished and P2-P5 racing, assert `scorer._sweep_target_name == 'P2'`
+- [x] T006 [P] [US1] Write test `test_prescan_skips_inactive_drivers` in `tests/test_scoring_engine_sweep.py` — P2 inactive, P3 active → assert `scorer._sweep_target_name == 'P3'`
+- [x] T007 [P] [US1] Write test `test_prescan_skips_finished_drivers` in `tests/test_scoring_engine_sweep.py` — P1 and P2 both finished → assert `scorer._sweep_target_name == 'P3'`
+- [x] T008 [P] [US1] Write test `test_exactly_one_driver_gets_sweep_bonus` in `tests/test_scoring_engine_sweep.py` — Full grid of 5, P1 finished. Count drivers in results with `sequence_bonus == 5000.0`. Assert count == 1.
+- [x] T009 [P] [US1] Write test `test_sweep_bonus_goes_to_highest_position` in `tests/test_scoring_engine_sweep.py` — P1 finished, P2-P5 racing. The driver with `sequence_bonus == 5000.0` must have `race_position == 2`.
+- [x] T010 [P] [US1] Write test `test_sweep_bonus_injected_into_total_score` in `tests/test_scoring_engine_sweep.py` — P1 finished, P2 is sweep target. Assert P2's `total_score` includes the 5000.0 bonus (total_score >= 5000.0).
+- [x] T011 [US1] Run all new tests, confirm they FAIL against current code
 
 ### Implementation for User Story 1
 
-- [ ] T012 [US1] Implement `_pre_scan_sweep()` method in `core/scoring_engine.py` — Iterate all participants, detect finishers (`current_lap > laps_in_event`), set `_sweep_active = True` when P1 finishes, register finish timestamps, select highest-placed unfinished active driver as `_sweep_target_name`
-- [ ] T013 [US1] Refactor `calculate_scores()` in `core/scoring_engine.py` — Call `_pre_scan_sweep()` BEFORE the per-participant scoring loop. Remove sweep activation logic from `_calculate_sequence_bonus()`. Remove the old sweep target selection block from top of `calculate_scores()`.
-- [ ] T014 [US1] Simplify `_calculate_sequence_bonus()` in `core/scoring_engine.py` — Remove all sweep activation/detection code. Method becomes a pure reader: if `name == _sweep_target_name` return 5000.0, if final lap leader conditions return 10000.0, else 0.0.
-- [ ] T015 [US1] Run all US1 tests, confirm they PASS
-- [ ] T016 [US1] Run full test suite (110 existing + new), confirm zero regressions
+- [x] T012 [US1] Implement `_pre_scan_sweep()` method in `core/scoring_engine.py` — Iterate all participants, detect finishers (`current_lap > laps_in_event`), set `_sweep_active = True` when P1 finishes, register finish timestamps, select highest-placed unfinished active driver as `_sweep_target_name`
+- [x] T013 [US1] Refactor `calculate_scores()` in `core/scoring_engine.py` — Call `_pre_scan_sweep()` BEFORE the per-participant scoring loop. Remove sweep activation logic from `_calculate_sequence_bonus()`. Remove the old sweep target selection block from top of `calculate_scores()`.
+- [x] T014 [US1] Simplify `_calculate_sequence_bonus()` in `core/scoring_engine.py` — Remove all sweep activation/detection code. Method becomes a pure reader: if `name == _sweep_target_name` return 5000.0, if final lap leader conditions return 10000.0, else 0.0.
+- [x] T015 [US1] Run all US1 tests, confirm they PASS
+- [x] T016 [US1] Run full test suite (110 existing + new), confirm zero regressions
 
 **Checkpoint**: Sweep activates same-tick as leader finish. Exactly one driver gets +5,000. Bug reproduction test T003 now PASSES.
 
@@ -81,16 +81,16 @@
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T017 [P] [US2] Write test `test_cascade_p1_to_p2_to_p3` in `tests/test_scoring_engine_sweep.py` — Tick 1: P1 finished, P2-P5 racing → P2 gets bonus. Tick 2: P1+P2 finished, P3-P5 racing → P3 gets bonus.
-- [ ] T018 [P] [US2] Write test `test_cascade_all_finished_no_bonus` in `tests/test_scoring_engine_sweep.py` — All 5 drivers finished → no `sequence_bonus` for anyone, `_sweep_target_name` is None.
-- [ ] T019 [P] [US2] Write test `test_sweep_deactivates_when_all_done` in `tests/test_scoring_engine_sweep.py` — All drivers finished → after enough ticks for dwell to expire, assert normal scoring resumes (no 5000.0 bonuses anywhere in results).
-- [ ] T020 [US2] Run all US2 tests, confirm current state (may partially pass if US1 impl handles it)
+- [x] T017 [P] [US2] Write test `test_cascade_p1_to_p2_to_p3` in `tests/test_scoring_engine_sweep.py` — Tick 1: P1 finished, P2-P5 racing → P2 gets bonus. Tick 2: P1+P2 finished, P3-P5 racing → P3 gets bonus.
+- [x] T018 [P] [US2] Write test `test_cascade_all_finished_no_bonus` in `tests/test_scoring_engine_sweep.py` — All 5 drivers finished → no `sequence_bonus` for anyone, `_sweep_target_name` is None.
+- [x] T019 [P] [US2] Write test `test_sweep_deactivates_when_all_done` in `tests/test_scoring_engine_sweep.py` — All drivers finished → after enough ticks for dwell to expire, assert normal scoring resumes (no 5000.0 bonuses anywhere in results).
+- [x] T020 [US2] Run all US2 tests, confirm current state (may partially pass if US1 impl handles it)
 
 ### Implementation for User Story 2
 
-- [ ] T021 [US2] Update `_pre_scan_sweep()` in `core/scoring_engine.py` — When all eligible drivers are finished and past dwell, set `_sweep_target_name = None`. If no eligible drivers remain at all, set `_sweep_active = False` (FR-009).
-- [ ] T022 [US2] Run all US1 + US2 tests, confirm they PASS
-- [ ] T023 [US2] Run full test suite, confirm zero regressions
+- [x] T021 [US2] Update `_pre_scan_sweep()` in `core/scoring_engine.py` — When all eligible drivers are finished and past dwell, set `_sweep_target_name = None`. If no eligible drivers remain at all, set `_sweep_active = False` (FR-009).
+- [x] T022 [US2] Run all US1 + US2 tests, confirm they PASS
+- [x] T023 [US2] Run full test suite, confirm zero regressions
 
 **Checkpoint**: Cascade progresses correctly P2 → P3 → P4. Sweep deactivates when everyone is done.
 
@@ -106,17 +106,17 @@
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T024 [P] [US3] Write test `test_dwell_holds_finisher_as_target` in `tests/test_scoring_engine_sweep.py` — P2 finishes at game time 120.0s while sweep target. Next call to `calculate_scores` at game time 120.5s still has `_sweep_target_name == 'P2'`.
-- [ ] T025 [P] [US3] Write test `test_dwell_expires_after_game_time` in `tests/test_scoring_engine_sweep.py` — P2 finishes at game time 120.0s. Call `calculate_scores` at game time 121.5s (>1.0s dwell). Assert `_sweep_target_name == 'P3'`.
-- [ ] T026 [P] [US3] Write test `test_dwell_time_configurable` in `tests/test_scoring_engine_sweep.py` — Set `sweep_dwell_time = 3.0`. P2 finishes at game time 120.0s. At game time 122.0s, P2 still holds. At game time 123.5s, P3 takes over.
-- [ ] T027 [US3] Run all US3 tests, confirm they FAIL
+- [x] T024 [P] [US3] Write test `test_dwell_holds_finisher_as_target` in `tests/test_scoring_engine_sweep.py` — P2 finishes at game time 120.0s while sweep target. Next call to `calculate_scores` at game time 120.5s still has `_sweep_target_name == 'P2'`.
+- [x] T025 [P] [US3] Write test `test_dwell_expires_after_game_time` in `tests/test_scoring_engine_sweep.py` — P2 finishes at game time 120.0s. Call `calculate_scores` at game time 121.5s (>1.0s dwell). Assert `_sweep_target_name == 'P3'`.
+- [x] T026 [P] [US3] Write test `test_dwell_time_configurable` in `tests/test_scoring_engine_sweep.py` — Set `sweep_dwell_time = 3.0`. P2 finishes at game time 120.0s. At game time 122.0s, P2 still holds. At game time 123.5s, P3 takes over.
+- [x] T027 [US3] Run all US3 tests, confirm they FAIL
 
 ### Implementation for User Story 3
 
-- [ ] T028 [US3] Update `_pre_scan_sweep()` in `core/scoring_engine.py` to accept `current_time` parameter — Record `current_time` when a driver finishes. Dwell expires when `current_time - finish_time > sweep_dwell_time`.
-- [ ] T029 [US3] Update `calculate_scores()` in `core/scoring_engine.py` to pass `current_time` into `_pre_scan_sweep()`
-- [ ] T030 [US3] Run all US3 tests, confirm they PASS
-- [ ] T031 [US3] Run full test suite, confirm zero regressions
+- [x] T028 [US3] Update `_pre_scan_sweep()` in `core/scoring_engine.py` to accept `current_time` parameter — Record `current_time` when a driver finishes. Dwell expires when `current_time - finish_time > sweep_dwell_time`.
+- [x] T029 [US3] Update `calculate_scores()` in `core/scoring_engine.py` to pass `current_time` into `_pre_scan_sweep()`
+- [x] T030 [US3] Run all US3 tests, confirm they PASS
+- [x] T031 [US3] Run full test suite, confirm zero regressions
 
 **Checkpoint**: Dwell works game-time-based. Configurable from GUI. Replay-safe.
 
@@ -128,16 +128,16 @@
 
 ### Anti-Regression Tests
 
-- [ ] T032 [P] Write test `test_leader_final_lap_bonus_unchanged` in `tests/test_scoring_engine_sweep.py` — P1 on final lap past midpoint → still gets +10,000 via `calculate_scores()` results.
-- [ ] T033 [P] Write test `test_no_sweep_before_leader_finishes` in `tests/test_scoring_engine_sweep.py` — P1 still on final lap → no sweep bonus for anyone in results.
-- [ ] T034 [P] Write test `test_timeline_fallback_still_works` in `tests/test_scoring_engine_sweep.py` — `laps_in_event=0`, `timeline_laps_in_event=13` → sweep activates correctly via `calculate_scores()`.
-- [ ] T035 Run ALL tests (existing 110 + all new sweep tests), confirm 100% pass
+- [x] T032 [P] Write test `test_leader_final_lap_bonus_unchanged` in `tests/test_scoring_engine_sweep.py` — P1 on final lap past midpoint → still gets +10,000 via `calculate_scores()` results.
+- [x] T033 [P] Write test `test_no_sweep_before_leader_finishes` in `tests/test_scoring_engine_sweep.py` — P1 still on final lap → no sweep bonus for anyone in results.
+- [x] T034 [P] Write test `test_timeline_fallback_still_works` in `tests/test_scoring_engine_sweep.py` — `laps_in_event=0`, `timeline_laps_in_event=13` → sweep activates correctly via `calculate_scores()`.
+- [x] T035 Run ALL tests (existing 110 + all new sweep tests), confirm 100% pass
 
 ### Cleanup
 
-- [ ] T036 Remove any dead code from old sweep logic in `core/scoring_engine.py`
-- [ ] T037 Update existing `tests/test_scoring_engine_sequence.py` to align with refactored method signatures (if any changed)
-- [ ] T038 Commit all changes to `feature/2-cascade-sweep-fix` branch
+- [x] T036 Remove any dead code from old sweep logic in `core/scoring_engine.py`
+- [x] T037 Update existing `tests/test_scoring_engine_sequence.py` to align with refactored method signatures (if any changed)
+- [x] T038 Commit all changes to `feature/2-cascade-sweep-fix` branch
 
 **Checkpoint**: Full green suite. Feature complete.
 
