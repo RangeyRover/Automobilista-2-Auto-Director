@@ -256,6 +256,16 @@ class ScoringEngine:
         if not participants:
             return {}
 
+        # Replay loop / Time backward jump detection
+        if current_time is not None:
+            if hasattr(self, '_last_current_time') and self._last_current_time is not None:
+                if current_time < self._last_current_time - 5.0:
+                    # Time jumped backwards — clear all state
+                    self._sweep_active = False
+                    self._sweep_target_name = None
+                    self.finished_participants.clear()
+            self._last_current_time = current_time
+
         # Pass 1: Pre-scan for sweep activation and target selection (FR-003)
         if session_info and current_time is not None:
             self._pre_scan_sweep(participants, session_info, current_time)
