@@ -5,6 +5,13 @@
 **Status**: Draft  
 **Input**: User description: "the leader gets the very high score, but 2nd place does not or 3rd and so on which we desired in the sequence — resolve the cascade sweep so that after the leader finishes, the camera cascades down through P2, P3, etc."
 
+## Clarifications
+
+### Session 2026-05-04
+
+- Q: Should the sweep target only consider drivers on their final lap, or include any unfinished driver regardless of laps behind? → A: Include all unfinished drivers sorted by race position. Lapped cars are still crossing the finish line and race position order naturally deprioritizes them.
+- Q: When every driver has finished and dwell periods expired, what should the sweep do? → A: Sweep deactivates, no sequence bonus awarded, normal scoring resumes. The replay is ending anyway.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 — Leader Finish Focus (Priority: P1)
@@ -34,7 +41,7 @@ When the leader's `current_lap` exceeds `laps_in_event` (i.e. they have crossed 
 
 1. **Given** the leader has finished (`current_lap > laps_in_event`), **When** scores are calculated for the full grid, **Then** the sweep mode activates and exactly one driver (the highest-placed unfinished driver) receives +5,000 pts.
 2. **Given** P1 and P2 have both finished, **When** scores are calculated, **Then** only P3 (the next highest-placed unfinished driver) receives the +5,000 bonus.
-3. **Given** sweep mode is active but no unfinished drivers remain, **When** scores are calculated, **Then** no sequence bonus is awarded to anyone.
+3. **Given** sweep mode is active but no unfinished drivers remain and all dwell periods have expired, **When** scores are calculated, **Then** no sequence bonus is awarded and the sweep deactivates, returning to normal scoring.
 
 ---
 
@@ -60,19 +67,21 @@ When the currently focused sweep target crosses the finish line, the system cont
 - What happens when a driver is inactive (disconnected/retired) during the sweep? They should be excluded from sweep target eligibility entirely.
 - What happens when `laps_in_event` is 0 (time-based replay)? The system should fall back to `timeline_laps_in_event` parsed from the replay log footer. If both are 0, no sequence bonus should be awarded.
 - What happens if the replay log was not loaded? `timeline_laps_in_event` remains 0 and the sweep never activates — this is safe default behaviour.
+- What happens with lapped cars (1+ laps behind the leader)? They remain eligible for the sweep target, sorted by race position. They will naturally be at the bottom of the priority list and will cross the finish line in due course.
 
 ## Requirements *(mandatory)*
 
 ### Functional Requirements
 
 - **FR-001**: System MUST activate the cascade sweep mode when the race leader's `current_lap` exceeds the total laps in the event.
-- **FR-002**: System MUST assign the +5,000 sequence bonus to exactly one driver at a time — the highest-placed driver who has not yet finished the race.
+- **FR-002**: System MUST assign the +5,000 sequence bonus to exactly one driver at a time — the highest-placed driver (by `race_position`) who has not yet finished the race, regardless of how many laps behind they are.
 - **FR-003**: System MUST detect sweep activation and select the sweep target **within the same scoring tick** that the leader finishes, not on a subsequent tick.
 - **FR-004**: System MUST hold focus on a finishing driver for the configured dwell time before cascading to the next eligible driver.
 - **FR-005**: System MUST exclude finished drivers (past their dwell window) from sweep target eligibility.
 - **FR-006**: System MUST exclude inactive drivers from sweep target eligibility.
 - **FR-007**: System MUST fall back to `timeline_laps_in_event` when primary telemetry reports 0 laps in the event.
 - **FR-008**: System MUST NOT break the existing +10,000 leader final lap bonus (US1 from feature/1-final-lap-sequence).
+- **FR-009**: System MUST deactivate the sweep and award no sequence bonus when all drivers have finished and all dwell periods have expired.
 
 ### Key Entities
 
