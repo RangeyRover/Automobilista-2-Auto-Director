@@ -104,8 +104,66 @@ class ScoringEngine:
             return 0.0
         return self.race_position_bonus_factor * (1 - (pos - 1) / 32)
 
+    def _pre_scan_sweep(self, participants: dict, session_info: dict, current_time: float) -> None:
+        """Pass 1: Detect finishers, activate sweep, select sweep target.
+        
+        This MUST run before the per-participant scoring loop so that
+        sweep activation and target selection happen on the same tick
+        the leader finishes (FR-003).
+        """
+        laps_in_event = session_info.get('laps_in_event', 0)
+        if laps_in_event <= 0:
+            laps_in_event = self.timeline_laps_in_event
+        if laps_in_event <= 0:
+            return  # No lap data — cannot detect finish
+
+        # 1. Scan all participants for finishers
+        for p in participants.values():
+            if not p.get('is_active', False):
+                continue
+            name = p.get('name')
+            current_lap = p.get('current_lap', 0)
+
+            if current_lap > laps_in_event:
+                # Register as finished (with game-time timestamp)
+                if name not in self.finished_participants:
+                    self.finished_participants[name] = current_time
+                # If the leader finished, activate sweep
+                if p.get('race_position') == 1:
+                    self._sweep_active = True
+
+        if not self._sweep_active:
+            return
+
+        # 2. Select sweep target: highest-placed active unfinished driver
+        eligible = []
+        for p in participants.values():
+            if not p.get('is_active', False):
+                continue
+            name = p.get('name')
+            if name in self.finished_participants:
+                # Allow dwell: keep current target eligible if within dwell window
+                if (name == self._sweep_target_name and
+                        current_time - self.finished_participants[name] <= self.sweep_dwell_time):
+                    eligible.append(p)
+                # Otherwise skip — they're done
+                continue
+            eligible.append(p)
+
+        if eligible:
+            eligible.sort(key=lambda x: x.get('race_position', 99))
+            self._sweep_target_name = eligible[0].get('name')
+        else:
+            # All drivers finished and past dwell — deactivate (FR-009)
+            self._sweep_target_name = None
+            self._sweep_active = False
+
     def _calculate_sequence_bonus(self, participant: dict, session_info: dict, track_info: dict) -> float:
-        """Calculate massive point bonuses for Final Lap sequences (FR-003, FR-004)."""
+        """Pass 2 (per-participant): Read pre-computed sweep state and return bonus.
+        
+        This method is now a pure reader — all sweep detection and target
+        selection has moved to _pre_scan_sweep().
+        """
         if not participant.get('is_active', False):
             return 0.0
 
@@ -113,34 +171,25 @@ class ScoringEngine:
         laps_in_event = session_info.get('laps_in_event', 0)
         if laps_in_event <= 0:
             laps_in_event = self.timeline_laps_in_event
-            
+
         name = participant.get('name')
-        
+
         # US1: Leader Final Lap Coverage (+10000)
         if current_lap == laps_in_event and participant.get('race_position') == 1:
             track_length = track_info.get('track_length', 1.0)
             lap_distance = participant.get('lap_distance', 0.0)
-            
-            # If halfway through final lap
             if lap_distance >= track_length / 2:
                 return 10000.0
 
-        # US2: Cooldown Sweep logic
-        # 1. Detect if this participant has finished the race (mCurrentLap > laps_in_event)
-        if current_lap > laps_in_event:
-            # If the leader finished, activate sweep mode
-            if participant.get('race_position') == 1:
-                self._sweep_active = True
-                
-            # Add driver to finished list if not already there with their finish timestamp
-            if name not in self.finished_participants:
-                self.finished_participants[name] = time.time()
-            return 0.0 # Finished cars get no bonus
+        # US2: Sweep target gets +5000 (checked before finished-driver exclusion
+        # because the dwell-active finisher IS the sweep target and should still
+        # receive the bonus during their dwell window)
+        if self._sweep_active and name == self._sweep_target_name:
+            return 5000.0
 
-        # 2. If sweep mode is active, strictly prioritize the highest active sweep target
-        if self._sweep_active:
-            if name == self._sweep_target_name:
-                return 5000.0
+        # Finished drivers (not the sweep target) get no bonus
+        if current_lap > laps_in_event:
+            return 0.0
 
         return 0.0
 
@@ -207,29 +256,9 @@ class ScoringEngine:
         if not participants:
             return {}
 
-        # 1b. Sweep Target Selection
-        if self._sweep_active:
-            import time
-            eligible = []
-            now = time.time()
-            for p in participants.values():
-                if not p.get('is_active'):
-                    continue
-                p_name = p.get('name')
-                # If they finished
-                if p_name in self.finished_participants:
-                    # If this is the currently active sweep target, keep them eligible for the dwell time
-                    if p_name == self._sweep_target_name and (now - self.finished_participants[p_name] <= self.sweep_dwell_time):
-                        pass
-                    else:
-                        continue
-                eligible.append(p)
-            
-            if eligible:
-                eligible.sort(key=lambda x: x.get('race_position', 99))
-                self._sweep_target_name = eligible[0].get('name')
-            else:
-                self._sweep_target_name = None
+        # Pass 1: Pre-scan for sweep activation and target selection (FR-003)
+        if session_info and current_time is not None:
+            self._pre_scan_sweep(participants, session_info, current_time)
 
         results = {}
         for idx, p in participants.items():
