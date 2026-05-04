@@ -79,17 +79,17 @@ Replace `time.time()` with `current_time` (game session elapsed time from teleme
 
 ```text
 core/
-├── scoring_engine.py    # MODIFY: two-pass sweep, tick-based dwell
+├── scoring_engine.py    # MODIFY: two-pass sweep, game-time dwell
 └── timeline_parser.py   # NO CHANGE
 
 tests/
 ├── test_scoring_engine_sequence.py  # MODIFY: update existing + add new tests
 └── ...                              # NO CHANGE to other test files
 
-main.py                  # MODIFY: pass tick interval to scorer for dwell conversion
+main.py                  # NO CHANGE (current_time already passed to calculate_scores)
 ```
 
-**Structure Decision**: Single project, no new files needed. All changes are modifications to existing modules.
+**Structure Decision**: Single project. One new test file (`tests/test_scoring_engine_sweep.py`). All other changes are modifications to existing modules.
 
 ## TDD Test Plan (Tests Written BEFORE Code)
 
@@ -124,13 +124,13 @@ main.py                  # MODIFY: pass tick interval to scorer for dwell conver
 | T107 | `test_cascade_p1_to_p2_to_p3` | Tick 1: P1 finishes → P2 gets bonus. Tick 2: P2 finishes → P3 gets bonus. |
 | T108 | `test_cascade_all_finished_no_bonus` | All drivers finished and past dwell → no sequence bonus for anyone |
 
-### Test Group 5: Dwell Behaviour (Tick-Based)
+### Test Group 5: Dwell Behaviour (Game-Time-Based)
 
 | Test ID | Name | Asserts |
 |---------|------|---------|
-| T109 | `test_dwell_holds_finisher_as_target` | P2 finishes, next tick P2 is still `_sweep_target_name` (within dwell) |
-| T110 | `test_dwell_expires_after_n_ticks` | P2 finishes, call `calculate_scores` enough times to expire dwell → P3 becomes target |
-| T111 | `test_dwell_time_configurable` | Set `sweep_dwell_time = 3.0`, verify dwell lasts 15 ticks (at 200ms/tick) |
+| T109 | `test_dwell_holds_finisher_as_target` | P2 finishes at game time 120.0s, next call at 120.5s → P2 is still `_sweep_target_name` (within dwell) |
+| T110 | `test_dwell_expires_after_game_time` | P2 finishes at game time 120.0s, call at 121.5s (>1.0s dwell) → P3 becomes target |
+| T111 | `test_dwell_time_configurable` | Set `sweep_dwell_time = 3.0`, P2 finishes at 120.0s. At 122.0s P2 holds, at 123.5s P3 takes over |
 
 ### Test Group 6: Anti-Regression
 

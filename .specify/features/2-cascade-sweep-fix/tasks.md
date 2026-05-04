@@ -98,9 +98,9 @@
 
 ## Phase 5: User Story 3 — Dwell After Finish (Priority: P2)
 
-**Goal**: When the sweep target crosses the finish line, hold focus for a configurable dwell period measured in scoring ticks, not wall-clock time.
+**Goal**: When the sweep target crosses the finish line, hold focus for a configurable dwell period measured in game time, not wall-clock time.
 
-**Independent Test**: Simulate a finisher as sweep target, verify they hold focus for the correct number of ticks before cascading.
+**Independent Test**: Simulate a finisher as sweep target, verify they hold focus for the correct game-time duration before cascading.
 
 ### Tests for User Story 3 ⚠️
 
@@ -118,7 +118,7 @@
 - [ ] T030 [US3] Run all US3 tests, confirm they PASS
 - [ ] T031 [US3] Run full test suite, confirm zero regressions
 
-**Checkpoint**: Dwell works tick-based. Configurable from GUI. Replay-safe.
+**Checkpoint**: Dwell works game-time-based. Configurable from GUI. Replay-safe.
 
 ---
 
@@ -193,7 +193,7 @@
 1. Phase 1+2 → Bug proven
 2. Phase 3 (US1) → Core fix deployed, P2 gets sweep bonus
 3. Phase 4 (US2) → Full cascade P2→P3→P4 working
-4. Phase 5 (US3) → Tick-based dwell, replay-safe
+4. Phase 5 (US3) → Game-time dwell, replay-safe
 5. Phase 6 → Anti-regression, cleanup, commit
 
 ---

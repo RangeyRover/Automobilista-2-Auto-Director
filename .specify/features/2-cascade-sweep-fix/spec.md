@@ -87,7 +87,7 @@ When the currently focused sweep target crosses the finish line, the system cont
 
 - **Participant**: A driver on the grid. Key attributes: `name`, `race_position`, `current_lap`, `lap_distance`, `is_active`.
 - **Sweep Target**: The single participant currently receiving the +5,000 cascade bonus. Only one sweep target can exist at any time.
-- **Finished Participants**: A registry of drivers who have crossed the finish line, keyed by name with their finish timestamp as the value.
+- **Finished Participants**: A registry of drivers who have crossed the finish line, keyed by name with their game-time finish timestamp (from session telemetry `current_time`) as the value.
 
 ## Assumptions
 
