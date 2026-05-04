@@ -42,13 +42,13 @@ On the next tick, step 1 sees `_sweep_active == True` and tries to select a targ
 
 ### Secondary Issue: `time.time()` in Dwell Logic
 
-Using wall-clock `time.time()` for the dwell period is fragile. In a replay, the user can pause for 30 minutes and the dwell will have long expired. The dwell should be measured in **scoring ticks** (number of calls to `calculate_scores`), not real seconds.
+Using wall-clock `time.time()` for the dwell period is fragile. In a replay, the user can pause for 30 minutes and the dwell will have long expired. The dwell should be measured in **game time** (`current_time` from session telemetry), which is already passed into `calculate_scores()` and drives the timeline event bonuses.
 
 ## Proposed Architecture: Two-Pass Scoring
 
 ### Pass 1: Pre-Scan (new method `_pre_scan_sweep`)
 1. Iterate all participants once
-2. For any participant with `current_lap > laps_in_event`: register them as finished
+2. For any participant with `current_lap > laps_in_event`: register them as finished with their game-time finish timestamp
 3. If P1 is among the newly finished: set `_sweep_active = True`
 4. Select sweep target: highest `race_position` driver who is `is_active` and NOT in `finished_participants` (excluding those within dwell window)
 5. Store result in `self._sweep_target_name`
@@ -59,8 +59,8 @@ Using wall-clock `time.time()` for the dwell period is fragile. In a replay, the
   - If final lap leader bonus conditions → return 10000.0
   - Else → return 0.0
 
-### Dwell Tracking: Tick-Based
-Replace `time.time()` with a tick counter. Each call to `calculate_scores` increments `_sweep_tick_count`. When a driver finishes, record the tick number. Dwell is measured as `current_tick - finish_tick <= dwell_ticks`. The GUI's `sweep_dwell_time` (seconds) is converted to ticks via `dwell_ticks = sweep_dwell_time / (TICK_MS / 1000)`.
+### Dwell Tracking: Game-Time-Based
+Replace `time.time()` with `current_time` (game session elapsed time from telemetry). When a driver finishes, record the `current_time` at that moment. Dwell is measured as `current_time - finish_time <= sweep_dwell_time`. The GUI's `Sweep Dwell` value (seconds) is used directly — no tick conversion needed. This is replay-safe because `current_time` only advances when the game simulation advances.
 
 ## Project Structure
 
