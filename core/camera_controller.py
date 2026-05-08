@@ -7,7 +7,17 @@ No GUI imports. Testable via monkeypatched _press_key/_release_key.
 """
 import time
 
-
+CAMERA_SET_MAP = {
+    "Cockpit": "cockpit", 
+    "Helmet": "cockpit", 
+    "TV Pod": "cockpit", 
+    "TV Cam 1": "tv_cam", 
+    "TV Cam 2": "tv_cam", 
+    "TV Cam 3": "tv_cam", 
+    "Chase Near": "chase", 
+    "Chase Far": "chase", 
+    "Chase Bumper": "chase"
+}
 class CameraController:
     """Manages pyKey injection for AMS2 camera switching."""
 
@@ -20,6 +30,7 @@ class CameraController:
         """
         self.key_hold_ms = key_hold_ms
         self.key_gap_ms = key_gap_ms
+        self.current_camera_type = "tv_cam"
 
     def _press_key(self, key: str):
         """Press a key. Override in tests via monkeypatch."""
@@ -79,10 +90,6 @@ class CameraController:
         """Confirm camera selection."""
         self._tap_key('ENTER')
 
-    def switch_camera_type(self, camera_name: str):
-        """Switch to a specific camera type.
-
-        Camera types are cycled via a key press. This is a placeholder
-        for future camera type logic.
-        """
-        pass
+    def update_camera_type(self, camera_set_name: str):
+        """Update the internal camera type based on the AMS2 camera set name."""
+        self.current_camera_type = CAMERA_SET_MAP.get(camera_set_name, "tv_cam")

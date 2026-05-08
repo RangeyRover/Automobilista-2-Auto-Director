@@ -10,10 +10,12 @@ import time
 import mmap
 import ctypes
 import keyboard
+import threading
 
 from core.telemetry_provider import TelemetryProvider
 from core.scoring_engine import ScoringEngine
 from core.camera_controller import CameraController
+from dashboard.bridge import DashboardBridge
 
 
 # Try to import the shared memory struct
@@ -47,12 +49,16 @@ class AutoDirectorApp:
         self._shm = None
         self._shm_file = None
 
+        self.bridge = DashboardBridge()
+
         self._build_ui()
         self.root.protocol("WM_DELETE_WINDOW", self._on_closing)
         self.provider.start_udp()
+        self.bridge.start(self.provider, self)
 
     def _on_closing(self):
         """Cleanup and close application."""
+        self.bridge.stop()
         self.provider.stop_udp()
         self.root.destroy()
 
@@ -253,18 +259,25 @@ class AutoDirectorApp:
         if not HAS_SHARED_MEMORY:
             return None
 
-        try:
-            if self._shm_file is None:
-                self._shm_file = mmap.mmap(-1, ctypes.sizeof(SharedMemory),
-                                            '$pcars2$', access=mmap.ACCESS_READ)
-            self._shm_file.seek(0)
-            self._shm = SharedMemory.from_buffer_copy(self._shm_file.read(
-                ctypes.sizeof(SharedMemory)))
-            return self._shm
-        except Exception:
-            self._shm_file = None
-            self._shm = None
-            return None
+        if not hasattr(self, '_shm_lock'):
+            self._shm_lock = threading.Lock()
+
+        with self._shm_lock:
+            try:
+                if self._shm_file is None:
+                    self._shm_file = mmap.mmap(-1, ctypes.sizeof(SharedMemory),
+                                                '$pcars2$', access=mmap.ACCESS_READ)
+                self._shm_file.seek(0)
+                self._shm = SharedMemory.from_buffer_copy(self._shm_file.read(
+                    ctypes.sizeof(SharedMemory)))
+                return self._shm
+            except Exception as e:
+                import traceback
+                print("Error reading shared memory:", e)
+                traceback.print_exc()
+                self._shm_file = None
+                self._shm = None
+                return None
 
     def _tick(self):
         """Main tick loop — poll telemetry, score, update grid."""
@@ -293,6 +306,9 @@ class AutoDirectorApp:
                 cur_mins = int(cur) // 60
                 cur_secs = int(cur) % 60
                 
+                if rem <= 0 and self.scorer.timeline_session_time > 0:
+                    rem = max(0.0, self.scorer.timeline_session_time - cur)
+
                 rem_str = "null"
                 if rem > 0:
                     rem_mins = int(rem) // 60
@@ -350,59 +366,63 @@ class AutoDirectorApp:
 
     def _update_grid(self):
         """Update the leaderboard grid (runs at 1s intervals)."""
-        # Clear existing rows
-        for item in self.tree.get_children():
-            self.tree.delete(item)
+        try:
+            # Clear existing rows
+            for item in self.tree.get_children():
+                self.tree.delete(item)
 
-        if not self._participants:
-            self.root.after(self.GRID_UPDATE_MS, self._update_grid)
-            return
+            if not self._participants:
+                return
 
-        # Sort by race position
-        sorted_indices = sorted(
-            self._participants.keys(),
-            key=lambda i: self._participants[i].get('race_position', 99)
-        )
-
-        # Find highest score for highlighting
-        best_score = float('-inf')
-        best_idx = None
-        for idx in sorted_indices:
-            p = self._participants[idx]
-            if p.get('is_active', False):
-                total = self._scores.get(idx, {}).get('total_score', float('-inf'))
-                if total > best_score:
-                    best_score = total
-                    best_idx = idx
-
-        for idx in sorted_indices:
-            p = self._participants[idx]
-            if not p.get('is_active', False):
-                continue
-
-            s = self._scores.get(idx, {})
-            values = (
-                str(p.get('race_position', 0)),
-                str(p.get('name', 'Unknown')),
-                str(p.get('current_lap', 0)),
-                f"{p.get('speed', 0.0):.0f}",
-                f"{p.get('gap_ahead', 0.0):.0f}",
-                p.get('cars_ahead_250m', 0),
-                f"{s.get('pit_mode_penalty', 0):.1f}",
-                f"{s.get('speed_penalty', 0):.1f}",
-                f"{s.get('cars_ahead_bonus', 0):.1f}",
-                f"{s.get('closing_speed_bonus', 0):.1f}",
-                f"{s.get('close_racing_bonus', 0):.1f}",
-                f"{s.get('race_position_bonus', 0):.1f}",
-                f"{s.get('accident_bonus', 0):.1f}",
-                f"{s.get('overtake_bonus', 0):.1f}",
-                f"{s.get('sequence_bonus', 0):.1f}",
-                f"{s.get('total_score', 0):.1f}",
+            # Sort by race position
+            sorted_indices = sorted(
+                self._participants.keys(),
+                key=lambda i: self._participants[i].get('race_position', 99)
             )
-            tags = ('highest',) if idx == best_idx else ()
-            self.tree.insert('', tk.END, values=values, tags=tags)
 
-        self.root.after(self.GRID_UPDATE_MS, self._update_grid)
+            # Find highest score for highlighting
+            best_score = float('-inf')
+            best_idx = None
+            for idx in sorted_indices:
+                p = self._participants[idx]
+                if p.get('is_active', False):
+                    total = self._scores.get(idx, {}).get('total_score', float('-inf'))
+                    if total > best_score:
+                        best_score = total
+                        best_idx = idx
+
+            for idx in sorted_indices:
+                p = self._participants[idx]
+                if not p.get('is_active', False):
+                    continue
+
+                s = self._scores.get(idx, {})
+                values = (
+                    str(p.get('race_position', 0)),
+                    str(p.get('name', 'Unknown')),
+                    str(p.get('current_lap', 0)),
+                    f"{p.get('speed', 0.0):.0f}",
+                    f"{p.get('gap_ahead', 0.0):.0f}",
+                    p.get('cars_ahead_250m', 0),
+                    f"{s.get('pit_mode_penalty', 0):.1f}",
+                    f"{s.get('speed_penalty', 0):.1f}",
+                    f"{s.get('cars_ahead_bonus', 0):.1f}",
+                    f"{s.get('closing_speed_bonus', 0):.1f}",
+                    f"{s.get('close_racing_bonus', 0):.1f}",
+                    f"{s.get('race_position_bonus', 0):.1f}",
+                    f"{s.get('accident_bonus', 0):.1f}",
+                    f"{s.get('overtake_bonus', 0):.1f}",
+                    f"{s.get('sequence_bonus', 0):.1f}",
+                    f"{s.get('total_score', 0):.1f}",
+                )
+                tags = ('highest',) if idx == best_idx else ()
+                self.tree.insert('', tk.END, values=values, tags=tags)
+        except Exception as e:
+            import traceback
+            print("Grid update error:", e)
+            traceback.print_exc()
+        finally:
+            self.root.after(self.GRID_UPDATE_MS, self._update_grid)
 
     def run(self):
         """Start the application."""

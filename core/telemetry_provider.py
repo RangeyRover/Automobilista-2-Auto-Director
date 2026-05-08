@@ -158,7 +158,9 @@ class TelemetryProvider:
 
         for i in range(32):
             info = sm.mParticipantInfo[i]
-            is_active = bool(getattr(info, 'mIsActive', False)) and i < num
+            is_active = bool(getattr(info, 'mIsActive', False))
+            if num > 0:
+                is_active = is_active and i < num
 
             # Decode name — handle bytes with null terminator
             raw_name = getattr(info, 'mName', b'')
@@ -216,6 +218,9 @@ class TelemetryProvider:
             'current_time': getattr(sm, 'mCurrentTime', 0.0),
             'laps_in_event': getattr(sm, 'mLapsInEvent', 0),
             'viewed_participant_index': getattr(sm, 'mViewedParticipantIndex', -1),
+            'game_state': getattr(sm, 'mGameState', 0),
+            'session_state': getattr(sm, 'mSessionState', 0),
+            'yellow_flag_state': getattr(sm, 'mYellowFlagState', 0),
         }
 
     # ── Derived Calculations ────────────────────────────────────────────────
@@ -404,7 +409,13 @@ class TelemetryProvider:
 
     def _extract_udp_session_info(self) -> dict:
         """Extract session info from UDP packet buffer (Fallback)."""
-        info = {'event_time_remaining': 0.0, 'laps_in_event': 0}
+        info = {
+            'event_time_remaining': 0.0, 
+            'laps_in_event': 0,
+            'game_state': 0,
+            'session_state': 0,
+            'yellow_flag_state': 0
+        }
         # In PCars2 UDP, EventTimeRemaining and LapsInEvent are found in GameState or RaceData packet.
         # Note: PCars2 RaceData (308 bytes) does not contain EventTimeRemaining directly.
         # If the specific GameState packet (24 bytes) or TimingsData (1063 bytes) contains it, we parse it.
@@ -442,6 +453,19 @@ class TelemetryProvider:
             except struct.error as e:
                 print(f"[UDP DEBUG] Error unpacking laps: {e}")
                 
+        # sGameStateData (24 bytes) holds GameState and SessionState
+        packet_game_state = self._packet_buffer.get(24)
+        if packet_game_state and len(packet_game_state) >= 24:
+            try:
+                # char mGameState; (offset 14)
+                # Note: PackBase = 12 bytes + mBuildVersionNumber (2 bytes) = offset 14
+                game_state_raw = struct.unpack_from('<B', packet_game_state, 14)[0]
+                # Lower 4 bits = GameState, Upper 4 bits = SessionState
+                info['game_state'] = game_state_raw & 0x0F
+                info['session_state'] = (game_state_raw >> 4) & 0x0F
+            except struct.error as e:
+                print(f"[UDP DEBUG] Error unpacking game state: {e}")
+
         return info
 
     def _parse_udp_participants(self, packet: bytes | None) -> dict[int, dict] | None:

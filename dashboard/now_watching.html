@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NOW WATCHING HUD</title>
+    <style>
+        @font-face {
+            font-family: 'Rescue W01';
+            src: url('_SHFonts/Rescue W01 SemiBold.ttf') format('truetype');
+            font-weight: 600;
+        }
+        
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: transparent;
+            font-family: 'Rescue W01', sans-serif;
+            color: #FFFFFF;
+        }
+
+        .hud-container {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 1920px;
+            height: 1080px;
+        }
+
+        .layer {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            transition: opacity 1.3s ease;
+        }
+
+        .layer.active {
+            opacity: 1;
+        }
+
+        .badge-bg {
+            position: absolute;
+            left: 769px;
+            top: 827px;
+            width: 490px;
+            height: 139px;
+            background-image: url('UI1.png');
+            background-size: contain;
+            background-repeat: no-repeat;
+        }
+
+        .text {
+            position: absolute;
+            display: flex;
+            align-items: center;
+            white-space: nowrap;
+        }
+        
+        .left { justify-content: flex-start; text-align: left; }
+        .center { justify-content: center; text-align: center; }
+        .right { justify-content: flex-end; text-align: right; }
+
+        .text-gray { color: #808080; }
+        .text-black { color: #000000; }
+        
+        .fw-medium { font-weight: 500; }
+        .fw-semibold { font-weight: 600; }
+
+    </style>
+</head>
+<body>
+    <div class="hud-container" id="hud" style="display: none;">
+        
+        <!-- LAYER 1: BATTLE FOR POSITION -->
+        <div id="layer-battle" class="layer">
+            <div class="badge-bg"></div>
+            <div class="text fw-medium text-black left" style="left: 882px; top: 834px; width: 152px; height: 22px; font-size: 18px;">NOW WATCHING</div>
+            
+            <div id="bat-pos-current" class="text fw-semibold center" style="left: 782px; top: 871px; width: 59px; height: 45px; font-size: 40px;"></div>
+            <div id="bat-name-current" class="text left" style="left: 847px; top: 872px; width: 149px; height: 48px; font-size: 18px;"></div>
+            
+            <div id="bat-pos-ahead" class="text fw-semibold center" style="left: 1006px; top: 871px; width: 59px; height: 45px; font-size: 40px;"></div>
+            <div id="bat-name-ahead" class="text left" style="left: 1071px; top: 872px; width: 149px; height: 48px; font-size: 18px;"></div>
+            
+            <div id="bat-title" class="text fw-semibold text-gray center" style="left: 1056px; top: 895px; width: 150px; height: 40px; font-size: 18px;"></div>
+            
+            <div class="text text-black right" style="left: 1073px; top: 937px; width: 46px; height: 25px; font-size: 18px;">Gap:</div>
+            <div id="bat-gap" class="text fw-medium text-black right" style="left: 1116px; top: 936px; width: 74px; height: 29px; font-size: 18px;">0.00s</div>
+        </div>
+
+        <!-- LAYER 2: DRIVER INFORMATION -->
+        <div id="layer-info" class="layer active">
+            <div class="badge-bg"></div>
+            <div class="text fw-medium text-black left" style="left: 874px; top: 833px; width: 152px; height: 22px; font-size: 18px;">NOW WATCHING</div>
+            
+            <div id="info-pos" class="text fw-semibold center" style="left: 782px; top: 871px; width: 59px; height: 45px; font-size: 40px;"></div>
+            <div id="info-name" class="text left" style="left: 847px; top: 872px; width: 149px; height: 48px; font-size: 18px;"></div>
+            
+            <div id="info-gear" class="text fw-semibold center" style="left: 1014px; top: 860px; width: 44px; height: 46px; font-size: 40px;"></div>
+            <div class="text text-gray right" style="left: 1013px; top: 900.8px; width: 46px; height: 25px; font-size: 18px;">Gear</div>
+            
+            <div id="info-speed" class="text fw-medium center" style="left: 1074px; top: 876.5px; width: 49px; height: 22px; font-size: 18px;"></div>
+            <div class="text text-gray right" style="left: 1070px; top: 901.3px; width: 57px; height: 24px; font-size: 18px;">Speed</div>
+            
+            <div id="info-rpm" class="text fw-medium right" style="left: 1135px; top: 878px; width: 60px; height: 20px; font-size: 18px;"></div>
+            <div class="text text-gray right" style="left: 1143px; top: 901.8px; width: 42px; height: 23px; font-size: 18px;">RPM</div>
+            
+            <div class="text text-black right" style="left: 1065px; top: 936px; width: 46px; height: 25px; font-size: 18px;">Lap:</div>
+            <div id="info-lap" class="text fw-medium text-black center" style="left: 1101px; top: 934px; width: 109px; height: 29px; font-size: 18px;">0.00.000</div>
+        </div>
+
+    </div>
+
+    <script>
+        // Set transparent background for OBS if requested
+        if (new URLSearchParams(window.location.search).has('transparent')) {
+            document.body.style.backgroundColor = 'transparent';
+        }
+
+        const ws = new WebSocket(`ws://${window.location.host}/ws`);
+        const hud = document.getElementById('hud');
+        
+        const layerBattle = document.getElementById('layer-battle');
+        const layerInfo = document.getElementById('layer-info');
+        
+        // Battle layer elements
+        const batPosCurrent = document.getElementById('bat-pos-current');
+        const batNameCurrent = document.getElementById('bat-name-current');
+        const batPosAhead = document.getElementById('bat-pos-ahead');
+        const batNameAhead = document.getElementById('bat-name-ahead');
+        const batTitle = document.getElementById('bat-title');
+        const batGap = document.getElementById('bat-gap');
+        
+        // Info layer elements
+        const infoPos = document.getElementById('info-pos');
+        const infoName = document.getElementById('info-name');
+        const infoGear = document.getElementById('info-gear');
+        const infoSpeed = document.getElementById('info-speed');
+        const infoRpm = document.getElementById('info-rpm');
+        const infoLap = document.getElementById('info-lap');
+
+        function getOrdinalSuffix(pos) {
+            if (pos === 0) return "Leader";
+            const j = pos % 10, k = pos % 100;
+            if (j == 1 && k != 11) return pos + "st";
+            if (j == 2 && k != 12) return pos + "nd";
+            if (j == 3 && k != 13) return pos + "rd";
+            return pos + "th";
+        }
+
+        function formatLapTime(seconds) {
+            if (seconds <= 0) return "-.--.---";
+            const m = Math.floor(seconds / 60);
+            const s = Math.floor(seconds % 60);
+            const ms = Math.floor((seconds % 1) * 1000);
+            return `${m}.${s.toString().padStart(2, '0')}.${ms.toString().padStart(3, '0')}`;
+        }
+
+        function dynamicFontSize(name) {
+            const length = name.length;
+            if (length >= 13) {
+                return Math.round(18 * (13 / length)) + "px";
+            }
+            return "18px";
+        }
+
+        ws.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            
+            // Hide HUD if no one is viewed
+            if (data.viewed_index < 0 || data.viewed.position === 0) {
+                hud.style.display = 'none';
+                return;
+            }
+            hud.style.display = 'block';
+
+            const gap = data.ahead.gap_seconds;
+            const pos = data.viewed.position;
+            const name = data.viewed.name;
+
+            // Layer switching logic
+            if (gap > 0 && gap < 1.0) {
+                layerBattle.classList.add('active');
+                layerInfo.classList.remove('active');
+            } else {
+                layerInfo.classList.add('active');
+                layerBattle.classList.remove('active');
+            }
+
+            // Update Battle Layer
+            batPosCurrent.innerText = pos;
+            batNameCurrent.innerText = name;
+            batNameCurrent.style.fontSize = dynamicFontSize(name);
+            
+            batPosAhead.innerText = data.ahead.position;
+            batNameAhead.innerText = data.ahead.name || "Unknown";
+            batNameAhead.style.fontSize = dynamicFontSize(data.ahead.name || "");
+            
+            if (pos > 1) {
+                batTitle.innerText = `Battle for ${getOrdinalSuffix(pos - 1)}`;
+            } else {
+                batTitle.innerText = "Leader";
+            }
+            
+            batGap.innerText = gap.toFixed(2) + "s";
+
+            // Update Info Layer
+            infoPos.innerText = pos;
+            
+            infoName.innerText = name;
+            infoName.style.fontSize = dynamicFontSize(name);
+            
+            const gear = data.viewed.gear;
+            infoGear.innerText = gear === 0 ? "N" : (gear === 10 ? "R" : gear);
+            infoGear.style.color = gear === 0 ? "#4da6ff" : "#FFFFFF"; // Blue for Neutral
+            
+            infoSpeed.innerText = Math.round(data.viewed.speed_kph);
+            infoRpm.innerText = data.viewed.rpm;
+            
+            infoLap.innerText = formatLapTime(data.viewed.last_lap);
+        };
+    </script>
+</body>
+</html>

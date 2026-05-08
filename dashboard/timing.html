@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Auto Director - Timing & Flags HUD</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Secular+One&display=swap');
+
+        body {
+            margin: 0;
+            padding: 0;
+            width: 1920px;
+            height: 1080px;
+            background-color: transparent;
+            overflow: hidden;
+            font-family: 'Secular One', sans-serif;
+        }
+
+        .hud-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 1920px;
+            height: 1080px;
+        }
+
+        /* --- TIME & LAPS GROUP (1716, 181) --- */
+        .time-laps-group {
+            position: absolute;
+            left: 1716px;
+            top: 181px;
+            width: 147px;
+            height: 150px;
+        }
+
+        /* Time Layer */
+        .time-layer {
+            position: absolute;
+            left: 1px;
+            top: 0px;
+            width: 81px;
+            height: 128px;
+            background-image: url('time.png');
+            background-size: contain;
+            background-repeat: no-repeat;
+            opacity: 0.95;
+        }
+        
+        .time-label {
+            position: absolute;
+            top: 4px;
+            left: 0px;
+            width: 80px;
+            text-align: center;
+            font-size: 18px;
+            color: #D3D3D3;
+            line-height: 1;
+        }
+
+        .time-main {
+            position: absolute;
+            top: 28px;
+            left: 0px;
+            width: 80px;
+            text-align: center;
+            font-size: 40px;
+            color: #FFFFFF;
+            line-height: 1;
+        }
+
+        .time-red-line {
+            position: absolute;
+            top: 71px;
+            left: 10px;
+            width: 60px;
+            height: 5px;
+            background-color: #FF0000;
+            border-radius: 4px;
+        }
+
+        .time-sub {
+            position: absolute;
+            top: 87px;
+            left: 0px;
+            width: 80px;
+            text-align: center;
+            font-size: 35px;
+            color: #FFFFFF;
+            line-height: 1;
+        }
+
+        /* Small Laps Layer */
+        .small-laps-layer {
+            position: absolute;
+            left: 0px;
+            top: 128px;
+            width: 116px;
+            height: 21px;
+            background-image: url('laps.png');
+            background-size: 100% 100%;
+            background-repeat: no-repeat;
+            opacity: 0.80;
+        }
+
+        .small-laps-label {
+            position: absolute;
+            top: 3px;
+            left: 8px;
+            font-size: 13px;
+            color: #D3D3D3;
+            line-height: 1.2;
+        }
+
+        .small-laps-red-line {
+            position: absolute;
+            top: 9px;
+            left: 50px;
+            width: 10px;
+            height: 2px;
+            background-color: #FF0000;
+            border-radius: 4px;
+        }
+
+        .small-laps-val {
+            position: absolute;
+            top: 0px;
+            right: 25px;
+            font-size: 18px;
+            color: #FFFFFF;
+            line-height: 1.2;
+            text-align: right;
+        }
+
+        /* Positions Layer */
+        .positions-layer {
+            position: absolute;
+            left: 49px;
+            top: 0px;
+            width: 98px;
+            height: 128px;
+            background-image: url('position.png');
+            background-size: contain;
+            background-repeat: no-repeat;
+            opacity: 0.80;
+        }
+
+        .pos-label {
+            position: absolute;
+            top: 4px;
+            left: 35px;
+            width: 61px;
+            text-align: center;
+            font-size: 18px;
+            color: #D3D3D3;
+            line-height: 1;
+        }
+
+        .pos-main {
+            position: absolute;
+            top: 38px;
+            left: 35px;
+            width: 61px;
+            text-align: center;
+            font-size: 22px;
+            color: #FFFFFF;
+            line-height: 1;
+        }
+
+        .pos-grey-line {
+            position: absolute;
+            top: 71px;
+            left: 46px;
+            width: 40px;
+            height: 5px;
+            background-color: #808080;
+            border-radius: 4px;
+        }
+
+        .pos-sub {
+            position: absolute;
+            top: 87px;
+            left: 35px;
+            width: 61px;
+            text-align: center;
+            font-size: 22px;
+            color: #D3D3D3;
+            line-height: 1;
+        }
+
+        /* --- FLAGS GROUP (1722, 334) --- */
+        .flags-group {
+            position: absolute;
+            left: 1722px;
+            top: 334px;
+            width: 82px;
+            height: 62px;
+            display: none; /* dynamically toggled */
+        }
+
+        .flag-layer {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 82px;
+            height: 62px;
+            background-size: cover;
+            background-position: center;
+            display: none;
+            border-radius: 6px;
+        }
+
+        .flag-yellow {
+            background-image: url('caution.png');
+            opacity: 0.6;
+        }
+
+        .flag-checkered {
+            background-image: url('checkered.png');
+            opacity: 0.5;
+        }
+        
+        .flag-white {
+            background-image: url('white.png');
+            opacity: 0.5;
+        }
+    </style>
+</head>
+<body>
+    <div class="hud-container">
+        <!-- Time and Laps Group -->
+        <div class="time-laps-group" id="timeLapsGroup">
+            
+            <!-- Position Layer (Rendered First/Behind) -->
+            <div class="positions-layer">
+                <div class="pos-label">Pos.</div>
+                <div class="pos-main" id="posMainVal">-</div>
+                <div class="pos-grey-line"></div>
+                <div class="pos-sub" id="posSubVal">-</div>
+            </div>
+
+            <!-- Time / Laps Left Layer (Rendered on Top of Position) -->
+            <div class="time-layer">
+                <div class="time-label" id="timeLabel">Time</div>
+                <div class="time-main" id="timeMainVal">--</div>
+                <div class="time-red-line"></div>
+                <div class="time-sub" id="timeSubVal">--</div>
+            </div>
+
+            <!-- Small Laps Layer (Rendered Last) -->
+            <div class="small-laps-layer" id="smallLapsLayer">
+                <div class="small-laps-label">Laps</div>
+                <div class="small-laps-red-line"></div>
+                <div class="small-laps-val" id="smallLapsVal">-</div>
+            </div>
+            
+        </div>
+
+        <!-- Flags Group -->
+        <div class="flags-group" id="flagsGroup">
+            <div class="flag-layer flag-yellow" id="flagYellow"></div>
+            <div class="flag-layer flag-checkered" id="flagCheckered"></div>
+            <div class="flag-layer flag-white" id="flagWhite"></div>
+        </div>
+    </div>
+
+    <script>
+        function formatTime(seconds) {
+            if (seconds <= 0) return "00:00";
+            const m = Math.floor(seconds / 60);
+            const s = Math.floor(seconds % 60);
+            return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+        }
+
+        function formatTimeMM(seconds) {
+            if (seconds <= 0) return "00";
+            return Math.floor(seconds / 60).toString().padStart(2, '0');
+        }
+
+        function formatTimeSS(seconds) {
+            if (seconds <= 0) return "00";
+            return Math.floor(seconds % 60).toString().padStart(2, '0');
+        }
+
+        function connectWebSocket() {
+            const ws = new WebSocket(`ws://${window.location.host}/ws`);
+            
+            ws.onopen = () => {
+                console.log("Connected to telemetry bridge");
+            };
+            
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                
+                // Expose globally so users can easily inspect all available variables in the browser console
+                window.telemetryData = data;
+                
+                // 1. Extract Session Data
+                const session = data.session || {};
+                const game_state = session.state || 0;
+                const session_state = session.session_state || 0;
+                const laps_in_event = session.laps_in_event || 0;
+                const time_remaining = session.time_remaining || 0;
+                const yellow_flag_state = session.yellow_flag_state || 0;
+                const leader_lap = session.leader_lap || 0;
+
+                // 2. Extract Driver Data
+                const viewed = data.viewed || {};
+                
+                // Visibility Logic
+                // 0: GAME_EXITED, 1: GAME_FRONT_END
+                if (game_state === 0 || game_state === 1 || game_state === 4) {
+                    document.getElementById('timeLapsGroup').style.display = 'none';
+                    document.getElementById('flagsGroup').style.display = 'none';
+                    return;
+                } else {
+                    document.getElementById('timeLapsGroup').style.display = 'block';
+                }
+
+                // Is it a timed session? If event_time_remaining is non-zero, it usually is.
+                const isTimedSession = (time_remaining > 0);
+
+                // Update Labels
+                if (session_state === 1 || session_state === 3 || isTimedSession) {
+                    document.getElementById('timeLabel').innerText = "Time";
+                    document.getElementById('timeMainVal').innerText = formatTimeMM(time_remaining);
+                    document.getElementById('timeSubVal').innerText = formatTimeSS(time_remaining);
+                    
+                    document.getElementById('smallLapsLayer').style.display = 'block';
+                    document.getElementById('smallLapsVal').innerText = leader_lap.toString();
+                } else {
+                    document.getElementById('timeLabel').innerText = "Laps";
+                    // If lap based race: main=leader lap, sub=total laps
+                    document.getElementById('timeMainVal').innerText = leader_lap > 0 ? leader_lap.toString().padStart(2, '0') : "01";
+                    document.getElementById('timeSubVal').innerText = laps_in_event > 0 ? laps_in_event.toString().padStart(2, '0') : "--";
+                    
+                    document.getElementById('smallLapsLayer').style.display = 'none';
+                }
+
+                // Update Position
+                document.getElementById('posMainVal').innerText = viewed.position > 0 ? viewed.position.toString() : "-";
+                const totalDrivers = session.total_drivers || 0;
+                document.getElementById('posSubVal').innerText = totalDrivers > 0 ? totalDrivers.toString() : "-";
+
+                // Flags Logic
+                // yellow_flag_state > 0 or session.flag > 0
+                let showYellow = false;
+                let showCheckered = false;
+                let showWhite = false;
+
+                if (yellow_flag_state > 0) {
+                    showYellow = true;
+                }
+
+                if (isTimedSession && time_remaining <= 0) {
+                    showCheckered = true;
+                } else if (!isTimedSession && currentLap > laps_in_event && laps_in_event > 0) {
+                    showCheckered = true;
+                }
+
+                if (showYellow || showCheckered || showWhite) {
+                    document.getElementById('flagsGroup').style.display = 'block';
+                    document.getElementById('flagYellow').style.display = showYellow ? 'block' : 'none';
+                    document.getElementById('flagCheckered').style.display = showCheckered ? 'block' : 'none';
+                    document.getElementById('flagWhite').style.display = showWhite ? 'block' : 'none';
+                } else {
+                    document.getElementById('flagsGroup').style.display = 'none';
+                }
+            };
+            
+            ws.onclose = () => {
+                setTimeout(connectWebSocket, 1000);
+            };
+        }
+
+        window.onload = connectWebSocket;
+    </script>
+</body>
+</html>

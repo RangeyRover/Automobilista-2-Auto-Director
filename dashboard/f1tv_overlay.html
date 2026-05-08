@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=1920, height=1080, initial-scale=1.0">
+    <title>F1TV Overlay</title>
+    <style>
+        @font-face {
+            font-family: 'Formula1';
+            src: url('../_SHFonts/Formula1-Bold.ttf') format('truetype');
+        }
+        :root {
+            --f1-red: #E10600;
+            --f1-white: #FFFFFF;
+            --f1-black: #15151E;
+            --f1-dark-grey: #38383F;
+            --f1-light-grey: #949498;
+            --f1-timing-green: #00FF00;
+            --f1-timing-purple: #A020F0;
+            --f1-timing-yellow: #FFD700;
+            --panel-bg: rgba(21,21,30,0.85);
+            --panel-border: rgba(255,255,255,0.1);
+            --transition-speed: 0.3s;
+        }
+        body {
+            margin: 0;
+            background: transparent;
+            overflow: hidden;
+            width: 1920px;
+            height: 1080px;
+            font-family: 'Formula1', sans-serif;
+            color: var(--f1-white);
+        }
+        
+        .overlay-component {
+            position: absolute;
+            transition: opacity var(--transition-speed), transform var(--transition-speed);
+        }
+        .overlay-component.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        .overlay-component.slide-left { transform: translateX(-100%); }
+        .overlay-component.slide-right { transform: translateX(100%); }
+        .overlay-component.slide-up { transform: translateY(-100%); }
+
+        #connection-status {
+            position: absolute;
+            top: 4px;
+            left: 4px;
+            font-size: 10px;
+            opacity: 0.5;
+            z-index: 9999;
+        }
+        
+        #settings-panel {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%,-50%);
+            background: var(--panel-bg);
+            border: 1px solid var(--panel-border);
+            border-radius: 12px;
+            padding: 24px;
+            z-index: 10000;
+            display: none;
+            backdrop-filter: blur(10px);
+            min-width: 320px;
+            font-size: 14px;
+        }
+        #settings-panel h3 { margin-top: 0; }
+        .settings-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        .preset-btns {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .preset-btn {
+            background: var(--f1-dark-grey);
+            border: none;
+            border-radius: 20px;
+            padding: 6px 16px;
+            color: white;
+            cursor: pointer;
+            font-family: 'Formula1', sans-serif;
+            font-size: 12px;
+        }
+        .preset-btn:hover { background: var(--f1-red); }
+
+        #driver-name {
+            bottom: 60px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--panel-bg);
+            border-radius: 4px;
+            padding: 8px 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 22px;
+        }
+        .pos-box {
+            background: var(--f1-dark-grey);
+            padding: 4px 8px;
+            border-radius: 4px;
+            min-width: 30px;
+            text-align: center;
+        }
+        .team-strip {
+            width: 8px;
+            height: 24px;
+            border-radius: 4px;
+        }
+
+        #lap-timer {
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--panel-bg);
+            border-radius: 4px;
+            padding: 8px 16px;
+            display: flex;
+            gap: 16px;
+            font-size: 18px;
+        }
+
+        #live-speed {
+            bottom: 60px;
+            right: 40px;
+            font-size: 48px;
+            font-weight: bold;
+            text-shadow: 0 2px 8px rgba(0,0,0,0.8);
+        }
+
+        #ahead-behind {
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--panel-bg);
+            border-radius: 4px;
+            padding: 6px 16px;
+            font-size: 14px;
+            display: flex;
+            gap: 24px;
+        }
+        .gap-up { color: var(--f1-timing-green); }
+        .gap-down { color: var(--f1-red); }
+
+        #session-info {
+            top: 20px;
+            right: 20px;
+            background: var(--panel-bg);
+            border-radius: 4px;
+            padding: 10px 16px;
+            text-align: right;
+            font-size: 14px;
+        }
+
+        #mini-leaderboard {
+            top: 20px;
+            left: 20px;
+            border-radius: 4px;
+            overflow: hidden;
+            font-size: 13px;
+            min-width: 200px;
+        }
+        .lb-row {
+            display: flex;
+            padding: 6px 12px;
+            gap: 12px;
+            align-items: center;
+        }
+        .lb-row:nth-child(odd) { background: var(--f1-black); }
+        .lb-row:nth-child(even) { background: var(--f1-dark-grey); }
+        .lb-row.viewed {
+            border-left: 4px solid var(--f1-white);
+        }
+
+        #fastest-lap {
+            top: 150px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: linear-gradient(135deg, var(--f1-timing-purple), #6B0F9E);
+            border-radius: 8px;
+            padding: 16px 32px;
+            text-align: center;
+            font-size: 20px;
+        }
+
+        #weather-panel {
+            top: 100px;
+            right: 20px;
+            background: var(--panel-bg);
+            border-radius: 4px;
+            padding: 8px 12px;
+            font-size: 12px;
+            color: var(--f1-light-grey);
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        #pit-window {
+            bottom: 120px;
+            left: 20px;
+            background: var(--panel-bg);
+            border-radius: 4px;
+            padding: 8px 16px;
+            font-size: 14px;
+        }
+
+        #full-leaderboard {
+            top: 20px;
+            left: 20px;
+            bottom: 20px;
+            background: var(--panel-bg);
+            border-radius: 4px;
+            overflow-y: auto;
+            width: 300px;
+        }
+        .flb-row {
+            display: flex;
+            padding: 0 12px;
+            height: 32px;
+            align-items: center;
+            gap: 12px;
+            font-size: 13px;
+        }
+        .flb-row:nth-child(odd) { background: var(--f1-black); }
+        .flb-row:nth-child(even) { background: var(--f1-dark-grey); }
+        .flb-row.viewed { border-left: 4px solid var(--f1-white); }
+        
+        #fastest-sectors {
+            top: 150px;
+            right: 20px;
+            background: linear-gradient(135deg, var(--f1-timing-purple), #6B0F9E);
+            border-radius: 8px;
+            padding: 12px 24px;
+            font-size: 16px;
+        }
+
+        #speedometer {
+            bottom: 200px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 300px;
+            height: 200px;
+            background: var(--panel-bg);
+            border-radius: 8px;
+            padding: 16px;
+            box-sizing: border-box;
+        }
+
+        #car-damage {
+            right: 40px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 180px;
+            background: var(--panel-bg);
+            border-radius: 8px;
+            padding: 12px;
+            box-sizing: border-box;
+        }
+
+        #pit-timer {
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%,-50%);
+            background: linear-gradient(135deg, var(--f1-red), #8B0000);
+            border-radius: 8px;
+            padding: 20px 40px;
+            text-align: center;
+            font-size: 24px;
+            color: white;
+            min-width: 280px;
+            z-index: 1000;
+        }
+
+        @keyframes pit-pulse {
+            0% { box-shadow: 0 0 0 0 rgba(225, 6, 0, 0.7); }
+            70% { box-shadow: 0 0 0 20px rgba(225, 6, 0, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(225, 6, 0, 0); }
+        }
+        .pit-active {
+            animation: pit-pulse 1.5s infinite;
+        }
+
+        .fade-anim {
+            animation: fadeInOut 5s forwards;
+        }
+        @keyframes fadeInOut {
+            0% { opacity: 0; transform: translateY(-20px) translateX(-50%); }
+            10% { opacity: 1; transform: translateY(0) translateX(-50%); }
+            90% { opacity: 1; transform: translateY(0) translateX(-50%); }
+            100% { opacity: 0; transform: translateY(-20px) translateX(-50%); }
+        }
+        .fade-anim-right {
+            animation: fadeInOutRight 4s forwards;
+        }
+        @keyframes fadeInOutRight {
+            0% { opacity: 0; transform: translateY(-20px); }
+            10% { opacity: 1; transform: translateY(0); }
+            90% { opacity: 1; transform: translateY(0); }
+            100% { opacity: 0; transform: translateY(-20px); }
+        }
+
+        .tyre-soft { color: #E10600; }
+        .tyre-medium { color: #FFD700; }
+        .tyre-hard { color: #FFFFFF; }
+        .tyre-inter { color: #00FF00; }
+        .tyre-wet { color: #0000FF; }
+    </style>
+</head>
+<body>
+    <div id="connection-status">DISCONNECTED</div>
+
+    <div id="overlay-container">
+        <!-- Settings Panel -->
+        <div id="settings-panel">
+            <h3>F1TV Overlay Settings</h3>
+            <div class="settings-grid" id="settings-checkboxes">
+                <!-- populated by JS -->
+            </div>
+            <div class="preset-btns">
+                <button class="preset-btn" onclick="applyPreset('broadcast')">Broadcast</button>
+                <button class="preset-btn" onclick="applyPreset('cockpit')">Cockpit</button>
+                <button class="preset-btn" onclick="applyPreset('all')">All On</button>
+                <button class="preset-btn" onclick="applyPreset('none')">All Off</button>
+            </div>
+        </div>
+
+        <!-- Overlays -->
+        <div id="driver-name" class="overlay-component broadcast-only" data-component="Driver Name"></div>
+        <div id="lap-timer" class="overlay-component always-visible" data-component="Lap Timer"></div>
+        <div id="live-speed" class="overlay-component always-visible" data-component="Live Speed"></div>
+        <div id="ahead-behind" class="overlay-component broadcast-only" data-component="Ahead & Behind"></div>
+        <div id="session-info" class="overlay-component always-visible" data-component="Session Info"></div>
+        <div id="mini-leaderboard" class="overlay-component always-visible" data-component="Mini Leaderboard"></div>
+        <div id="fastest-lap" class="overlay-component always-visible hidden" data-component="Fastest Lap"></div>
+        <div id="weather-panel" class="overlay-component always-visible" data-component="Weather"></div>
+        <div id="pit-window" class="overlay-component always-visible" data-component="Pit Window"></div>
+        <div id="full-leaderboard" class="overlay-component always-visible hidden" data-component="Full Leaderboard"></div>
+        <div id="fastest-sectors" class="overlay-component always-visible hidden" data-component="Fastest Sectors"></div>
+        <div id="speedometer" class="overlay-component cockpit-only hidden" data-component="Speedometer"></div>
+        <div id="car-damage" class="overlay-component cockpit-only hidden" data-component="Car Damage"></div>
+        <div id="pit-timer" class="overlay-component always-visible hidden" data-component="Pit Timer"></div>
+    </div>
+
+    <script>
+        const components = [
+            { id: 'full-leaderboard', name: 'Full Leaderboard', default: false, type: 'broadcast' },
+            { id: 'mini-leaderboard', name: 'Mini Leaderboard', default: true, type: 'broadcast' },
+            { id: 'driver-name', name: 'Driver Name', default: true, type: 'broadcast' },
+            { id: 'lap-timer', name: 'Lap Timer', default: true, type: 'broadcast' },
+            { id: 'live-speed', name: 'Live Speed', default: false, type: 'cockpit' },
+            { id: 'ahead-behind', name: 'Ahead & Behind', default: true, type: 'broadcast' },
+            { id: 'session-info', name: 'Session Info', default: true, type: 'broadcast' },
+            { id: 'fastest-lap', name: 'Fastest Lap', default: true, type: 'broadcast' },
+            { id: 'fastest-sectors', name: 'Fastest Sectors', default: true, type: 'broadcast' },
+            { id: 'weather-panel', name: 'Weather', default: true, type: 'broadcast' },
+            { id: 'pit-window', name: 'Pit Window', default: true, type: 'broadcast' },
+            { id: 'pit-timer', name: 'Pit Timer', default: true, type: 'broadcast' },
+            { id: 'speedometer', name: 'Speedometer', default: true, type: 'cockpit' },
+            { id: 'car-damage', name: 'Car Damage', default: true, type: 'cockpit' }
+        ];
+
+        let state = null;
+        let prevFastestLap = 0;
+        let prevFastestSectors = [0,0,0];
+        let ws;
+
+        const teamLookup = {
+            "Formula Ultimate Gen 2": "var(--f1-red)",
+            "Formula V10": "var(--f1-timing-purple)"
+        };
+
+        function initSettings() {
+            const grid = document.getElementById('settings-checkboxes');
+            components.forEach(c => {
+                const label = document.createElement('label');
+                const cb = document.createElement('input');
+                cb.type = 'checkbox';
+                cb.id = `toggle-${c.id}`;
+                
+                const saved = localStorage.getItem(`toggle-${c.id}`);
+                if (saved !== null) {
+                    cb.checked = saved === 'true';
+                } else {
+                    cb.checked = c.default;
+                }
+                
+                cb.addEventListener('change', (e) => {
+                    localStorage.setItem(`toggle-${c.id}`, e.target.checked);
+                    updateVisibility();
+                });
+                
+                label.appendChild(cb);
+                label.appendChild(document.createTextNode(' ' + c.name));
+                grid.appendChild(label);
+            });
+
+            // Parse URL params
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.has('preset')) {
+                applyPreset(urlParams.get('preset'));
+            }
+            updateVisibility();
+        }
+
+        function applyPreset(preset) {
+            components.forEach(c => {
+                const cb = document.getElementById(`toggle-${c.id}`);
+                if (preset === 'broadcast') cb.checked = (c.type === 'broadcast');
+                else if (preset === 'cockpit') cb.checked = (c.type === 'cockpit');
+                else if (preset === 'all') cb.checked = true;
+                else if (preset === 'none') cb.checked = false;
+                
+                localStorage.setItem(`toggle-${c.id}`, cb.checked);
+            });
+            updateVisibility();
+        }
+
+        function updateVisibilityMode() {
+            if (!state || !state.director) return;
+            const camType = state.director.camera_type || "tv_cam";
+            
+            // Cockpit mode vs Broadcast mode
+            const isCockpit = (camType === "cockpit");
+            
+            document.querySelectorAll('.cockpit-only').forEach(el => {
+                if (isCockpit) el.classList.remove('mode-hidden');
+                else el.classList.add('mode-hidden');
+            });
+            
+            document.querySelectorAll('.broadcast-only').forEach(el => {
+                if (!isCockpit) el.classList.remove('mode-hidden');
+                else el.classList.add('mode-hidden');
+            });
+        }
+
+        function updateVisibility() {
+            // First apply visibility mode if state is available
+            updateVisibilityMode();
+
+            // Then apply user settings (overrides mode logic if toggled OFF)
+            components.forEach(c => {
+                const el = document.getElementById(c.id);
+                const cb = document.getElementById(`toggle-${c.id}`);
+                if (cb && el) {
+                    if (!cb.checked) {
+                        el.style.display = 'none'; // User turned it off explicitly
+                    } else {
+                        // User turned it on; check if mode-hidden allows it
+                        if (el.classList.contains('mode-hidden')) {
+                            el.style.display = 'none';
+                        } else {
+                            el.style.display = '';
+                        }
+                    }
+                }
+            });
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Tab') {
+                e.preventDefault();
+                toggleSettings();
+            }
+        });
+
+        function toggleSettings() {
+            const p = document.getElementById('settings-panel');
+            p.style.display = p.style.display === 'none' ? 'block' : 'none';
+        }
+
+        function connect() {
+            ws = new WebSocket('ws://' + location.host + '/ws');
+            const statusEl = document.getElementById('connection-status');
+            
+            ws.onopen = () => {
+                statusEl.innerText = "CONNECTED";
+                statusEl.style.color = "var(--f1-timing-green)";
+            };
+            
+            ws.onmessage = (e) => {
+                state = JSON.parse(e.data);
+                updateVisibility(); // Always check mode logic when state updates
+                updateAll();
+            };
+            
+            ws.onclose = () => {
+                statusEl.innerText = "DISCONNECTED";
+                statusEl.style.color = "var(--f1-red)";
+                setTimeout(connect, 2000);
+            };
+        }
+
+        function formatTime(sec) {
+            if (sec <= 0) return "--:--.---";
+            const m = Math.floor(sec / 60);
+            const s = Math.floor(sec % 60);
+            const ms = Math.floor((sec % 1) * 1000);
+            return `${m}:${s.toString().padStart(2, '0')}.${ms.toString().padStart(3, '0')}`;
+        }
+
+        function formatGap(gap) {
+            if (gap <= 0) return "";
+            return `+${gap.toFixed(3)}s`;
+        }
+        
+        function get3Letter(name) {
+            if (!name) return "UNK";
+            const parts = name.split(' ');
+            const last = parts.length > 1 ? parts[parts.length-1] : parts[0];
+            return last.substring(0,3).toUpperCase();
+        }
+
+        function getTeamColor(carClass) {
+            return teamLookup[carClass] || "var(--f1-dark-grey)";
+        }
+
+        function getDamageColor(val) {
+            val = val || 0;
+            if (val < 0.2) return "#00FF00";
+            if (val < 0.6) return "#FFD700";
+            return "#FF0000";
+        }
+
+        function updateAll() {
+            if (!state) return;
+
+            // Driver Name
+            const dn = document.getElementById('driver-name');
+            const vp = state.viewed.position;
+            const vn = state.viewed.name;
+            const viewedIdx = state.viewed_index;
+            
+            let carClass = "";
+            let viewedLb = state.leaderboard.find(x => x.name === vn);
+            if (viewedLb) carClass = viewedLb.car_class;
+            
+            dn.innerHTML = `
+                <div class="team-strip" style="background:${getTeamColor(carClass)}"></div>
+                <div class="pos-box">${vp || '-'}</div>
+                <div>${vn || 'Waiting...'}</div>
+            `;
+
+            // Lap Timer
+            const lt = document.getElementById('lap-timer');
+            if (viewedLb && viewedLb.current_sectors) {
+                const s1 = viewedLb.current_sectors[0] > 0 ? viewedLb.current_sectors[0].toFixed(3) : "--.---";
+                const s2 = viewedLb.current_sectors[1] > 0 ? viewedLb.current_sectors[1].toFixed(3) : "--.---";
+                const s3 = viewedLb.current_sectors[2] > 0 ? viewedLb.current_sectors[2].toFixed(3) : "--.---";
+                const lap = state.viewed.last_lap > 0 ? formatTime(state.viewed.last_lap) : "--:--.---";
+                lt.innerHTML = `
+                    <div>LAP: ${lap}</div>
+                    <div style="color:var(--f1-timing-yellow)">S1: ${s1}</div>
+                    <div style="color:var(--f1-timing-yellow)">S2: ${s2}</div>
+                    <div style="color:var(--f1-timing-yellow)">S3: ${s3}</div>
+                `;
+            }
+
+            // Live Speed
+            const ls = document.getElementById('live-speed');
+            ls.innerHTML = `${Math.round(state.viewed.speed_kph || 0)} <span style="font-size:24px">KPH</span>`;
+
+            // Ahead & Behind
+            const ab = document.getElementById('ahead-behind');
+            let abHTML = "";
+            if (state.ahead && state.ahead.name) {
+                abHTML += `<div>▲ ${state.ahead.name} <span class="gap-up">${formatGap(state.ahead.gap_seconds)}</span></div>`;
+            }
+            if (state.behind && state.behind.name) {
+                abHTML += `<div>▼ ${state.behind.name} <span class="gap-down">${formatGap(state.behind.gap_seconds)}</span></div>`;
+            }
+            ab.innerHTML = abHTML;
+
+            // Session Info
+            const si = document.getElementById('session-info');
+            const rain = state.weather.rain_density || 0;
+            const snow = state.weather.snow_density || 0;
+            let icon = '☀️';
+            if (snow > 0.1) icon = '❄️';
+            else if (rain > 0.7) icon = '⛈️';
+            else if (rain > 0.3) icon = '🌧️';
+            else if (rain > 0.1) icon = '🌦️';
+            
+            const rem = state.session.time_remaining || 0;
+            const h = Math.floor(rem / 3600);
+            const m = Math.floor((rem % 3600) / 60);
+            const s = Math.floor(rem % 60);
+            const tStr = `${h}:${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
+            
+            si.innerHTML = `
+                <div style="font-size:18px; font-weight:bold;">${state.session.track_name || 'Track'} ${icon}</div>
+                <div>Lap ${state.session.leader_lap || 0} / ${state.session.laps_in_event || 0}</div>
+                <div>${tStr}</div>
+            `;
+
+            // Mini Leaderboard
+            const mlb = document.getElementById('mini-leaderboard');
+            let mlbHTML = "";
+            const top5 = state.leaderboard.slice(0, 5);
+            top5.forEach(driver => {
+                const isViewed = driver.name === vn;
+                const tc = getTeamColor(driver.car_class);
+                mlbHTML += `
+                    <div class="lb-row ${isViewed ? 'viewed' : ''}">
+                        <div style="width:20px; text-align:right;">${driver.pos}</div>
+                        <div class="team-strip" style="background:${tc}; width:4px; height:16px;"></div>
+                        <div style="width:40px; font-weight:bold;">${get3Letter(driver.name)}</div>
+                        <div style="text-align:right; flex-grow:1;">${driver.pos === 1 ? 'LEADER' : formatGap(driver.gap)}</div>
+                    </div>
+                `;
+            });
+            mlb.innerHTML = mlbHTML;
+
+            // Full Leaderboard
+            const flb = document.getElementById('full-leaderboard');
+            let flbHTML = "";
+            state.leaderboard.forEach(driver => {
+                const isViewed = driver.name === vn;
+                const tc = getTeamColor(driver.car_class);
+                flbHTML += `
+                    <div class="flb-row ${isViewed ? 'viewed' : ''}">
+                        <div style="width:20px; text-align:right;">${driver.pos}</div>
+                        <div class="team-strip" style="background:${tc}; width:4px; height:16px;"></div>
+                        <div style="width:40px; font-weight:bold;">${get3Letter(driver.name)}</div>
+                        <div style="width:80px; text-align:right;">${formatTime(driver.last_lap)}</div>
+                        <div style="text-align:right; flex-grow:1;">${driver.pos === 1 ? 'LEADER' : formatGap(driver.gap)}</div>
+                        ${driver.pit > 0 ? `<div style="background:var(--f1-red); color:white; padding:0 4px; border-radius:2px; font-size:10px;" title="${driver.laps_since_last_pit > 0 ? driver.laps_since_last_pit + ' laps since pit' : ''}">P${driver.pit}</div>` : ''}
+                    </div>
+                `;
+            });
+            flb.innerHTML = flbHTML;
+
+            // Weather
+            const wp = document.getElementById('weather-panel');
+            wp.innerHTML = `
+                <div>AIR: ${Math.round(state.weather.ambient_temp)}°C</div>
+                <div>TRK: ${Math.round(state.weather.track_temp)}°C</div>
+                <div style="grid-column: span 2">RAIN: <div style="display:inline-block; width:100px; height:8px; background:var(--f1-dark-grey);"><div style="width:${(rain*100)}%; height:100%; background:var(--f1-timing-purple);"></div></div></div>
+                <div style="grid-column: span 2">WIND: ${state.weather.wind_speed} km/h</div>
+            `;
+
+            // Pit Window
+            const pw = document.getElementById('pit-window');
+            if (state.session.enforced_pit_stop_lap > 0) {
+                pw.style.display = '';
+                const comp = (state.viewed.tyre_compound && state.viewed.tyre_compound[0]) ? state.viewed.tyre_compound[0] : 'Unknown';
+                let cClass = "tyre-hard";
+                if (comp.toLowerCase().includes('soft')) cClass = "tyre-soft";
+                else if (comp.toLowerCase().includes('medium')) cClass = "tyre-medium";
+                else if (comp.toLowerCase().includes('inter')) cClass = "tyre-inter";
+                else if (comp.toLowerCase().includes('wet')) cClass = "tyre-wet";
+                pw.innerHTML = `
+                    <div style="font-weight:bold; color:var(--f1-red);">PIT WINDOW</div>
+                    <div>Mandatory Lap: ${state.session.enforced_pit_stop_lap}</div>
+                    <div>Tyre: <span class="${cClass}">●</span> ${comp}</div>
+                `;
+            } else {
+                pw.style.display = 'none';
+            }
+
+            // Fastest Lap Animation
+            if (state.session.world_fastest_lap > 0 && state.session.world_fastest_lap !== prevFastestLap) {
+                prevFastestLap = state.session.world_fastest_lap;
+                const fl = document.getElementById('fastest-lap');
+                const flDriver = state.leaderboard.find(x => Math.abs(x.fastest_lap - prevFastestLap) < 0.01) || {name: 'Unknown'};
+                fl.innerHTML = `
+                    <div style="font-size:14px; opacity:0.8;">FASTEST LAP</div>
+                    <div style="font-weight:bold;">${flDriver.name} - ${formatTime(prevFastestLap)}</div>
+                `;
+                fl.classList.remove('hidden');
+                fl.classList.remove('fade-anim');
+                void fl.offsetWidth; // trigger reflow
+                fl.classList.add('fade-anim');
+            }
+
+            // Fastest Sectors Animation
+            const newSectors = state.session.world_fastest_sectors;
+            if (newSectors && (newSectors[0] !== prevFastestSectors[0] || newSectors[1] !== prevFastestSectors[1] || newSectors[2] !== prevFastestSectors[2])) {
+                if (newSectors[0] > 0 || newSectors[1] > 0 || newSectors[2] > 0) {
+                    prevFastestSectors = [...newSectors];
+                    const fs = document.getElementById('fastest-sectors');
+                    fs.innerHTML = `
+                        <div style="font-size:12px; opacity:0.8;">FASTEST SECTORS</div>
+                        <div>S1: ${newSectors[0] > 0 ? newSectors[0].toFixed(3) : '--.---'}</div>
+                        <div>S2: ${newSectors[1] > 0 ? newSectors[1].toFixed(3) : '--.---'}</div>
+                        <div>S3: ${newSectors[2] > 0 ? newSectors[2].toFixed(3) : '--.---'}</div>
+                    `;
+                    fs.classList.remove('hidden');
+                    fs.classList.remove('fade-anim-right');
+                    void fs.offsetWidth;
+                    fs.classList.add('fade-anim-right');
+                }
+            }
+
+            // Speedometer
+            const sm = document.getElementById('speedometer');
+            const maxRpm = state.viewed.max_rpm || 10000;
+            const rpm = state.viewed.rpm || 0;
+            sm.innerHTML = `
+                <div style="display:flex; height:100%; gap:12px;">
+                    <div style="width:30px; height:100%; background:var(--f1-dark-grey); border-radius:4px; overflow:hidden; position:relative;">
+                        <div style="position:absolute; bottom:0; width:100%; height:${(state.viewed.brake || 0)*100}%; background:red;"></div>
+                    </div>
+                    <div style="flex-grow:1; display:flex; flex-direction:column; justify-content:center;">
+                        <div style="font-size:48px; text-align:center; font-weight:bold; margin-bottom:-10px;">${state.viewed.gear || 'N'}</div>
+                        <div style="font-size:24px; text-align:center;">${Math.round(state.viewed.speed_kph || 0)} KPH</div>
+                        <div style="width:100%; height:12px; background:var(--f1-dark-grey); border-radius:6px; margin-top:10px; overflow:hidden;">
+                            <div style="width:${(rpm/maxRpm)*100}%; height:100%; background:var(--f1-timing-purple);"></div>
+                        </div>
+                    </div>
+                    <div style="width:30px; height:100%; background:var(--f1-dark-grey); border-radius:4px; overflow:hidden; position:relative;">
+                        <div style="position:absolute; bottom:0; width:100%; height:${(state.viewed.throttle || 0)*100}%; background:green;"></div>
+                    </div>
+                </div>
+            `;
+
+            // Car Damage
+            const cd = document.getElementById('car-damage');
+            cd.innerHTML = `
+                <div style="text-align:center; font-weight:bold; margin-bottom:10px;">DAMAGE</div>
+                <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+                    <div style="color:${getDamageColor((state.viewed.suspension_damage || [])[0])}">FL</div>
+                    <div style="color:${getDamageColor((state.viewed.suspension_damage || [])[1])}">FR</div>
+                </div>
+                <div style="text-align:center; margin-bottom:10px;">
+                    <div style="display:flex; align-items:center; justify-content:center; gap:8px;">AERO <div style="width:40px; height:8px; background:var(--f1-dark-grey); border-radius:4px;"><div style="width:${(state.viewed.aero_damage || 0)*100}%; height:100%; background:red;"></div></div></div>
+                    <div style="display:flex; align-items:center; justify-content:center; gap:8px;">ENG <div style="width:40px; height:8px; background:var(--f1-dark-grey); border-radius:4px;"><div style="width:${(state.viewed.engine_damage || 0)*100}%; height:100%; background:red;"></div></div></div>
+                </div>
+                <div style="display:flex; justify-content:space-between;">
+                    <div style="color:${getDamageColor((state.viewed.suspension_damage || [])[2])}">RL</div>
+                    <div style="color:${getDamageColor((state.viewed.suspension_damage || [])[3])}">RR</div>
+                </div>
+            `;
+
+            // Pit Timer
+            const pt = document.getElementById('pit-timer');
+            if (state.pit_events && state.pit_events.length > 0) {
+                // Show the most recent event
+                const ev = state.pit_events[state.pit_events.length - 1];
+                let durStr = formatTime(ev.duration || 0);
+                if (durStr.startsWith('0:')) durStr = durStr.substring(2);
+                
+                pt.innerHTML = `
+                    <div style="font-size:16px; font-weight:bold; letter-spacing:2px; margin-bottom:8px;">PIT STOP</div>
+                    <div style="font-size:20px; font-weight:bold; margin-bottom:12px;">${ev.driver_name}</div>
+                    <div style="font-size:48px; font-weight:bold; margin-bottom:12px; font-variant-numeric: tabular-nums;">${durStr}</div>
+                    <div style="display:flex; gap:12px; justify-content:center; font-size:12px;">
+                        <div style="background:rgba(0,0,0,0.5); padding:4px 8px; border-radius:4px;">PIT ${ev.pit_count}</div>
+                        ${ev.laps_since_last_pit >= 0 ? `<div style="background:rgba(0,0,0,0.5); padding:4px 8px; border-radius:4px;">${ev.laps_since_last_pit} LAPS SINCE LAST</div>` : ''}
+                    </div>
+                `;
+                
+                if (pt.classList.contains('mode-hidden')) {
+                    pt.classList.add('hidden');
+                } else {
+                    pt.classList.remove('hidden');
+                }
+                
+                if (ev.in_progress) {
+                    pt.classList.add('pit-active');
+                } else {
+                    pt.classList.remove('pit-active');
+                }
+            } else {
+                pt.classList.add('hidden');
+                pt.classList.remove('pit-active');
+            }
+        }
+
+        initSettings();
+        connect();
+    </script>
+</body>
+</html>

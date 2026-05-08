@@ -1,0 +1,21 @@
+{
+  "ScreenCount": 1.0,
+  "InGameScreensIndexs": [
+    0
+  ],
+  "IdleScreensIndexs": [],
+  "MainPreviewIndex": 0,
+  "IsOverlay": false,
+  "OverlaySizeWarning": true,
+  "MetadataVersion": 2.0,
+  "EnableOnDashboardMessaging": true,
+  "PitScreensIndexs": [],
+  "SimHubVersion": "9.9.3",
+  "Category": null,
+  "Title": "AMS Auto Director Replay",
+  "Description": "28-03-24",
+  "Author": "RangeyRover",
+  "Width": 1920.0,
+  "Height": 1080.0,
+  "DashboardVersion": ""
+}

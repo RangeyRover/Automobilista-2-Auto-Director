@@ -1,0 +1,20 @@
+{
+  "SimHubVersion": "9.3.1",
+  "Category": null,
+  "Title": "F1TV - Car Damage",
+  "Description": "DHAM97 ( MISS1LE )",
+  "Author": "v4.1 - F1TV",
+  "ScreenCount": 1.0,
+  "InGameScreensIndexs": [
+    0
+  ],
+  "IdleScreensIndexs": [],
+  "MainPreviewIndex": 0,
+  "IsOverlay": true,
+  "Width": 280.0,
+  "Height": 600.0,
+  "OverlaySizeWarning": false,
+  "MetadataVersion": 2.0,
+  "EnableOnDashboardMessaging": true,
+  "PitScreensIndexs": []
+}

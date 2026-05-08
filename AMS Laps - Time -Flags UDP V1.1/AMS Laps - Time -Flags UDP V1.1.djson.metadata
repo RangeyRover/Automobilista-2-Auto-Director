@@ -1,0 +1,20 @@
+{
+  "SimHubVersion": "9.2.7",
+  "Category": null,
+  "Title": "AMS Laps - Time -Flags UDP V1.1",
+  "Description": "FOR Broadcast using UDP",
+  "Author": "RangeyRover",
+  "ScreenCount": 1.0,
+  "InGameScreensIndexs": [
+    0
+  ],
+  "IdleScreensIndexs": [],
+  "MainPreviewIndex": 0,
+  "IsOverlay": false,
+  "Width": 1920.0,
+  "Height": 1080.0,
+  "OverlaySizeWarning": true,
+  "MetadataVersion": 2.0,
+  "EnableOnDashboardMessaging": true,
+  "PitScreensIndexs": []
+}

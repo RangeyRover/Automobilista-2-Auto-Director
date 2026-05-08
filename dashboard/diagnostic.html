@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Auto Director - Diagnostic & Data Feed</title>
+    <style>
+        body {
+            background-color: #1a1a2e;
+            color: #e0e0e0;
+            font-family: 'Consolas', monospace;
+            margin: 20px;
+        }
+        h1, h2 {
+            color: #4ecca3;
+            margin-bottom: 5px;
+        }
+        .container {
+            display: flex;
+            gap: 20px;
+        }
+        .panel {
+            background-color: #16213e;
+            border: 1px solid #0f3460;
+            border-radius: 8px;
+            padding: 15px;
+            flex: 1;
+            height: 800px;
+            overflow-y: auto;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+        th, td {
+            text-align: left;
+            padding: 8px;
+            border-bottom: 1px solid #0f3460;
+        }
+        th {
+            background-color: #0f3460;
+            color: #fff;
+        }
+        pre {
+            background-color: #0a0a1a;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+            color: #a8d8ea;
+        }
+        .status {
+            color: #e94560;
+            font-weight: bold;
+        }
+        .controls {
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Telemetry Diagnostic Tool</h1>
+    <div class="controls">
+        <span id="connStatus" class="status">Connecting...</span> | 
+        UI Update Rate: <strong>1 Hz</strong> (Network Data: 60 Hz)
+    </div>
+
+    <div class="container">
+        <!-- Leaderboard Panel -->
+        <div class="panel">
+            <h2>Live Leaderboard</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>P</th>
+                        <th>Driver</th>
+                        <th>Lap</th>
+                        <th>Gap (s)</th>
+                        <th>Speed (m/s)</th>
+                        <th>Pit</th>
+                    </tr>
+                </thead>
+                <tbody id="leaderboardBody">
+                    <tr><td colspan="6">Waiting for data...</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Raw JSON Panel -->
+        <div class="panel">
+            <h2>Raw WebSocket JSON Payload</h2>
+            <p style="font-size:12px; margin-top:0;">This is exactly what the bridge sends out.</p>
+            <pre id="jsonViewer">{}</pre>
+        </div>
+    </div>
+
+    <script>
+        let latestData = null;
+        let lastUpdateTime = 0;
+
+        function connectWebSocket() {
+            const ws = new WebSocket(`ws://${window.location.host}/ws`);
+            
+            ws.onopen = () => {
+                document.getElementById('connStatus').innerText = "Connected";
+                document.getElementById('connStatus').style.color = "#4ecca3";
+            };
+            
+            ws.onmessage = (event) => {
+                // Save the data at 60Hz
+                latestData = JSON.parse(event.data);
+                
+                // Expose globally for users poking around in the console
+                window.telemetryData = latestData;
+            };
+            
+            ws.onclose = () => {
+                document.getElementById('connStatus').innerText = "Disconnected (Retrying...)";
+                document.getElementById('connStatus').style.color = "#e94560";
+                setTimeout(connectWebSocket, 1000);
+            };
+        }
+
+        // Throttle UI updates to exactly 1Hz (every 1000ms)
+        function updateUI() {
+            if (latestData) {
+                // Update Raw JSON Viewer
+                document.getElementById('jsonViewer').innerText = JSON.stringify(latestData, null, 2);
+
+                // Update Leaderboard Table
+                if (latestData.leaderboard && latestData.leaderboard.length > 0) {
+                    const tbody = document.getElementById('leaderboardBody');
+                    tbody.innerHTML = ''; // clear
+                    
+                    latestData.leaderboard.forEach(driver => {
+                        const tr = document.createElement('tr');
+                        
+                        // Format the data
+                        const pos = driver.pos || "-";
+                        const name = driver.name || "Unknown";
+                        const lap = driver.lap || 0;
+                        const gap = driver.gap ? driver.gap.toFixed(2) : "0.00";
+                        const speed = driver.speed ? driver.speed.toFixed(1) : "0.0";
+                        const pit = driver.pit > 0 ? "IN PIT" : "-";
+
+                        tr.innerHTML = `
+                            <td>${pos}</td>
+                            <td>${name}</td>
+                            <td>${lap}</td>
+                            <td>${gap}</td>
+                            <td>${speed}</td>
+                            <td>${pit}</td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+                }
+            }
+
+            // Loop again in 1000ms
+            setTimeout(updateUI, 1000);
+        }
+
+        window.onload = () => {
+            connectWebSocket();
+            updateUI(); // Start the 1Hz rendering loop
+        };
+    </script>
+</body>
+</html>

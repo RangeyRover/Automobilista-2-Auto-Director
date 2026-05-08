@@ -1,0 +1,22 @@
+{
+  "SimHubVersion": "9.3.1",
+  "Category": null,
+  "Title": "F1TV - Halo HUD",
+  "Description": "DHAM97 ( MISS1LE )",
+  "Author": "v4.1 - F1TV",
+  "ScreenCount": 1.0,
+  "InGameScreensIndexs": [
+    0
+  ],
+  "IdleScreensIndexs": [
+    0
+  ],
+  "MainPreviewIndex": 0,
+  "IsOverlay": true,
+  "Width": 972.0,
+  "Height": 408.0,
+  "OverlaySizeWarning": false,
+  "MetadataVersion": 2.0,
+  "EnableOnDashboardMessaging": false,
+  "PitScreensIndexs": []
+}

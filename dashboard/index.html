@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AMS2 Auto Director Dashboards</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #121212;
+            color: #e0e0e0;
+            margin: 0;
+            padding: 40px;
+        }
+        h1 {
+            color: #ffffff;
+            margin-bottom: 10px;
+        }
+        p {
+            color: #aaaaaa;
+            margin-bottom: 30px;
+        }
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        .card {
+            background-color: #1e1e1e;
+            border-radius: 8px;
+            padding: 20px;
+            transition: transform 0.2s, background-color 0.2s;
+            text-decoration: none;
+            color: inherit;
+            display: block;
+            border: 1px solid #333;
+        }
+        .card:hover {
+            transform: translateY(-2px);
+            background-color: #252525;
+            border-color: #555;
+        }
+        .card h2 {
+            margin-top: 0;
+            color: #4da6ff;
+            font-size: 1.2rem;
+        }
+        .card p {
+            margin-bottom: 0;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <h1>Auto Director Dashboards</h1>
+    <p>Select a dashboard to open. For OBS, add a Browser Source pointing to the dashboard URL with a transparent background.</p>
+    
+    <div class="dashboard-grid">
+        <a href="now_watching.html" class="card">
+            <h2>NOW WATCHING / Battle For</h2>
+            <p>Replicates the original SimHub overlay. Shows current driver telemetry and gaps for close racing. Transparent background.</p>
+        </a>
+    </div>
+
+    <script>
+        // Optional: Test websocket connection on the index page
+        const ws = new WebSocket(`ws://${window.location.host}/ws`);
+        ws.onopen = () => console.log("WebSocket connection established");
+        ws.onerror = (e) => console.error("WebSocket error:", e);
+    </script>
+</body>
+</html>

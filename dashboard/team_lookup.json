@@ -1,0 +1,12 @@
+{
+  "Formula Ultimate Gen 2": { "name": "Formula Ultimate", "color": "#E10600", "short": "FU2" },
+  "GT3": { "name": "GT3", "color": "#00D2BE", "short": "GT3" },
+  "GT4": { "name": "GT4", "color": "#FF8C00", "short": "GT4" },
+  "P1": { "name": "Prototype 1", "color": "#0600EF", "short": "P1" },
+  "Stock Car 2024": { "name": "Stock Car", "color": "#00FF00", "short": "SC" },
+  "Copa Classic B": { "name": "Copa Classic", "color": "#FF00FF", "short": "CCB" },
+  "F-Reiza": { "name": "Formula Reiza", "color": "#00FFFF", "short": "FRE" },
+  "F-Trainer": { "name": "Formula Trainer", "color": "#FFFF00", "short": "FTR" },
+  "Brabham BT46": { "name": "Brabham", "color": "#C0C0C0", "short": "BRB" },
+  "M1 Procar": { "name": "BMW M1 Procar", "color": "#800000", "short": "M1" }
+}
