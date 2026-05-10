@@ -9,6 +9,20 @@
             font-family: 'Formula1';
             src: url('../_SHFonts/Formula1-Bold.ttf') format('truetype');
         }
+        @font-face {
+            font-family: 'F1TV-2022';
+            src: url('_SHFonts/F1TV-2022-Bold.ttf') format('truetype');
+            font-weight: bold;
+        }
+        @font-face {
+            font-family: 'F1TV-2022';
+            src: url('_SHFonts/F1TV-2022-Regular.ttf') format('truetype');
+            font-weight: normal;
+        }
+        /* Halo HUD layer images */
+        #halo-hud img { position: absolute; }
+        #halo-hud .hud-layer { position: absolute; }
+        #halo-hud.mode-hidden { display: none !important; }
         :root {
             --f1-red: #E10600;
             --f1-white: #FFFFFF;
@@ -118,7 +132,7 @@
         }
 
         #lap-timer {
-            top: 20px;
+            bottom: 120px;
             left: 50%;
             transform: translateX(-50%);
             background: var(--panel-bg);
@@ -127,6 +141,12 @@
             display: flex;
             gap: 16px;
             font-size: 18px;
+            font-variant-numeric: tabular-nums;
+            transition: opacity 0.3s ease;
+            opacity: 1;
+        }
+        #lap-timer.close-car-hidden {
+            opacity: 0 !important;
         }
 
         #live-speed {
@@ -135,6 +155,7 @@
             font-size: 48px;
             font-weight: bold;
             text-shadow: 0 2px 8px rgba(0,0,0,0.8);
+            font-variant-numeric: tabular-nums;
         }
 
         #ahead-behind {
@@ -147,6 +168,7 @@
             font-size: 14px;
             display: flex;
             gap: 24px;
+            font-variant-numeric: tabular-nums;
         }
         .gap-up { color: var(--f1-timing-green); }
         .gap-down { color: var(--f1-red); }
@@ -162,18 +184,19 @@
         }
 
         #mini-leaderboard {
-            top: 20px;
+            top: 115px;
             left: 20px;
             border-radius: 4px;
             overflow: hidden;
             font-size: 13px;
-            min-width: 200px;
+            min-width: 380px;
         }
         .lb-row {
             display: flex;
             padding: 6px 12px;
             gap: 12px;
             align-items: center;
+            font-variant-numeric: tabular-nums;
         }
         .lb-row:nth-child(odd) { background: var(--f1-black); }
         .lb-row:nth-child(even) { background: var(--f1-dark-grey); }
@@ -190,6 +213,7 @@
             padding: 16px 32px;
             text-align: center;
             font-size: 20px;
+            font-variant-numeric: tabular-nums;
         }
 
         #weather-panel {
@@ -215,13 +239,13 @@
         }
 
         #full-leaderboard {
-            top: 20px;
+            top: 115px;
             left: 20px;
             bottom: 20px;
             background: var(--panel-bg);
             border-radius: 4px;
             overflow-y: auto;
-            width: 300px;
+            width: 380px;
         }
         .flb-row {
             display: flex;
@@ -230,6 +254,7 @@
             align-items: center;
             gap: 12px;
             font-size: 13px;
+            font-variant-numeric: tabular-nums;
         }
         .flb-row:nth-child(odd) { background: var(--f1-black); }
         .flb-row:nth-child(even) { background: var(--f1-dark-grey); }
@@ -242,49 +267,37 @@
             border-radius: 8px;
             padding: 12px 24px;
             font-size: 16px;
+            font-variant-numeric: tabular-nums;
         }
 
-        #speedometer {
-            bottom: 200px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 300px;
-            height: 200px;
-            background: var(--panel-bg);
-            border-radius: 8px;
-            padding: 16px;
-            box-sizing: border-box;
-        }
 
-        #car-damage {
-            right: 40px;
-            top: 50%;
-            transform: translateY(-50%);
-            width: 180px;
-            background: var(--panel-bg);
-            border-radius: 8px;
-            padding: 12px;
-            box-sizing: border-box;
-        }
+
+
 
         #pit-timer {
             top: 50%;
-            left: 50%;
-            transform: translate(-50%,-50%);
-            background: linear-gradient(135deg, var(--f1-red), #8B0000);
-            border-radius: 8px;
-            padding: 20px 40px;
-            text-align: center;
-            font-size: 24px;
-            color: white;
-            min-width: 280px;
+            right: 40px;
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
             z-index: 1000;
+        }
+        
+        .pit-box {
+            background: linear-gradient(135deg, var(--f1-red), #8B0000);
+            border-radius: 6px;
+            padding: 8px 16px;
+            text-align: center;
+            color: white;
+            min-width: 160px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
         }
 
         @keyframes pit-pulse {
-            0% { box-shadow: 0 0 0 0 rgba(225, 6, 0, 0.7); }
-            70% { box-shadow: 0 0 0 20px rgba(225, 6, 0, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(225, 6, 0, 0); }
+            0% { box-shadow: 0 0 0 0 rgba(225, 6, 0, 0.7), 0 4px 12px rgba(0,0,0,0.5); }
+            70% { box-shadow: 0 0 0 15px rgba(225, 6, 0, 0), 0 4px 12px rgba(0,0,0,0.5); }
+            100% { box-shadow: 0 0 0 0 rgba(225, 6, 0, 0), 0 4px 12px rgba(0,0,0,0.5); }
         }
         .pit-active {
             animation: pit-pulse 1.5s infinite;
@@ -314,10 +327,52 @@
         .tyre-hard { color: #FFFFFF; }
         .tyre-inter { color: #00FF00; }
         .tyre-wet { color: #0000FF; }
+    
+        /* NEW HALO HUD STYLES */
+        :root {
+            /* Configurable HUD Variables */
+            --hud-scale: 0.36;
+            --hud-bottom-offset: 0px;
+        }
+        
+        
+        #halo-hud {
+            position: absolute;
+            width: 2430px;
+            height: 1020px;
+            /* Center Horizontally (Unscaled Width / 2) */
+            left: 50%;
+            margin-left: -1215px; 
+            
+            /* Vertical Placement: Anchored to bottom + configurable offset */
+            bottom: var(--hud-bottom-offset);
+            
+            /* Global Scale */
+            transform: scale(var(--hud-scale));
+            transform-origin: bottom center;
+            pointer-events: none;
+        }
+        .hud-element {
+            position: absolute;
+            background-size: 100% 100%;
+            background-repeat: no-repeat;
+        }
+        .text-element {
+            position: absolute;
+            color: white;
+            font-weight: bold;
+            text-align: center;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            letter-spacing: -2px;
+            line-height: 1; /* Fix vertical alignment issues */
+        }
+        #halo-hud.mode-hidden { display: none !important; }
     </style>
 </head>
 <body>
-    <div id="connection-status">DISCONNECTED</div>
+    <div id="connection-status" class="overlay-component always-visible">DISCONNECTED</div>
 
     <div id="overlay-container">
         <!-- Settings Panel -->
@@ -336,24 +391,128 @@
 
         <!-- Overlays -->
         <div id="driver-name" class="overlay-component broadcast-only" data-component="Driver Name"></div>
-        <div id="lap-timer" class="overlay-component always-visible" data-component="Lap Timer"></div>
-        <div id="live-speed" class="overlay-component always-visible" data-component="Live Speed"></div>
+        <div id="lap-timer" class="overlay-component broadcast-only" data-component="Lap Timer"></div>
+        <div id="live-speed" class="overlay-component cockpit-only" data-component="Live Speed"></div>
         <div id="ahead-behind" class="overlay-component broadcast-only" data-component="Ahead & Behind"></div>
-        <div id="session-info" class="overlay-component always-visible" data-component="Session Info"></div>
+        <div id="session-info" class="overlay-component broadcast-only" data-component="Session Info"></div>
         <div id="mini-leaderboard" class="overlay-component always-visible" data-component="Mini Leaderboard"></div>
         <div id="fastest-lap" class="overlay-component always-visible hidden" data-component="Fastest Lap"></div>
         <div id="weather-panel" class="overlay-component always-visible" data-component="Weather"></div>
         <div id="pit-window" class="overlay-component always-visible" data-component="Pit Window"></div>
-        <div id="full-leaderboard" class="overlay-component always-visible hidden" data-component="Full Leaderboard"></div>
-        <div id="fastest-sectors" class="overlay-component always-visible hidden" data-component="Fastest Sectors"></div>
-        <div id="speedometer" class="overlay-component cockpit-only hidden" data-component="Speedometer"></div>
-        <div id="car-damage" class="overlay-component cockpit-only hidden" data-component="Car Damage"></div>
+        <div id="full-leaderboard" class="overlay-component broadcast-only hidden" data-component="Full Leaderboard"></div>
+        <div id="fastest-sectors" class="overlay-component broadcast-only hidden" data-component="Fastest Sectors"></div>
+
+
         <div id="pit-timer" class="overlay-component always-visible hidden" data-component="Pit Timer"></div>
     </div>
 
+    <!-- ============================================================
+         HALO HUD — cockpit-only, 1920x1080 absolute layer stack
+         All coordinates scaled from SimHub HALO HUD.djson
+         BaseWidth:2430 BaseHeight:1020  →  ScaleX:0.7901  ScaleY:1.0588
+         ============================================================ -->
+    <div id="halo-hud" class="mode-hidden">
+<!-- Background Layers -->
+        <div class="hud-element" style="background-image: url('F1TV - Halo HUD/_assets/bg.png'); left: 3.3px; top: 4.0px; width: 2423.4px; height: 1058.4px; transform: rotate(2deg); opacity: 0.8;"></div>
+        <div class="hud-element" style="background-image: url('F1TV - Halo HUD/_assets/bg.png'); left: 690.1px; top: 37.8px; width: 1100px; height: 500px; transform: rotate(4deg);"></div>
+        <div class="hud-element" style="background-image: url('F1TV - Halo HUD/_assets/RoundBG.png'); left: 970.1px; top: 57.8px; width: 506px; height: 371px; transform: rotate(0.5deg); opacity: 0.8;"></div>
+        <div class="hud-element" style="background-image: url('F1TV - Halo HUD/_assets/CenterLight.png'); left: 1031.1px; top: 164.8px; width: 370px; height: 221px; transform: rotate(0.5deg); opacity: 1;"></div>
+
+        <!-- Blue Strokes -->
+        <div class="hud-element" style="background-image: url('F1TV - Halo HUD/_assets/LeftBG.png'); left: 389.1px; top: 261.8px; width: 453px; height: 376px; opacity: 0.3;"></div>
+        <div class="hud-element" style="background-image: url('F1TV - Halo HUD/_assets/RightBG.png'); left: 1593.1px; top: 239.8px; width: 374px; height: 271px; opacity: 0.3;"></div>
+        <div class="hud-element" style="background-image: url('F1TV - Halo HUD/_assets/BlueStroke.png'); left: 674.3px; top: 244.8px; width: 1147.4px; height: 260.5px;"></div>
+
+        <!-- Main Strokes -->
+        <div class="hud-element" style="background-image: url('F1TV - Halo HUD/_assets/Top Stroke.png'); left: 425.1px; top: 53.6px; width: 1600px; height: 372px;"></div>
+        <div class="hud-element" style="background-image: url('F1TV - Halo HUD/_assets/MediumStroke.png'); left: 296.1px; top: 208.6px; width: 1925px; height: 405px; opacity: 0.3;"></div>
+        <div class="hud-element" style="background-image: url('F1TV - Halo HUD/_assets/Bottom Stroke.png'); left: 405.1px; top: 378.6px; width: 1641.1px; height: 416.8px; opacity: 0.8;"></div>
+
+        <!-- Throttle & Brake Base -->
+        <div class="hud-element" style="background-image: url('F1TV - Halo HUD/_assets/Throttle&BrakeBG.png'); left: 805.3px; top: 143.8px; width: 842.1px; height: 308.7px; opacity: 0.7;"></div>
+        
+        <!-- ERS Battery -->
+        <div class="hud-element" style="background-image: url('F1TV - Halo HUD/_assets_ERS/bg.png'); left: 334px; top: 333px; width: 460px; height: 374px; transform: rotate(-0.3deg);"></div>
+        <!-- Used 0-3.png for the bright green active state, and added drop-shadow for the glow effect -->
+        <div class="hud-element" style="background-image: url('F1TV - Halo HUD/_assets_ERS/0-3.png'); left: 319.5px; top: 357px; width: 489px; height: 327px; transform: rotate(-6.4deg); opacity: 1; filter: drop-shadow(0 0 15px rgba(23, 249, 72, 0.6));"></div>
+        
+        <!-- Throttle and Brake Active -->
+        <div id="hud-brake-meter" class="hud-element" style="background-image: url('F1TV - Halo HUD/_assets/Brake1.png'); left: 855.3px; top: 214.8px; width: 130.2px; height: 200.5px; opacity: 0; clip-path: inset(100% 0 0 0); transition: clip-path 0.062s linear, opacity 0.1s linear;"></div>
+        <div id="hud-throttle-meter" class="hud-element" style="background-image: url('F1TV - Halo HUD/_assets/100.png'); left: 1449.4px; top: 196.6px; width: 151.4px; height: 188.1px;"></div>
+
+        <!-- Speedo Ring -->
+        <div class="hud-element" style="background-image: url('F1TV - Halo HUD/_assets/RPMbg.png'); left: 1032.1px; top: 53.8px; width: 382px; height: 396px;"></div>
+        <div class="hud-element" style="background-image: url('F1TV - Halo HUD/_assets/RPM.png'); left: 1032.1px; top: 53.8px; width: 382px; height: 396px;"></div>
+        <!-- Center RPM Stroke -->
+        <div class="hud-element" style="background-image: url('F1TV - Halo HUD/_assets_RPMstroke/Red Bull Racing.png'); left: 1031.3px; top: 119.8px; width: 383.25px; height: 280.35px;"></div>
+
+        <!-- Brackets -->
+        <div class="hud-element" style="background-image: url('F1TV - Halo HUD/_assets/Brackets.png'); left: 958.1px; top: 175.8px; width: 530.2px; height: 201.6px; opacity: 0.8;"></div>
+
+        <!-- Center Dial Text & Icons -->
+        <div class="text-element" style="left: 1031.3px; top: 119.8px; width: 383px; height: 280px;">
+            <!-- Faint offset shadows for numbers (Positioned ABOVE and LEFT of the main numbers based on JSON) -->
+            <div id="hud-kmh-shadow" style="position: absolute; left: 90px; top: 57px; width: 180px; height: 71px; font-size: 75px; transform: rotate(-0.6deg); opacity: 0.1;">215</div>
+            <div id="hud-mph-shadow" style="position: absolute; left: 95px; top: 137px; width: 180px; height: 71px; font-size: 65px; transform: rotate(-0.6deg); opacity: 0.1;">215</div>
+
+            <!-- Main active numbers -->
+            <div id="hud-kmh-main" style="position: absolute; left: 95px; top: 70px; width: 180px; height: 71px; font-size: 75px; transform: rotate(-0.6deg);">215</div>
+            <div class="hud-element" style="background-image: url('F1TV - Halo HUD/_assets_RPMstroke/KMH.png'); left: 140px; top: 52px; width: 88px; height: 20px; transform: rotate(-1deg);"></div>
+            <div id="hud-mph-main" style="position: absolute; left: 100px; top: 150px; width: 180px; height: 71px; font-size: 65px; transform: rotate(-0.6deg);">215</div>
+            <div class="hud-element" style="background-image: url('F1TV - Halo HUD/_assets_RPMstroke/MPH.png'); left: 155px; top: 221px; width: 57.6px; height: 14.4px; transform: rotate(-1deg);"></div>
+        </div>
+
+        <!-- Label Shadows -->
+        <div class="hud-element" style="background-image: url('F1TV - Halo HUD/_assets/THROTTLE.png'); left: 1412.0px; top: 364.7px; width: 145.2px; height: 38.5px; transform: rotate(1.5deg); opacity: 0.1;"></div>
+        <div class="hud-element" style="background-image: url('F1TV - Halo HUD/_assets/BRAKE text.png'); left: 864.0px; top: 394.7px; width: 85.7px; height: 38.5px; transform: rotate(-2.5deg); opacity: 0.1;"></div>
+        <div class="hud-element" style="background-image: url('F1TV - Halo HUD/_assets/GEARS.png'); left: 1879.0px; top: 356.7px; width: 112px; height: 66px; transform: rotate(1deg); opacity: 0.1;"></div>
+        <div class="hud-element" style="background-image: url('F1TV - Halo HUD/_assets/RPM x1000.png'); left: 1778.0px; top: 444.7px; width: 186px; height: 108px; transform: rotate(2deg); opacity: 0.1;"></div>
+
+        <!-- Other UI Labels -->
+        <div class="hud-element" style="background-image: url('F1TV - Halo HUD/_assets_ERSpercent/100%25on.png'); left: 660px; top: 325px; width: 222px; height: 222px; transform: rotate(-4deg);"></div>
+        <div class="hud-element" style="background-image: url('F1TV - Halo HUD/_assets/ERS.png'); left: 480px; top: 340px; width: 185px; height: 160px; transform: rotate(4deg);"></div>
+
+        <div class="hud-element" style="background-image: url('F1TV - Halo HUD/_assets/THROTTLE.png'); left: 1411.3px; top: 374.8px; width: 145.2px; height: 38.5px; transform: rotate(1.5deg);"></div>
+        <div class="hud-element" style="background-image: url('F1TV - Halo HUD/_assets/BRAKE text.png'); left: 873.3px; top: 401.8px; width: 85.7px; height: 38.5px; transform: rotate(-2.5deg);"></div>
+
+        <!-- Right Side Gears & Labels -->
+        <div class="hud-element" style="background-image: url('F1TV - Halo HUD/_assets/GEARS.png'); left: 1870.1px; top: 367.8px; width: 112px; height: 66px; transform: rotate(1deg);"></div>
+        <div class="hud-element" style="background-image: url('F1TV - Halo HUD/_assets/RPM x1000.png'); left: 1777.1px; top: 452.8px; width: 186px; height: 108px; transform: rotate(2deg);"></div>
+        <div class="hud-element" style="background-image: url('F1TV - Halo HUD/_assets/OVERTAKE.png'); left: 1781px; top: 492px; width: 150.1px; height: 89.8px; transform: rotate(1deg);"></div>
+        <div class="hud-element" style="background-image: url('F1TV - Halo HUD/_assets/0.png'); left: 1610.1px; top: 374.8px; width: 18.5px; height: 17px; transform: rotate(-5deg); opacity: 0.5;"></div>
+        <!-- Dynamic Max RPM Label (replaces hardcoded 15.png) -->
+        <div id="hud-max-rpm-text" style="position: absolute; left: 2083px; top: 652px; width: 31.5px; height: 30.5px; transform: rotate(30deg) scale(1.3, 0.85); transform-origin: right center; opacity: 1; font-family: 'F1 Bold', sans-serif; font-size: 30px; text-align: right; line-height: 30.5px; color: #738c9f;">15</div>
+
+        <!-- Linear RPM Bar under Gears -->
+        <div class="hud-element" style="background-image: url('F1TV - Halo HUD/_assets_Gears/rpmBG.png'); left: 1594px; top: 476px; width: 585px; height: 40px; transform: rotate(30deg); opacity: 0.5;"></div>
+        <div id="hud-rpm-line" class="hud-element" style="background-image: url('F1TV - Halo HUD/_assets_Gears/Red Bull Racing.png'); left: 1594px; top: 476px; width: 585px; height: 40px; transform: rotate(30deg); filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.5)); clip-path: inset(0 100% 0 0); transition: clip-path 0.062s linear;"></div>
+
+        <!-- Gears Sequence Shadows -->
+        <div class="hud-element" style="background-image: url('F1TV - Halo HUD/_assets/N.png'); left: 1652.3px; top: 303.1px; width: 39.6px; height: 30.6px; transform: rotate(3deg); opacity: 0.1;"></div>
+        <div class="hud-element" style="background-image: url('F1TV - Halo HUD/_assets/1.png'); left: 1716.3px; top: 324.1px; width: 24.6px; height: 33.6px; transform: rotate(3deg); opacity: 0.1;"></div>
+        <div class="hud-element" style="background-image: url('F1TV - Halo HUD/_assets/2.png'); left: 1772.3px; top: 348.1px; width: 31.8px; height: 34.8px; transform: rotate(2deg); opacity: 0.1;"></div>
+        <div class="hud-element" style="background-image: url('F1TV - Halo HUD/_assets/3.png'); left: 1831.3px; top: 375.1px; width: 31.8px; height: 34.2px; opacity: 0.1;"></div>
+        <div class="hud-element" style="background-image: url('F1TV - Halo HUD/_assets/4.png'); left: 1888.3px; top: 413.1px; width: 30.0px; height: 30.6px; opacity: 0.1;"></div>
+        <div class="hud-element" style="background-image: url('F1TV - Halo HUD/_assets/5.png'); left: 1947.3px; top: 442.1px; width: 31.8px; height: 36.0px; transform: rotate(5deg); opacity: 0.1;"></div>
+        <div class="hud-element" style="background-image: url('F1TV - Halo HUD/_assets/6.png'); left: 2004.3px; top: 484.1px; width: 30.0px; height: 31.8px; transform: rotate(5deg); opacity: 0.1;"></div>
+        <div class="hud-element" style="background-image: url('F1TV - Halo HUD/_assets/7.png'); left: 2061.3px; top: 523.1px; width: 29.4px; height: 31.8px; transform: rotate(2deg); opacity: 0.1;"></div>
+        <div class="hud-element" style="background-image: url('F1TV - Halo HUD/_assets/8.png'); left: 2115.3px; top: 566.1px; width: 31.2px; height: 36.6px; opacity: 0.1;"></div>
+
+        <!-- Gears Sequence Active (Plain white base versions without the funky outline) -->
+        <div id="hud-gear-0" class="hud-element" style="background-image: url('F1TV - Halo HUD/_assets/N.png'); left: 1648px; top: 314px; width: 39.6px; height: 35.4px; transform: rotate(-1deg);"></div>
+        <div id="hud-gear-1" class="hud-element" style="background-image: url('F1TV - Halo HUD/_assets/1.png'); left: 1712px; top: 335px; width: 24.6px; height: 33.6px; transform: rotate(3deg);"></div>
+        <div id="hud-gear-2" class="hud-element" style="background-image: url('F1TV - Halo HUD/_assets/2.png'); left: 1768px; top: 359px; width: 31.8px; height: 34.8px; transform: rotate(4deg);"></div>
+        <div id="hud-gear-3" class="hud-element" style="background-image: url('F1TV - Halo HUD/_assets/3.png'); left: 1827px; top: 386px; width: 31.8px; height: 34.2px; transform: rotate(2deg);"></div>
+        <div id="hud-gear-4" class="hud-element" style="background-image: url('F1TV - Halo HUD/_assets/4.png'); left: 1884px; top: 424px; width: 30.0px; height: 30.6px; transform: rotate(2deg);"></div>
+        <div id="hud-gear-5" class="hud-element" style="background-image: url('F1TV - Halo HUD/_assets/5.png'); left: 1943px; top: 453px; width: 31.8px; height: 36.0px; transform: rotate(5deg);"></div>
+        <div id="hud-gear-6" class="hud-element" style="background-image: url('F1TV - Halo HUD/_assets/6.png'); left: 2000px; top: 495px; width: 30.0px; height: 31.8px; transform: rotate(8deg);"></div>
+        <div id="hud-gear-7" class="hud-element" style="background-image: url('F1TV - Halo HUD/_assets/7.png'); left: 2059px; top: 532px; width: 29.4px; height: 31.8px; transform: rotate(2deg);"></div>
+        <div id="hud-gear-8" class="hud-element" style="background-image: url('F1TV - Halo HUD/_assets/8.png'); left: 2111px; top: 577px; width: 31.2px; height: 36.6px; transform: rotate(3deg);"></div>
+    </div><!-- end #halo-hud -->
+
     <script>
         const components = [
-            { id: 'full-leaderboard', name: 'Full Leaderboard', default: false, type: 'broadcast' },
+            { id: 'full-leaderboard', name: 'Full Leaderboard', default: true, type: 'broadcast' },
             { id: 'mini-leaderboard', name: 'Mini Leaderboard', default: true, type: 'broadcast' },
             { id: 'driver-name', name: 'Driver Name', default: true, type: 'broadcast' },
             { id: 'lap-timer', name: 'Lap Timer', default: true, type: 'broadcast' },
@@ -365,8 +524,7 @@
             { id: 'weather-panel', name: 'Weather', default: true, type: 'broadcast' },
             { id: 'pit-window', name: 'Pit Window', default: true, type: 'broadcast' },
             { id: 'pit-timer', name: 'Pit Timer', default: true, type: 'broadcast' },
-            { id: 'speedometer', name: 'Speedometer', default: true, type: 'cockpit' },
-            { id: 'car-damage', name: 'Car Damage', default: true, type: 'cockpit' }
+            { id: 'connection-status', name: 'Connection Status', default: true, type: 'broadcast' }
         ];
 
         let state = null;
@@ -374,10 +532,61 @@
         let prevFastestSectors = [0,0,0];
         let ws;
 
-        const teamLookup = {
-            "Formula Ultimate Gen 2": "var(--f1-red)",
-            "Formula V10": "var(--f1-timing-purple)"
+        // HALO HUD VARS
+        const throttleMeter = document.getElementById('hud-throttle-meter');
+        const brakeMeter = document.getElementById('hud-brake-meter');
+        const rpmLine = document.getElementById('hud-rpm-line');
+        const maxRpmText = document.getElementById('hud-max-rpm-text');
+        const kmhMain = document.getElementById('hud-kmh-main');
+        const kmhShadow = document.getElementById('hud-kmh-shadow');
+        const mphMain = document.getElementById('hud-mph-main');
+        const mphShadow = document.getElementById('hud-mph-shadow');
+        
+        const throttleConfigs = {
+            10: { left: 1449.3, top: 344.8, width: 118.7, height: 39.9 },
+            20: { left: 1449.3, top: 330.3, width: 121.8, height: 54.6 },
+            30: { left: 1449.3, top: 316.3, width: 126.0, height: 68.3 },
+            40: { left: 1449.3, top: 301.8, width: 129.2, height: 83.0 },
+            50: { left: 1449.3, top: 284.8, width: 133.4, height: 99.8 },
+            60: { left: 1449.4, top: 268.3, width: 136.5, height: 116.6 },
+            70: { left: 1449.0, top: 251.8, width: 140.7, height: 133.4 },
+            80: { left: 1449.3, top: 235.0, width: 143.9, height: 150.2 },
+            90: { left: 1449.3, top: 217.3, width: 148.1, height: 168.0 },
+            100: { left: 1449.6, top: 197.3, width: 151.2, height: 188.0 }
         };
+
+        const gearConfigs = {
+            0: { label: 'N', left: 1648, top: 314, width: 39.6, height: 35.4 },
+            1: { label: '1', left: 1712, top: 335, width: 24.6, height: 33.6 },
+            2: { label: '2', left: 1768, top: 359, width: 31.8, height: 34.8 },
+            3: { label: '3', left: 1827, top: 386, width: 31.8, height: 34.2 },
+            4: { label: '4', left: 1884, top: 424, width: 30.0, height: 30.6 },
+            5: { label: '5', left: 1943, top: 453, width: 31.8, height: 36.0 },
+            6: { label: '6', left: 2000, top: 495, width: 30.0, height: 31.8 },
+            7: { label: '7', left: 2059, top: 532, width: 29.4, height: 31.8 },
+            8: { label: '8', left: 2111, top: 577, width: 31.2, height: 36.6 }
+        };
+
+        let lastGear = null;
+        let speedChangeCount = 0;
+        let rpmChangeCount = 0;
+        let lastSpeed = -1;
+        let lastRpm = -1;
+        let teamLookup = {};
+
+        async function fetchTeamLookup() {
+            try {
+                const res = await fetch('team_lookup.json?t=' + new Date().getTime());
+                if (res.ok) {
+                    const data = await res.json();
+                    for (const key in data) {
+                        teamLookup[key] = data[key].color;
+                    }
+                }
+            } catch (e) {
+                console.error("Failed to load team_lookup.json", e);
+            }
+        }
 
         function initSettings() {
             const grid = document.getElementById('settings-checkboxes');
@@ -412,13 +621,17 @@
             updateVisibility();
         }
 
+        const presets = {
+            'broadcast': ['full-leaderboard', 'mini-leaderboard', 'driver-name', 'lap-timer', 'ahead-behind', 'session-info', 'fastest-lap', 'fastest-sectors', 'weather-panel', 'pit-window', 'pit-timer', 'connection-status'],
+            'cockpit': ['mini-leaderboard', 'fastest-lap', 'weather-panel', 'pit-window', 'pit-timer']
+        };
+
         function applyPreset(preset) {
             components.forEach(c => {
                 const cb = document.getElementById(`toggle-${c.id}`);
-                if (preset === 'broadcast') cb.checked = (c.type === 'broadcast');
-                else if (preset === 'cockpit') cb.checked = (c.type === 'cockpit');
-                else if (preset === 'all') cb.checked = true;
+                if (preset === 'all') cb.checked = true;
                 else if (preset === 'none') cb.checked = false;
+                else cb.checked = presets[preset].includes(c.id);
                 
                 localStorage.setItem(`toggle-${c.id}`, cb.checked);
             });
@@ -438,9 +651,16 @@
             });
             
             document.querySelectorAll('.broadcast-only').forEach(el => {
-                if (!isCockpit) el.classList.remove('mode-hidden');
-                else el.classList.add('mode-hidden');
+                if (isCockpit) el.classList.add('mode-hidden');
+                else el.classList.remove('mode-hidden');
             });
+
+            // T008: Halo HUD — cockpit-only component
+            const haloHud = document.getElementById('halo-hud');
+            if (haloHud) {
+                if (isCockpit) haloHud.classList.remove('mode-hidden');
+                else haloHud.classList.add('mode-hidden');
+            }
         }
 
         function updateVisibility() {
@@ -488,9 +708,25 @@
             };
             
             ws.onmessage = (e) => {
-                state = JSON.parse(e.data);
+                const data = JSON.parse(e.data);
+                
+                // Handle remote config updates from f1tv_control.html
+                if (data.type === "f1tv_config") {
+                    for (const key in data.config) {
+                        const cb = document.getElementById(`toggle-${key}`);
+                        if (cb && cb.checked !== data.config[key]) {
+                            cb.checked = data.config[key];
+                        }
+                    }
+                    updateVisibility();
+                    return;
+                }
+                
+                state = data;
                 updateVisibility(); // Always check mode logic when state updates
                 updateAll();
+                // T024: Update Halo HUD telemetry (only does work when cockpit mode active)
+                updateHaloHUD(state);
             };
             
             ws.onclose = () => {
@@ -509,18 +745,22 @@
         }
 
         function formatGap(gap) {
+            if (typeof gap === 'string') return gap;
             if (gap <= 0) return "";
             return `+${gap.toFixed(3)}s`;
         }
         
-        function get3Letter(name) {
+        function getLastName(name) {
             if (!name) return "UNK";
             const parts = name.split(' ');
             const last = parts.length > 1 ? parts[parts.length-1] : parts[0];
-            return last.substring(0,3).toUpperCase();
+            return last.toUpperCase();
         }
 
-        function getTeamColor(carClass) {
+        function getTeamColor(driverName, carClass) {
+            // First check if a specific driver is mapped in team_lookup.json
+            if (teamLookup[driverName]) return teamLookup[driverName];
+            // Otherwise fallback to car class mapping
             return teamLookup[carClass] || "var(--f1-dark-grey)";
         }
 
@@ -541,27 +781,63 @@
             const viewedIdx = state.viewed_index;
             
             let carClass = "";
+            let nationality = "";
             let viewedLb = state.leaderboard.find(x => x.name === vn);
-            if (viewedLb) carClass = viewedLb.car_class;
+            if (viewedLb) {
+                carClass = viewedLb.car_class;
+                nationality = viewedLb.nationality;
+            }
+            
+            let flagHTML = nationality ? `<img src="https://flagcdn.com/w20/${nationality}.png" srcset="https://flagcdn.com/w40/${nationality}.png 2x" height="15" style="vertical-align:middle; margin-right:8px; margin-top:-2px; border-radius:2px;">` : "";
             
             dn.innerHTML = `
-                <div class="team-strip" style="background:${getTeamColor(carClass)}"></div>
+                <div class="team-strip" style="background:${getTeamColor(vn, carClass)}"></div>
                 <div class="pos-box">${vp || '-'}</div>
-                <div>${vn || 'Waiting...'}</div>
+                <div>${flagHTML}${vn || 'Waiting...'}</div>
             `;
 
             // Lap Timer
             const lt = document.getElementById('lap-timer');
             if (viewedLb && viewedLb.current_sectors) {
-                const s1 = viewedLb.current_sectors[0] > 0 ? viewedLb.current_sectors[0].toFixed(3) : "--.---";
-                const s2 = viewedLb.current_sectors[1] > 0 ? viewedLb.current_sectors[1].toFixed(3) : "--.---";
-                const s3 = viewedLb.current_sectors[2] > 0 ? viewedLb.current_sectors[2].toFixed(3) : "--.---";
+                const secs = viewedLb.current_sectors;
+                const pBests = viewedLb.fastest_sectors || [0,0,0];
+                const wBests = state.session.world_fastest_sectors || [0,0,0];
+                
+                // activeIdx represents which sector is currently ticking
+                if (typeof window._activeIdx === 'undefined') window._activeIdx = -1;
+                
+                if (viewedLb.current_sector === 1 && secs[2] === 0) window._activeIdx = 0;
+                else if (viewedLb.current_sector === 2) window._activeIdx = 1;
+                else if (viewedLb.current_sector === 3) window._activeIdx = 2;
+                else if (viewedLb.current_sector === 1 && secs[2] > 0) window._activeIdx = -1;
+                
+                let activeIdx = window._activeIdx;
+                
+                function getSecHtml(val, idx) {
+                    if (val <= 0) return `<div style="color:var(--f1-light-grey); width:95px;">S${idx+1}: --.---</div>`;
+                    
+                    let isActive = (idx === activeIdx);
+                    let col = "var(--f1-white)";
+                    
+                    if (!isActive) {
+                        if (wBests[idx] > 0 && val <= wBests[idx] + 0.005) col = "var(--f1-timing-purple)";
+                        else if (pBests[idx] > 0 && val <= pBests[idx] + 0.005) col = "var(--f1-timing-green)";
+                        else col = "var(--f1-timing-yellow)";
+                    }
+                    
+                    return `<div style="color:${col}; width:95px; font-weight:${isActive ? 'normal' : 'bold'}; text-shadow:${isActive ? 'none' : '0 0 8px '+col};">S${idx+1}: ${val.toFixed(3)}</div>`;
+                }
+
+                const s1Html = getSecHtml(secs[0], 0);
+                const s2Html = getSecHtml(secs[1], 1);
+                const s3Html = getSecHtml(secs[2], 2);
+                
                 const lap = state.viewed.last_lap > 0 ? formatTime(state.viewed.last_lap) : "--:--.---";
                 lt.innerHTML = `
-                    <div>LAP: ${lap}</div>
-                    <div style="color:var(--f1-timing-yellow)">S1: ${s1}</div>
-                    <div style="color:var(--f1-timing-yellow)">S2: ${s2}</div>
-                    <div style="color:var(--f1-timing-yellow)">S3: ${s3}</div>
+                    <div style="width:140px; font-weight:bold;">LAP: ${lap}</div>
+                    ${s1Html}
+                    ${s2Html}
+                    ${s3Html}
                 `;
             }
 
@@ -572,13 +848,28 @@
             // Ahead & Behind
             const ab = document.getElementById('ahead-behind');
             let abHTML = "";
+            let hasCloseCar = false;
             if (state.ahead && state.ahead.name) {
                 abHTML += `<div>▲ ${state.ahead.name} <span class="gap-up">${formatGap(state.ahead.gap_seconds)}</span></div>`;
+                if (state.ahead.gap_seconds > 0 && state.ahead.gap_seconds <= 0.5) {
+                    hasCloseCar = true;
+                }
             }
             if (state.behind && state.behind.name) {
                 abHTML += `<div>▼ ${state.behind.name} <span class="gap-down">${formatGap(state.behind.gap_seconds)}</span></div>`;
+                if (state.behind.gap_seconds > 0 && state.behind.gap_seconds <= 0.5) {
+                    hasCloseCar = true;
+                }
             }
             ab.innerHTML = abHTML;
+
+            if (lt) {
+                if (hasCloseCar) {
+                    lt.classList.add('close-car-hidden');
+                } else {
+                    lt.classList.remove('close-car-hidden');
+                }
+            }
 
             // Session Info
             const si = document.getElementById('session-info');
@@ -596,24 +887,42 @@
             const s = Math.floor(rem % 60);
             const tStr = `${h}:${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
             
+            const lapsInEvent = state.session.laps_in_event || 0;
+            const lapDisplay = lapsInEvent > 0 ? `Lap ${state.session.leader_lap || 0} / ${lapsInEvent}` : `Lap ${state.session.leader_lap || 0}`;
+            
             si.innerHTML = `
                 <div style="font-size:18px; font-weight:bold;">${state.session.track_name || 'Track'} ${icon}</div>
-                <div>Lap ${state.session.leader_lap || 0} / ${state.session.laps_in_event || 0}</div>
-                <div>${tStr}</div>
+                <div>${lapDisplay}</div>
+                <div style="font-variant-numeric:tabular-nums;">${tStr}</div>
             `;
 
-            // Mini Leaderboard
+            // Main Leaderboard
             const mlb = document.getElementById('mini-leaderboard');
             let mlbHTML = "";
-            const top5 = state.leaderboard.slice(0, 5);
-            top5.forEach(driver => {
+            state.leaderboard.forEach(driver => {
                 const isViewed = driver.name === vn;
-                const tc = getTeamColor(driver.car_class);
+                const tc = getTeamColor(driver.name, driver.car_class);
+                
+                let tCol = "#FFFFFF";
+                if (driver.tyre_compound) {
+                    const comp = driver.tyre_compound.toLowerCase();
+                    if (comp.includes('soft')) tCol = "#E10600";
+                    else if (comp.includes('medium')) tCol = "#FFD700";
+                    else if (comp.includes('inter')) tCol = "#00FF00";
+                    else if (comp.includes('wet')) tCol = "#0000FF";
+                }
+
                 mlbHTML += `
                     <div class="lb-row ${isViewed ? 'viewed' : ''}">
                         <div style="width:20px; text-align:right;">${driver.pos}</div>
                         <div class="team-strip" style="background:${tc}; width:4px; height:16px;"></div>
-                        <div style="width:40px; font-weight:bold;">${get3Letter(driver.name)}</div>
+                        <div style="width:140px; display:flex; align-items:center; font-weight:bold; overflow:hidden; white-space:nowrap; text-overflow:ellipsis;">
+                            ${driver.nationality ? `<img src="https://flagcdn.com/w20/${driver.nationality}.png" height="11" style="margin-right:8px; border-radius:1px;">` : ''}
+                            ${getLastName(driver.name)}
+                        </div>
+                        <div style="display:flex; align-items:center; font-size:10px; color:#ccc; width: 60px; justify-content: flex-end;">
+                            <span style="color:${tCol}; margin-right: 2px; font-size: 12px;" title="${driver.tyre_compound}">●</span>${driver.tyre_stint_laps > 0 ? driver.tyre_stint_laps : 'NEW'}
+                        </div>
                         <div style="text-align:right; flex-grow:1;">${driver.pos === 1 ? 'LEADER' : formatGap(driver.gap)}</div>
                     </div>
                 `;
@@ -625,12 +934,28 @@
             let flbHTML = "";
             state.leaderboard.forEach(driver => {
                 const isViewed = driver.name === vn;
-                const tc = getTeamColor(driver.car_class);
+                const tc = getTeamColor(driver.name, driver.car_class);
+                
+                let tCol = "#FFFFFF";
+                if (driver.tyre_compound) {
+                    const comp = driver.tyre_compound.toLowerCase();
+                    if (comp.includes('soft')) tCol = "#E10600";
+                    else if (comp.includes('medium')) tCol = "#FFD700";
+                    else if (comp.includes('inter')) tCol = "#00FF00";
+                    else if (comp.includes('wet')) tCol = "#0000FF";
+                }
+
                 flbHTML += `
                     <div class="flb-row ${isViewed ? 'viewed' : ''}">
                         <div style="width:20px; text-align:right;">${driver.pos}</div>
                         <div class="team-strip" style="background:${tc}; width:4px; height:16px;"></div>
-                        <div style="width:40px; font-weight:bold;">${get3Letter(driver.name)}</div>
+                        <div style="width:140px; display:flex; align-items:center; font-weight:bold; overflow:hidden; white-space:nowrap; text-overflow:ellipsis;">
+                            ${driver.nationality ? `<img src="https://flagcdn.com/w20/${driver.nationality}.png" height="11" style="margin-right:8px; border-radius:1px;">` : ''}
+                            ${getLastName(driver.name)}
+                        </div>
+                        <div style="display:flex; align-items:center; font-size:10px; color:#ccc; width: 60px; justify-content: flex-end; margin-right: 5px;">
+                            <span style="color:${tCol}; margin-right: 2px; font-size: 12px;" title="${driver.tyre_compound}">●</span>${driver.tyre_stint_laps > 0 ? driver.tyre_stint_laps : 'NEW'}
+                        </div>
                         <div style="width:80px; text-align:right;">${formatTime(driver.last_lap)}</div>
                         <div style="text-align:right; flex-grow:1;">${driver.pos === 1 ? 'LEADER' : formatGap(driver.gap)}</div>
                         ${driver.pit > 0 ? `<div style="background:var(--f1-red); color:white; padding:0 4px; border-radius:2px; font-size:10px;" title="${driver.laps_since_last_pit > 0 ? driver.laps_since_last_pit + ' laps since pit' : ''}">P${driver.pit}</div>` : ''}
@@ -641,11 +966,14 @@
 
             // Weather
             const wp = document.getElementById('weather-panel');
+            const air = (state.weather.ambient_temp || 0).toFixed(1);
+            const trk = (state.weather.track_temp || 0).toFixed(1);
+            const wind = (state.weather.wind_speed || 0).toFixed(1);
             wp.innerHTML = `
-                <div>AIR: ${Math.round(state.weather.ambient_temp)}°C</div>
-                <div>TRK: ${Math.round(state.weather.track_temp)}°C</div>
+                <div>AIR: <span style="display:inline-block; width:45px; text-align:right; font-variant-numeric:tabular-nums;">${air}</span>°C</div>
+                <div>TRK: <span style="display:inline-block; width:45px; text-align:right; font-variant-numeric:tabular-nums;">${trk}</span>°C</div>
                 <div style="grid-column: span 2">RAIN: <div style="display:inline-block; width:100px; height:8px; background:var(--f1-dark-grey);"><div style="width:${(rain*100)}%; height:100%; background:var(--f1-timing-purple);"></div></div></div>
-                <div style="grid-column: span 2">WIND: ${state.weather.wind_speed} km/h</div>
+                <div style="grid-column: span 2">WIND: <span style="display:inline-block; width:45px; text-align:right; font-variant-numeric:tabular-nums;">${wind}</span> km/h</div>
             `;
 
             // Pit Window
@@ -668,114 +996,225 @@
             }
 
             // Fastest Lap Animation
-            if (state.session.world_fastest_lap > 0 && state.session.world_fastest_lap !== prevFastestLap) {
-                prevFastestLap = state.session.world_fastest_lap;
-                const fl = document.getElementById('fastest-lap');
-                const flDriver = state.leaderboard.find(x => Math.abs(x.fastest_lap - prevFastestLap) < 0.01) || {name: 'Unknown'};
-                fl.innerHTML = `
-                    <div style="font-size:14px; opacity:0.8;">FASTEST LAP</div>
-                    <div style="font-weight:bold;">${flDriver.name} - ${formatTime(prevFastestLap)}</div>
-                `;
-                fl.classList.remove('hidden');
-                fl.classList.remove('fade-anim');
-                void fl.offsetWidth; // trigger reflow
-                fl.classList.add('fade-anim');
-            }
-
-            // Fastest Sectors Animation
-            const newSectors = state.session.world_fastest_sectors;
-            if (newSectors && (newSectors[0] !== prevFastestSectors[0] || newSectors[1] !== prevFastestSectors[1] || newSectors[2] !== prevFastestSectors[2])) {
-                if (newSectors[0] > 0 || newSectors[1] > 0 || newSectors[2] > 0) {
-                    prevFastestSectors = [...newSectors];
-                    const fs = document.getElementById('fastest-sectors');
-                    fs.innerHTML = `
-                        <div style="font-size:12px; opacity:0.8;">FASTEST SECTORS</div>
-                        <div>S1: ${newSectors[0] > 0 ? newSectors[0].toFixed(3) : '--.---'}</div>
-                        <div>S2: ${newSectors[1] > 0 ? newSectors[1].toFixed(3) : '--.---'}</div>
-                        <div>S3: ${newSectors[2] > 0 ? newSectors[2].toFixed(3) : '--.---'}</div>
-                    `;
-                    fs.classList.remove('hidden');
-                    fs.classList.remove('fade-anim-right');
-                    void fs.offsetWidth;
-                    fs.classList.add('fade-anim-right');
+            if (state.session.world_fastest_lap > 0 && (prevFastestLap === 0 || state.session.world_fastest_lap < prevFastestLap)) {
+                if (prevFastestLap === 0) {
+                    prevFastestLap = state.session.world_fastest_lap; // Silent init
+                } else {
+                    let bestDiff = 999;
+                    let flDriver = null;
+                    state.leaderboard.forEach(x => {
+                        let diffFast = Math.abs(x.fastest_lap - state.session.world_fastest_lap);
+                        if (diffFast < bestDiff && x.fastest_lap > 0) {
+                            bestDiff = diffFast;
+                            flDriver = x;
+                        }
+                        let diffLast = Math.abs(x.last_lap - state.session.world_fastest_lap);
+                        if (diffLast < bestDiff && x.last_lap > 0) {
+                            bestDiff = diffLast;
+                            flDriver = x;
+                        }
+                    });
+                    
+                    if (flDriver && bestDiff < 0.05) {
+                        prevFastestLap = state.session.world_fastest_lap;
+                        const fl = document.getElementById('fastest-lap');
+                        fl.innerHTML = `
+                            <div style="font-size:14px; opacity:0.8;">FASTEST LAP</div>
+                            <div style="font-weight:bold;">${flDriver.name} - ${formatTime(prevFastestLap)}</div>
+                        `;
+                        fl.classList.remove('hidden');
+                        fl.classList.remove('fade-anim');
+                        void fl.offsetWidth; // trigger reflow
+                        fl.classList.add('fade-anim');
+                        
+                        // Also trigger fastest sectors ONLY when a fastest lap is set
+                        const newSectors = state.session.world_fastest_sectors;
+                        if (newSectors && (newSectors[0] > 0 || newSectors[1] > 0 || newSectors[2] > 0)) {
+                            const fs = document.getElementById('fastest-sectors');
+                            fs.innerHTML = `
+                                <div style="font-size:12px; opacity:0.8;">FASTEST SECTORS</div>
+                                <div>S1: ${newSectors[0] > 0 ? newSectors[0].toFixed(3) : '--.---'}</div>
+                                <div>S2: ${newSectors[1] > 0 ? newSectors[1].toFixed(3) : '--.---'}</div>
+                                <div>S3: ${newSectors[2] > 0 ? newSectors[2].toFixed(3) : '--.---'}</div>
+                            `;
+                            fs.classList.remove('hidden');
+                            fs.classList.remove('fade-anim-right');
+                            void fs.offsetWidth;
+                            fs.classList.add('fade-anim-right');
+                        }
+                    }
                 }
             }
 
-            // Speedometer
-            const sm = document.getElementById('speedometer');
-            const maxRpm = state.viewed.max_rpm || 10000;
-            const rpm = state.viewed.rpm || 0;
-            sm.innerHTML = `
-                <div style="display:flex; height:100%; gap:12px;">
-                    <div style="width:30px; height:100%; background:var(--f1-dark-grey); border-radius:4px; overflow:hidden; position:relative;">
-                        <div style="position:absolute; bottom:0; width:100%; height:${(state.viewed.brake || 0)*100}%; background:red;"></div>
-                    </div>
-                    <div style="flex-grow:1; display:flex; flex-direction:column; justify-content:center;">
-                        <div style="font-size:48px; text-align:center; font-weight:bold; margin-bottom:-10px;">${state.viewed.gear || 'N'}</div>
-                        <div style="font-size:24px; text-align:center;">${Math.round(state.viewed.speed_kph || 0)} KPH</div>
-                        <div style="width:100%; height:12px; background:var(--f1-dark-grey); border-radius:6px; margin-top:10px; overflow:hidden;">
-                            <div style="width:${(rpm/maxRpm)*100}%; height:100%; background:var(--f1-timing-purple);"></div>
-                        </div>
-                    </div>
-                    <div style="width:30px; height:100%; background:var(--f1-dark-grey); border-radius:4px; overflow:hidden; position:relative;">
-                        <div style="position:absolute; bottom:0; width:100%; height:${(state.viewed.throttle || 0)*100}%; background:green;"></div>
-                    </div>
-                </div>
-            `;
 
-            // Car Damage
-            const cd = document.getElementById('car-damage');
-            cd.innerHTML = `
-                <div style="text-align:center; font-weight:bold; margin-bottom:10px;">DAMAGE</div>
-                <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
-                    <div style="color:${getDamageColor((state.viewed.suspension_damage || [])[0])}">FL</div>
-                    <div style="color:${getDamageColor((state.viewed.suspension_damage || [])[1])}">FR</div>
-                </div>
-                <div style="text-align:center; margin-bottom:10px;">
-                    <div style="display:flex; align-items:center; justify-content:center; gap:8px;">AERO <div style="width:40px; height:8px; background:var(--f1-dark-grey); border-radius:4px;"><div style="width:${(state.viewed.aero_damage || 0)*100}%; height:100%; background:red;"></div></div></div>
-                    <div style="display:flex; align-items:center; justify-content:center; gap:8px;">ENG <div style="width:40px; height:8px; background:var(--f1-dark-grey); border-radius:4px;"><div style="width:${(state.viewed.engine_damage || 0)*100}%; height:100%; background:red;"></div></div></div>
-                </div>
-                <div style="display:flex; justify-content:space-between;">
-                    <div style="color:${getDamageColor((state.viewed.suspension_damage || [])[2])}">RL</div>
-                    <div style="color:${getDamageColor((state.viewed.suspension_damage || [])[3])}">RR</div>
-                </div>
-            `;
+
+
 
             // Pit Timer
             const pt = document.getElementById('pit-timer');
             if (state.pit_events && state.pit_events.length > 0) {
-                // Show the most recent event
-                const ev = state.pit_events[state.pit_events.length - 1];
-                let durStr = formatTime(ev.duration || 0);
-                if (durStr.startsWith('0:')) durStr = durStr.substring(2);
+                // Drop if duration > 60s
+                let activePits = state.pit_events.filter(ev => (ev.duration || 0) <= 60);
                 
-                pt.innerHTML = `
-                    <div style="font-size:16px; font-weight:bold; letter-spacing:2px; margin-bottom:8px;">PIT STOP</div>
-                    <div style="font-size:20px; font-weight:bold; margin-bottom:12px;">${ev.driver_name}</div>
-                    <div style="font-size:48px; font-weight:bold; margin-bottom:12px; font-variant-numeric: tabular-nums;">${durStr}</div>
-                    <div style="display:flex; gap:12px; justify-content:center; font-size:12px;">
-                        <div style="background:rgba(0,0,0,0.5); padding:4px 8px; border-radius:4px;">PIT ${ev.pit_count}</div>
-                        ${ev.laps_since_last_pit >= 0 ? `<div style="background:rgba(0,0,0,0.5); padding:4px 8px; border-radius:4px;">${ev.laps_since_last_pit} LAPS SINCE LAST</div>` : ''}
-                    </div>
-                `;
-                
-                if (pt.classList.contains('mode-hidden')) {
-                    pt.classList.add('hidden');
-                } else {
-                    pt.classList.remove('hidden');
+                // Keep only the 3 most recent
+                if (activePits.length > 3) {
+                    activePits = activePits.slice(activePits.length - 3);
                 }
-                
-                if (ev.in_progress) {
-                    pt.classList.add('pit-active');
+
+                if (activePits.length > 0) {
+                    pt.innerHTML = activePits.map(ev => {
+                        let durStr = formatTime(ev.duration || 0);
+                        if (durStr.startsWith('0:')) durStr = durStr.substring(2);
+                        
+                        return `
+                            <div class="pit-box ${ev.in_progress ? 'pit-active' : ''}">
+                                <div style="font-size:11px; opacity:0.9; font-weight:bold; letter-spacing:1px; margin-bottom:2px;">PIT STOP</div>
+                                <div style="font-size:14px; font-weight:bold; margin-bottom:4px;">${ev.driver_name}</div>
+                                <div style="font-size:20px; font-weight:bold; margin-bottom:4px; font-variant-numeric: tabular-nums;">${durStr}</div>
+                                <div style="display:flex; gap:6px; justify-content:center; font-size:10px;">
+                                    <div style="background:rgba(0,0,0,0.5); padding:2px 4px; border-radius:3px;">PIT ${ev.pit_count}</div>
+                                    ${ev.laps_since_last_pit >= 0 ? `<div style="background:rgba(0,0,0,0.5); padding:2px 4px; border-radius:3px;">${ev.laps_since_last_pit} LAPS</div>` : ''}
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+
+                    if (pt.classList.contains('mode-hidden')) {
+                        pt.classList.add('hidden');
+                    } else {
+                        pt.classList.remove('hidden');
+                    }
                 } else {
-                    pt.classList.remove('pit-active');
+                    pt.classList.add('hidden');
+                    pt.innerHTML = '';
                 }
             } else {
                 pt.classList.add('hidden');
-                pt.classList.remove('pit-active');
+                pt.innerHTML = '';
             }
         }
 
+        function updateHaloHUD(state) {
+            if (!state || !state.viewed) return;
+            const t = state.viewed;
+            
+
+
+            // Track actual data change rate
+                        if (t.speed_kph !== lastSpeed) {
+                            speedChangeCount++;
+                            lastSpeed = t.speed_kph;
+                        }
+                        if (t.rpm !== lastRpm) {
+                            rpmChangeCount++;
+                            lastRpm = t.rpm;
+                        }
+                        // Throttle comes in as 0.0 to 1.0. Snap it to intervals of 10 for the PNGs: 10, 20... 100
+                        let throttlePct = Math.round(t.throttle * 10) * 10;
+                        if (throttlePct > 100) throttlePct = 100;
+                        
+                        if (throttlePct <= 0) {
+                            throttleMeter.style.opacity = '0';
+                        } else {
+                            const conf = throttleConfigs[throttlePct];
+                            throttleMeter.style.opacity = '1';
+                            throttleMeter.style.backgroundImage = `url('F1TV - Halo HUD/_assets/${throttlePct}.png')`;
+                            throttleMeter.style.left = conf.left + 'px';
+                            throttleMeter.style.top = conf.top + 'px';
+                            throttleMeter.style.width = conf.width + 'px';
+                            throttleMeter.style.height = conf.height + 'px';
+                        }
+                        
+                        // Speed updates
+                        const kmh = Math.round(t.speed_kph);
+                        const mph = Math.round(t.speed_kph * 0.621371);
+                        
+                        kmhMain.innerText = kmh;
+                        kmhShadow.innerText = kmh;
+                        mphMain.innerText = mph;
+                        mphShadow.innerText = mph;
+
+                        // Gear updates
+                        let currentGear = t.gear;
+                        if (currentGear !== lastGear) {
+                            // Turn OFF all gears first
+                            for (let i = 0; i <= 8; i++) {
+                                const el = document.getElementById('hud-gear-' + i);
+                                if (!el) continue;
+                                const conf = gearConfigs[i];
+                                el.style.backgroundImage = `url('F1TV - Halo HUD/_assets/${conf.label}.png')`;
+                                el.style.left = conf.left + 'px';
+                                el.style.top = conf.top + 'px';
+                                el.style.width = conf.width + 'px';
+                                el.style.height = conf.height + 'px';
+                            }
+                            
+                            // Turn ON current gear
+                            if (currentGear >= 0 && currentGear <= 8) {
+                                const el = document.getElementById('hud-gear-' + currentGear);
+                                const conf = gearConfigs[currentGear];
+                                if (el) {
+                                    el.style.backgroundImage = `url('F1TV - Halo HUD/_assets_Gears/${conf.label} on.png')`;
+                                    el.style.left = (conf.left - 7.8) + 'px';
+                                    el.style.top = (conf.top - 7.5) + 'px';
+                                    el.style.width = (conf.width + 15.6) + 'px';
+                                    el.style.height = (conf.height + 15.0) + 'px';
+                                }
+                            }
+                            lastGear = currentGear;
+                        }
+
+                        // Brake updates (Simulated segments using exact radial projection)
+                        if (t.brake <= 0) {
+                            brakeMeter.style.opacity = '0';
+                        } else {
+                            brakeMeter.style.opacity = '0.8';
+                            let brakePct = Math.round(t.brake * 10) * 10;
+                            
+                            if (brakePct >= 100) {
+                                brakeMeter.style.clipPath = 'none';
+                            } else {
+                                // Relative center of speedometer to brake div
+                                const Cx = 1223.1 - 855.3; // 367.8
+                                const Cy = 251.8 - 214.8;  // 37.0
+                                const H = 200.5;
+                                const W = 130.2;
+                                const X_mid = W / 2;
+
+                                // Y height of the current segment cut (0 is top, H is bottom)
+                                const Y = ((100 - brakePct) / 100) * H;
+
+                                // Slope of the radial line from center (Cx, Cy) through (X_mid, Y)
+                                const m = (Y - Cy) / (X_mid - Cx);
+
+                                // Pixel Y coordinates at left (X=0) and right (X=W)
+                                const Y_left_px = m * (0 - Cx) + Cy;
+                                const Y_right_px = m * (W - Cx) + Cy;
+
+                                // Convert to percentages
+                                const Y_left_pct = (Y_left_px / H) * 100;
+                                const Y_right_pct = (Y_right_px / H) * 100;
+
+                                // Use 200% for bottom vertices so polygon never self-intersects
+                                brakeMeter.style.clipPath = `polygon(0 200%, 100% 200%, 100% ${Y_right_pct}%, 0 ${Y_left_pct}%)`;
+                            }
+                        }
+
+                        // Linear RPM bar under gears (scales dynamically to car's max revs)
+                        const maxRpm = t.max_rpm || 15000;
+                        let rpmPct = (t.rpm / maxRpm) * 100;
+                        if (rpmPct < 0) rpmPct = 0;
+                        if (rpmPct > 100) rpmPct = 100;
+                        const insetRight = 100 - rpmPct;
+                        rpmLine.style.clipPath = `inset(0 ${insetRight}% 0 0)`;
+                        
+                        // Update the dynamic text at the end of the RPM line
+                        // Round up to a single integer (e.g. 7600 -> 8)
+                        maxRpmText.innerText = Math.ceil(maxRpm / 1000);
+        }
+
+
+        fetchTeamLookup();
         initSettings();
         connect();
     </script>

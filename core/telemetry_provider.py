@@ -11,6 +11,23 @@ import socket
 import threading
 import struct
 
+UDP_NATIONALITY_HASHES = {
+    933178424:  'BR', # Brazil
+    1004104139: 'UY', # Uruguay
+    2138617929: 'US', # USA
+    1048434266: 'AR', # Argentina
+    1808026356: 'ID', # Indonesia
+    3222416996: 'GR', # Greece
+    1789533886: 'NL', # Netherlands
+    4279958873: 'CO', # Colombia
+    3170477316: 'PT', # Portugal
+    354033749:  'MX', # Mexico
+    2858231841: 'CL', # Chile
+    1972970704: 'GB', # UK
+    4017120722: 'CA', # Canada
+    3603110075: 'AU', # Australia
+    2157389219: 'NZ'  # New Zealand
+}
 
 class TelemetryProvider:
     """Abstraction over SharedMemory and UDP data sources."""
@@ -27,8 +44,11 @@ class TelemetryProvider:
         self._distance_history: dict[int, list[tuple[float, float]]] = {}
         self._gap_history: dict[int, float] = {}
         self._closing_speed_ema: dict[int, float] = {}
+        self._tyre_stint_start_lap: dict[int, int] = {}
+        self._leader_spline: list[tuple[float, float]] = []  # (true_distance, game_time)
         self._last_poll_time = time.time()
         self._packet_buffer: dict[int, bytes] = {}  # keyed by packet size
+        self._udp_time_splits: dict[int, float] = {}
         
         # UDP State
         self._udp_port = 5606
@@ -36,8 +56,34 @@ class TelemetryProvider:
         self._udp_thread: threading.Thread | None = None
         self._udp_socket: socket.socket | None = None
         self._udp_participant_names: dict[int, str] = {}
+        self._udp_participant_nationalities: dict[int, str] = {}
+        self._udp_car_names: dict[int, str] = {}
+        self._udp_car_classes: dict[int, str] = {}
 
     # ── Public API ──────────────────────────────────────────────────────────
+
+    def udp_has_track_length(self) -> bool:
+        """Return True if a 308-byte packet is buffered with track_length > 0."""
+        packet = self._packet_buffer.get(308)
+        if not packet or len(packet) < 48:
+            return False
+        try:
+            track_length = struct.unpack_from('f', packet, 44)[0]
+            return track_length > 0.0
+        except struct.error:
+            return False
+
+    def udp_has_participant_names(self) -> bool:
+        """Return True if at least one participant name is cached from UDP."""
+        return len(self._udp_participant_names) > 0
+
+    def get_udp_car_names(self) -> dict[int, str]:
+        """Return cached car names parsed from UDP Strings packets."""
+        return dict(self._udp_car_names)
+
+    def get_udp_car_classes(self) -> dict[int, str]:
+        """Return cached car classes parsed from UDP Strings packets."""
+        return dict(self._udp_car_classes)
 
     def poll(self, shared_memory_obj=None) -> dict[int, dict] | None:
         """Read current telemetry. Returns participants dict keyed 0-31,
@@ -68,16 +114,30 @@ class TelemetryProvider:
 
         if self._detect_track_change(track_info):
             self._distance_history.clear()
+            self._leader_spline.clear()
+            self._tyre_stint_start_lap.clear()
 
         # Calculate derived fields
         track_length = track_info.get('track_length', 1.0)
         for idx, p in participants.items():
+            laps_completed = max(0, p['current_lap'] - 1)
             p['true_distance'] = self._calc_true_distance(
-                p['current_lap'], p['lap_distance'], track_length
+                laps_completed, p['lap_distance'], track_length
             )
+            
+            # Track tyre stint laps (assume pitstop = new tyres)
+            if p.get('pit_mode', 0) != 0:
+                self._tyre_stint_start_lap[idx] = p['current_lap']
+            p['tyre_stint_laps'] = max(0, p['current_lap'] - self._tyre_stint_start_lap.get(idx, 1))
 
         self._calc_gaps(participants)
         self._calc_cars_ahead(participants, track_length)
+
+        game_time = time.time()
+        if self._mode == 'shared_memory' and shared_memory_obj is not None:
+            game_time = getattr(shared_memory_obj, 'mCurrentTime', game_time)
+
+        self._calc_live_time_gaps(participants, track_length, game_time)
 
         now = time.time()
         dt = now - self._last_poll_time
@@ -171,14 +231,17 @@ class TelemetryProvider:
 
             participants[i] = {
                 'name': name,
+                'nationality': self._udp_participant_nationalities.get(i, ""),
                 'race_position': info.mRacePosition if hasattr(info, 'mRacePosition') else 0,
                 'is_active': is_active,
                 'lap_distance': info.mCurrentLapDistance if hasattr(info, 'mCurrentLapDistance') else 0.0,
                 'current_lap': info.mCurrentLap if hasattr(info, 'mCurrentLap') else 0,
-                'current_sector': info.mCurrentSector if hasattr(info, 'mCurrentSector') else 0,
+                # Shared Memory provides 0, 1, 2 for sectors. Convert to 1, 2, 3 for consistency with UDP.
+                'current_sector': (info.mCurrentSector + 1) if hasattr(info, 'mCurrentSector') else 1,
                 'speed': sm.mSpeeds[i] if hasattr(sm, 'mSpeeds') else 0.0,
                 'pit_mode': sm.mPitModes[i] if hasattr(sm, 'mPitModes') else 0,
                 'race_state': sm.mRaceStates[i] if hasattr(sm, 'mRaceStates') else 0,
+                'current_time': getattr(sm, 'mCurrentTime', 0.0),
                 'true_distance': 0.0,
                 'gap_ahead': 0.0,
                 'cars_ahead_250m': 0,
@@ -305,6 +368,94 @@ class TelemetryProvider:
         self._gap_history[idx] = current_gap
         return self._closing_speed_ema[idx]
 
+    def _calc_live_time_gaps(self, participants: dict, track_length: float, game_time: float):
+        """US1: Calculate live time gap to leader using spline history where possible."""
+        active = [(idx, p) for idx, p in participants.items() if p.get('is_active', False) and p.get('race_position', 999) > 0]
+        if not active:
+            return
+
+        # Sort by race_position ascending (1st to last)
+        active.sort(key=lambda x: x[1].get('race_position', 999))
+
+        # Establish a stable average speed for interpolation (fallback)
+        avg_speed = 60.0 
+        
+        leader = active[0][1]
+        last_lap = leader.get('last_lap', 0.0)
+        leader_dist = leader.get('true_distance', 0.0)
+        
+        if last_lap > 10.0 and track_length > 100.0:
+            avg_speed = track_length / last_lap
+
+        # Spline update logic for the leader
+        if not self._leader_spline:
+            self._leader_spline.append((leader_dist, game_time))
+        else:
+            last_dist, last_time = self._leader_spline[-1]
+            # Only record a new point every 5 meters to keep array size manageable
+            if leader_dist > last_dist + 5.0:
+                self._leader_spline.append((leader_dist, game_time))
+                # Keep array massive to support GT3 cars that are many laps down (e.g. 500km of history)
+                if len(self._leader_spline) > 100000:
+                    self._leader_spline.pop(0)
+            elif leader_dist < last_dist - track_length:
+                # If leader distance jumps backwards massively (session reset), clear spline
+                self._leader_spline.clear()
+                self._leader_spline.append((leader_dist, game_time))
+
+        def get_spline_time_at_distance(dist: float) -> float | None:
+            if not self._leader_spline or dist < self._leader_spline[0][0]:
+                return None
+            if dist >= self._leader_spline[-1][0]:
+                return self._leader_spline[-1][1]
+                
+            # Simple binary search to find the two points to interpolate between
+            left, right = 0, len(self._leader_spline) - 1
+            while left <= right:
+                mid = (left + right) // 2
+                if self._leader_spline[mid][0] < dist:
+                    left = mid + 1
+                else:
+                    right = mid - 1
+                    
+            if left >= len(self._leader_spline) or left == 0:
+                return None
+                
+            d1, t1 = self._leader_spline[left - 1]
+            d2, t2 = self._leader_spline[left]
+            
+            if d2 == d1:
+                return t1
+                
+            # Linear interpolation
+            ratio = (dist - d1) / (d2 - d1)
+            return t1 + ratio * (t2 - t1)
+
+        for i in range(len(active)):
+            idx = active[i][0]
+            p = active[i][1]
+            my_dist = p.get('true_distance', 0.0)
+            
+            # Physical distance to the overall leader
+            dist_to_leader = leader_dist - my_dist
+            
+            # Determine actual laps down based on physical distance, not just crossing the line
+            laps_down = 0
+            if track_length > 100.0 and dist_to_leader > (track_length * 0.8):
+                laps_down = int(dist_to_leader / track_length)
+                
+            p['laps_down'] = laps_down
+            
+            if i == 0:
+                p['time_gap_to_leader'] = 0.0
+            else:
+                spline_time = get_spline_time_at_distance(my_dist)
+                if spline_time is not None:
+                    p['time_gap_to_leader'] = game_time - spline_time
+                else:
+                    # Fallback to physical if the spline hasn't recorded that far back yet
+                    p['time_gap_to_leader'] = dist_to_leader / avg_speed
+
     # ── Track Change Detection ──────────────────────────────────────────────
 
     def _detect_track_change(self, track_info: dict) -> bool:
@@ -362,15 +513,20 @@ class TelemetryProvider:
             try:
                 data, addr = self._udp_socket.recvfrom(2048)
                 packet_size = len(data)
-                self._add_packet_to_buffer(data)
                 
-                # DEBUG: Output to console
-                print(f"[UDP DEBUG] Received packet of size {packet_size} from {addr}")
+                self._add_packet_to_buffer(data)
                 
                 # Proactively parse string packets to populate name cache
                 if packet_size in (1136, 1367):
-                    print(f"[UDP DEBUG] Parsing name strings from {packet_size}-byte packet")
                     self._parse_udp_names(data)
+                elif packet_size == 1063:
+                    try:
+                        local_index = struct.unpack_from('<H', data, 1055)[0]
+                        split_ahead = struct.unpack_from('<f', data, 21)[0]
+                        if split_ahead >= 0.0:
+                            self._udp_time_splits[local_index] = split_ahead
+                    except struct.error:
+                        pass
             except Exception as e:
                 if not self._udp_running:
                     break  # Socket closed gracefully
@@ -382,19 +538,89 @@ class TelemetryProvider:
         self._packet_buffer[len(packet)] = packet
 
     def _parse_udp_names(self, packet: bytes):
-        """Parse 1367-byte strings packet to cache driver names."""
-        # Offset 16 is where 16 names of 64 bytes each start
+        """Parse Strings packet to cache driver names, car names, and car classes.
+
+        Handles two packet sizes:
+        - 1367 bytes: 16-byte header + 16×64 names + 16×(remaining for car names)
+        - 1136 bytes: 12-byte header + 4-byte timestamp + 16×64 names + nationality(64) + sIndex(32)
+        """
+        pkt_len = len(packet)
+        if pkt_len == 1136:
+            print(f"[UDP NAT DEBUG] Parsing 1136-byte Strings Packet...")
+
+        if pkt_len >= 1367:
+            # 1367-byte layout: header(12) + timestamp(4) + 16×64 names(1024) + 16×64 car names(starts at 1040)
+            name_block_start = 16
+            name_stride = 64
+            car_name_block_start = 1040
+            car_name_stride = 64
+            car_class_block_start = 2064  # Beyond 1367 — not available in this packet size
+            car_class_stride = 64
+            nationality_block_start = -1
+            nationality_stride = -1
+        elif pkt_len >= 1136:
+            # 1136-byte layout: header(12) + timestamp(4) + 16×64 names(1024) + nationality(64) + sIndex(32)
+            name_block_start = 16
+            name_stride = 64
+            car_name_block_start = -1
+            car_name_stride = -1
+            car_class_block_start = -1
+            car_class_stride = -1
+            nationality_block_start = 1040
+            nationality_stride = 4
+        else:
+            return  # Unknown packet size
+
+        # The PacketBase header is the first 12 bytes. Offset 8 is mPartialPacketIndex (1-based).
+        partial_idx = packet[8]
+        base_idx = (partial_idx - 1) * 16 if partial_idx > 0 else 0
+
+        # Parse participant names
         for i in range(16):
-            offset = 16 + (i * 64)
-            if offset + 64 <= len(packet):
-                raw_name = packet[offset:offset+64]
+            offset = name_block_start + (i * name_stride)
+            if offset + name_stride <= pkt_len:
+                raw_name = packet[offset:offset + name_stride]
                 name = raw_name.split(b'\x00')[0].decode('utf-8', errors='replace').strip()
                 if name:
-                    self._udp_participant_names[i] = name
-                    
-        # If this is a PCars2 1367 packet, there are 16 names. 
-        # PCars2 uses an additional packet (PacketType 2) for names 16-31.
-        # But for testing, caching them correctly keyed by index is sufficient.
+                    abs_idx = base_idx + i
+                    self._udp_participant_names[abs_idx] = name
+
+        # Parse nationalities
+        if nationality_block_start != -1:
+            for i in range(16):
+                offset = nationality_block_start + (i * nationality_stride)
+                if offset + nationality_stride <= pkt_len:
+                    try:
+                        nat_hash = struct.unpack_from('<I', packet, offset)[0]
+                        abs_idx = base_idx + i
+                        found_nat = UDP_NATIONALITY_HASHES.get(nat_hash, "")
+                        self._udp_participant_nationalities[abs_idx] = found_nat
+                        
+                        if self._udp_participant_names.get(abs_idx):
+                            print(f"[UDP NAT DEBUG] Player Index {abs_idx} ({self._udp_participant_names[abs_idx]}) | Raw Hash from AMS2: {nat_hash} | Resolved To: '{found_nat}'")
+                            
+                    except struct.error:
+                        pass
+
+        # Parse car names
+        if car_name_block_start != -1:
+            for i in range(16):
+                offset = car_name_block_start + (i * car_name_stride)
+                if offset + car_name_stride <= pkt_len:
+                    raw = packet[offset:offset + car_name_stride]
+                    car_name = raw.split(b'\x00')[0].decode('utf-8', errors='replace').strip()
+                    if car_name:
+                        self._udp_car_names[i] = car_name
+
+        # Parse car classes (if within packet bounds)
+        if car_class_block_start != -1:
+            for i in range(16):
+                offset = car_class_block_start + (i * car_class_stride)
+                if offset + car_class_stride <= pkt_len:
+                    raw = packet[offset:offset + car_class_stride]
+                    car_class = raw.split(b'\x00')[0].decode('utf-8', errors='replace').strip()
+                    if car_class:
+                        self._udp_car_classes[i] = car_class
 
     def _extract_udp_track_info(self, packet: bytes | None) -> dict:
         """Extract track info from 308-byte UDP packet."""
@@ -410,7 +636,8 @@ class TelemetryProvider:
     def _extract_udp_session_info(self) -> dict:
         """Extract session info from UDP packet buffer (Fallback)."""
         info = {
-            'event_time_remaining': 0.0, 
+            'event_time_remaining': 0.0,
+            'current_time': 0.0,
             'laps_in_event': 0,
             'game_state': 0,
             'session_state': 0,
@@ -434,31 +661,28 @@ class TelemetryProvider:
                 if val != -1.0:
                     info['event_time_remaining'] = val
                 else:
-                    info['event_time_remaining'] = 0.0  # Or keep as -1.0 depending on GUI preference
-                # print(f"[UDP DEBUG] Parsed Session Info: Event Time Remaining = {val:.2f}s")
-            except struct.error as e:
-                print(f"[UDP DEBUG] Error unpacking session time: {e}")
+                    info['event_time_remaining'] = 0.0
+            except struct.error:
+                pass
                 
-        # sRaceData (308 bytes) holds total laps
         packet_race = self._packet_buffer.get(308)
         if packet_race and len(packet_race) >= 308:
             try:
-                # unsigned short sLapsTimeInEvent (304)
                 laps_time = struct.unpack_from('<H', packet_race, 304)[0]
                 is_timed = bool(laps_time & 0x8000)
                 actual_laps = laps_time & 0x7FFF
-                print(f"[UDP DEBUG] 308 Packet: sLapsTimeInEvent = {actual_laps} (Timed={is_timed})")
                 if not is_timed:
                     info['laps_in_event'] = actual_laps
-            except struct.error as e:
-                print(f"[UDP DEBUG] Error unpacking laps: {e}")
+                else:
+                    duration_secs = actual_laps * 5 * 60
+                    if info['event_time_remaining'] > 0:
+                        info['current_time'] = max(0.0, duration_secs - info['event_time_remaining'])
+            except struct.error:
+                pass
                 
-        # sGameStateData (24 bytes) holds GameState and SessionState
         packet_game_state = self._packet_buffer.get(24)
         if packet_game_state and len(packet_game_state) >= 24:
             try:
-                # char mGameState; (offset 14)
-                # Note: PackBase = 12 bytes + mBuildVersionNumber (2 bytes) = offset 14
                 game_state_raw = struct.unpack_from('<B', packet_game_state, 14)[0]
                 # Lower 4 bits = GameState, Upper 4 bits = SessionState
                 info['game_state'] = game_state_raw & 0x0F
@@ -474,12 +698,18 @@ class TelemetryProvider:
             return None
 
         try:
+            num_participants = struct.unpack_from('<b', packet, 12)[0]
+            if num_participants < 0 or num_participants > 32:
+                num_participants = 32
+
             participants: dict[int, dict] = {}
             for i in range(32):
                 race_position_offset = 31 + i * 32 + 16
                 lap_distance_offset = 31 + i * 32 + 14
                 current_sector_offset = 31 + i * 32 + 17
                 current_lap_offset = 31 + i * 32 + 23
+                current_time_offset = 31 + i * 32 + 24
+                current_sector_time_offset = 31 + i * 32 + 28
                 race_state_offset = 31 + i * 32 + 22
                 pit_mode_offset = 31 + i * 32 + 19
 
@@ -487,22 +717,39 @@ class TelemetryProvider:
                 race_pos_byte = packet[race_position_offset]
                 race_position = race_pos_byte & 0x7F
                 is_active = (race_pos_byte & 0x80) != 0
+                
+                # Strict active check using num_participants (removes disconnected ghosts)
+                if num_participants > 0:
+                    is_active = is_active and (i < num_participants)
+                    
                 lap_distance = int.from_bytes(packet[lap_distance_offset:lap_distance_offset + 2], byteorder='little')
                 current_sector = packet[current_sector_offset] & 0x0F
                 current_lap = packet[current_lap_offset]
+                
+                try:
+                    current_time = struct.unpack_from('<f', packet, current_time_offset)[0]
+                    current_sector_time = struct.unpack_from('<f', packet, current_sector_time_offset)[0]
+                except struct.error:
+                    current_time = 0.0
+                    current_sector_time = 0.0
+
                 race_state = packet[race_state_offset] & 0x07
                 pit_mode_byte = packet[pit_mode_offset]
                 pit_mode = pit_mode_byte & 0x07
 
-                # Lookup name from cache
+                # Lookup name and nationality from cache
                 name = self._udp_participant_names.get(i, f"Driver {i}")
+                nationality = self._udp_participant_nationalities.get(i, "")
 
                 participants[i] = {
                     'name': name,
+                    'nationality': nationality,
                     'race_position': race_position,
                     'is_active': is_active,
                     'lap_distance': float(lap_distance),
                     'current_lap': current_lap,
+                    'current_time': current_time,
+                    'current_sector_time': current_sector_time,
                     'current_sector': current_sector,
                     'speed': 0.0, # Will be calculated manually in poll()
                     'pit_mode': pit_mode,

@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>F1 Halo HUD</title>
+    <style>
+        :root {
+            /* Configurable HUD Variables */
+            --hud-scale: 0.36;
+            --hud-bottom-offset: 0px;
+        }
+        @font-family {
+            font-family: 'Formula1';
+            src: local('Arial Black');
+        }
+        body {
+            background-color: #1a1a1c; /* dark gray background from image */
+            margin: 0;
+            height: 100vh;
+            width: 100vw;
+            position: relative;
+            overflow: hidden;
+            font-family: "Formula1", "Arial Black", sans-serif;
+        }
+        #hud-container {
+            position: absolute;
+            width: 2430px;
+            height: 1020px;
+            /* Center Horizontally (Unscaled Width / 2) */
+            left: 50%;
+            margin-left: -1215px; 
+            
+            /* Vertical Placement: Anchored to bottom + configurable offset */
+            bottom: var(--hud-bottom-offset);
+            
+            /* Global Scale */
+            transform: scale(var(--hud-scale));
+            transform-origin: bottom center;
+        }
+        .hud-element {
+            position: absolute;
+            background-size: 100% 100%;
+            background-repeat: no-repeat;
+        }
+        .text-element {
+            position: absolute;
+            color: white;
+            font-weight: bold;
+            text-align: center;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            letter-spacing: -2px;
+            line-height: 1; /* Fix vertical alignment issues */
+        }
+    </style>
+</head>
+<body>
+    <!-- Telemetry Hz Counter (Debug) -->
+    <div id="debug-hz" style="position: absolute; top: 10px; left: 10px; color: lime; font-family: monospace; font-size: 24px; z-index: 9999; text-shadow: 1px 1px 2px black;">0 Hz</div>
+
+    <div id="hud-container">
+        <!-- Background Layers -->
+        <div class="hud-element" style="background-image: url('_assets/bg.png'); left: 3.3px; top: 4.0px; width: 2423.4px; height: 1058.4px; transform: rotate(2deg); opacity: 0.8;"></div>
+        <div class="hud-element" style="background-image: url('_assets/bg.png'); left: 690.1px; top: 37.8px; width: 1100px; height: 500px; transform: rotate(4deg);"></div>
+        <div class="hud-element" style="background-image: url('_assets/RoundBG.png'); left: 970.1px; top: 57.8px; width: 506px; height: 371px; transform: rotate(0.5deg); opacity: 0.8;"></div>
+        <div class="hud-element" style="background-image: url('_assets/CenterLight.png'); left: 1031.1px; top: 164.8px; width: 370px; height: 221px; transform: rotate(0.5deg); opacity: 1;"></div>
+
+        <!-- Blue Strokes -->
+        <div class="hud-element" style="background-image: url('_assets/LeftBG.png'); left: 389.1px; top: 261.8px; width: 453px; height: 376px; opacity: 0.3;"></div>
+        <div class="hud-element" style="background-image: url('_assets/RightBG.png'); left: 1593.1px; top: 239.8px; width: 374px; height: 271px; opacity: 0.3;"></div>
+        <div class="hud-element" style="background-image: url('_assets/BlueStroke.png'); left: 674.3px; top: 244.8px; width: 1147.4px; height: 260.5px;"></div>
+
+        <!-- Main Strokes -->
+        <div class="hud-element" style="background-image: url('_assets/Top Stroke.png'); left: 425.1px; top: 53.6px; width: 1600px; height: 372px;"></div>
+        <div class="hud-element" style="background-image: url('_assets/MediumStroke.png'); left: 296.1px; top: 208.6px; width: 1925px; height: 405px; opacity: 0.3;"></div>
+        <div class="hud-element" style="background-image: url('_assets/Bottom Stroke.png'); left: 405.1px; top: 378.6px; width: 1641.1px; height: 416.8px; opacity: 0.8;"></div>
+
+        <!-- Throttle & Brake Base -->
+        <div class="hud-element" style="background-image: url('_assets/Throttle&BrakeBG.png'); left: 805.3px; top: 143.8px; width: 842.1px; height: 308.7px; opacity: 0.7;"></div>
+        
+        <!-- ERS Battery -->
+        <div class="hud-element" style="background-image: url('_assets_ERS/bg.png'); left: 334px; top: 333px; width: 460px; height: 374px; transform: rotate(-0.3deg);"></div>
+        <!-- Used 0-3.png for the bright green active state, and added drop-shadow for the glow effect -->
+        <div class="hud-element" style="background-image: url('_assets_ERS/0-3.png'); left: 319.5px; top: 357px; width: 489px; height: 327px; transform: rotate(-6.4deg); opacity: 1; filter: drop-shadow(0 0 15px rgba(23, 249, 72, 0.6));"></div>
+        
+        <!-- Throttle and Brake Active -->
+        <div id="hud-brake-meter" class="hud-element" style="background-image: url('_assets/Brake1.png'); left: 855.3px; top: 214.8px; width: 130.2px; height: 200.5px; opacity: 0; clip-path: inset(100% 0 0 0); transition: clip-path 0.062s linear, opacity 0.1s linear;"></div>
+        <div id="hud-throttle-meter" class="hud-element" style="background-image: url('_assets/100.png'); left: 1449.4px; top: 196.6px; width: 151.4px; height: 188.1px;"></div>
+
+        <!-- Speedo Ring -->
+        <div class="hud-element" style="background-image: url('_assets/RPMbg.png'); left: 1032.1px; top: 53.8px; width: 382px; height: 396px;"></div>
+        <div class="hud-element" style="background-image: url('_assets/RPM.png'); left: 1032.1px; top: 53.8px; width: 382px; height: 396px;"></div>
+        <!-- Center RPM Stroke -->
+        <div class="hud-element" style="background-image: url('_assets_RPMstroke/Red Bull Racing.png'); left: 1031.3px; top: 119.8px; width: 383.25px; height: 280.35px;"></div>
+
+        <!-- Brackets -->
+        <div class="hud-element" style="background-image: url('_assets/Brackets.png'); left: 958.1px; top: 175.8px; width: 530.2px; height: 201.6px; opacity: 0.8;"></div>
+
+        <!-- Center Dial Text & Icons -->
+        <div class="text-element" style="left: 1031.3px; top: 119.8px; width: 383px; height: 280px;">
+            <!-- Faint offset shadows for numbers (Positioned ABOVE and LEFT of the main numbers based on JSON) -->
+            <div id="hud-kmh-shadow" style="position: absolute; left: 90px; top: 57px; width: 180px; height: 71px; font-size: 75px; transform: rotate(-0.6deg); opacity: 0.1;">215</div>
+            <div id="hud-mph-shadow" style="position: absolute; left: 95px; top: 137px; width: 180px; height: 71px; font-size: 65px; transform: rotate(-0.6deg); opacity: 0.1;">215</div>
+
+            <!-- Main active numbers -->
+            <div id="hud-kmh-main" style="position: absolute; left: 95px; top: 70px; width: 180px; height: 71px; font-size: 75px; transform: rotate(-0.6deg);">215</div>
+            <div class="hud-element" style="background-image: url('_assets_RPMstroke/KMH.png'); left: 140px; top: 52px; width: 88px; height: 20px; transform: rotate(-1deg);"></div>
+            <div id="hud-mph-main" style="position: absolute; left: 100px; top: 150px; width: 180px; height: 71px; font-size: 65px; transform: rotate(-0.6deg);">215</div>
+            <div class="hud-element" style="background-image: url('_assets_RPMstroke/MPH.png'); left: 155px; top: 221px; width: 57.6px; height: 14.4px; transform: rotate(-1deg);"></div>
+        </div>
+
+        <!-- Label Shadows -->
+        <div class="hud-element" style="background-image: url('_assets/THROTTLE.png'); left: 1412.0px; top: 364.7px; width: 145.2px; height: 38.5px; transform: rotate(1.5deg); opacity: 0.1;"></div>
+        <div class="hud-element" style="background-image: url('_assets/BRAKE text.png'); left: 864.0px; top: 394.7px; width: 85.7px; height: 38.5px; transform: rotate(-2.5deg); opacity: 0.1;"></div>
+        <div class="hud-element" style="background-image: url('_assets/GEARS.png'); left: 1879.0px; top: 356.7px; width: 112px; height: 66px; transform: rotate(1deg); opacity: 0.1;"></div>
+        <div class="hud-element" style="background-image: url('_assets/RPM x1000.png'); left: 1778.0px; top: 444.7px; width: 186px; height: 108px; transform: rotate(2deg); opacity: 0.1;"></div>
+
+        <!-- Other UI Labels -->
+        <div class="hud-element" style="background-image: url('_assets_ERSpercent/100%25on.png'); left: 660px; top: 325px; width: 222px; height: 222px; transform: rotate(-4deg);"></div>
+        <div class="hud-element" style="background-image: url('_assets/ERS.png'); left: 480px; top: 340px; width: 185px; height: 160px; transform: rotate(4deg);"></div>
+
+        <div class="hud-element" style="background-image: url('_assets/THROTTLE.png'); left: 1411.3px; top: 374.8px; width: 145.2px; height: 38.5px; transform: rotate(1.5deg);"></div>
+        <div class="hud-element" style="background-image: url('_assets/BRAKE text.png'); left: 873.3px; top: 401.8px; width: 85.7px; height: 38.5px; transform: rotate(-2.5deg);"></div>
+
+        <!-- Right Side Gears & Labels -->
+        <div class="hud-element" style="background-image: url('_assets/GEARS.png'); left: 1870.1px; top: 367.8px; width: 112px; height: 66px; transform: rotate(1deg);"></div>
+        <div class="hud-element" style="background-image: url('_assets/RPM x1000.png'); left: 1777.1px; top: 452.8px; width: 186px; height: 108px; transform: rotate(2deg);"></div>
+        <div class="hud-element" style="background-image: url('_assets/OVERTAKE.png'); left: 1781px; top: 492px; width: 150.1px; height: 89.8px; transform: rotate(1deg);"></div>
+        <div class="hud-element" style="background-image: url('_assets/0.png'); left: 1610.1px; top: 374.8px; width: 18.5px; height: 17px; transform: rotate(-5deg); opacity: 0.5;"></div>
+        <!-- Dynamic Max RPM Label (replaces hardcoded 15.png) -->
+        <div id="hud-max-rpm-text" style="position: absolute; left: 2083px; top: 652px; width: 31.5px; height: 30.5px; transform: rotate(30deg) scale(1.3, 0.85); transform-origin: right center; opacity: 1; font-family: 'F1 Bold', sans-serif; font-size: 30px; text-align: right; line-height: 30.5px; color: #738c9f;">15</div>
+
+        <!-- Linear RPM Bar under Gears -->
+        <div class="hud-element" style="background-image: url('_assets_Gears/rpmBG.png'); left: 1594px; top: 476px; width: 585px; height: 40px; transform: rotate(30deg); opacity: 0.5;"></div>
+        <div id="hud-rpm-line" class="hud-element" style="background-image: url('_assets_Gears/Red Bull Racing.png'); left: 1594px; top: 476px; width: 585px; height: 40px; transform: rotate(30deg); filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.5)); clip-path: inset(0 100% 0 0); transition: clip-path 0.062s linear;"></div>
+
+        <!-- Gears Sequence Shadows -->
+        <div class="hud-element" style="background-image: url('_assets/N.png'); left: 1652.3px; top: 303.1px; width: 39.6px; height: 30.6px; transform: rotate(3deg); opacity: 0.1;"></div>
+        <div class="hud-element" style="background-image: url('_assets/1.png'); left: 1716.3px; top: 324.1px; width: 24.6px; height: 33.6px; transform: rotate(3deg); opacity: 0.1;"></div>
+        <div class="hud-element" style="background-image: url('_assets/2.png'); left: 1772.3px; top: 348.1px; width: 31.8px; height: 34.8px; transform: rotate(2deg); opacity: 0.1;"></div>
+        <div class="hud-element" style="background-image: url('_assets/3.png'); left: 1831.3px; top: 375.1px; width: 31.8px; height: 34.2px; opacity: 0.1;"></div>
+        <div class="hud-element" style="background-image: url('_assets/4.png'); left: 1888.3px; top: 413.1px; width: 30.0px; height: 30.6px; opacity: 0.1;"></div>
+        <div class="hud-element" style="background-image: url('_assets/5.png'); left: 1947.3px; top: 442.1px; width: 31.8px; height: 36.0px; transform: rotate(5deg); opacity: 0.1;"></div>
+        <div class="hud-element" style="background-image: url('_assets/6.png'); left: 2004.3px; top: 484.1px; width: 30.0px; height: 31.8px; transform: rotate(5deg); opacity: 0.1;"></div>
+        <div class="hud-element" style="background-image: url('_assets/7.png'); left: 2061.3px; top: 523.1px; width: 29.4px; height: 31.8px; transform: rotate(2deg); opacity: 0.1;"></div>
+        <div class="hud-element" style="background-image: url('_assets/8.png'); left: 2115.3px; top: 566.1px; width: 31.2px; height: 36.6px; opacity: 0.1;"></div>
+
+        <!-- Gears Sequence Active (Plain white base versions without the funky outline) -->
+        <div id="hud-gear-0" class="hud-element" style="background-image: url('_assets/N.png'); left: 1648px; top: 314px; width: 39.6px; height: 35.4px; transform: rotate(-1deg);"></div>
+        <div id="hud-gear-1" class="hud-element" style="background-image: url('_assets/1.png'); left: 1712px; top: 335px; width: 24.6px; height: 33.6px; transform: rotate(3deg);"></div>
+        <div id="hud-gear-2" class="hud-element" style="background-image: url('_assets/2.png'); left: 1768px; top: 359px; width: 31.8px; height: 34.8px; transform: rotate(4deg);"></div>
+        <div id="hud-gear-3" class="hud-element" style="background-image: url('_assets/3.png'); left: 1827px; top: 386px; width: 31.8px; height: 34.2px; transform: rotate(2deg);"></div>
+        <div id="hud-gear-4" class="hud-element" style="background-image: url('_assets/4.png'); left: 1884px; top: 424px; width: 30.0px; height: 30.6px; transform: rotate(2deg);"></div>
+        <div id="hud-gear-5" class="hud-element" style="background-image: url('_assets/5.png'); left: 1943px; top: 453px; width: 31.8px; height: 36.0px; transform: rotate(5deg);"></div>
+        <div id="hud-gear-6" class="hud-element" style="background-image: url('_assets/6.png'); left: 2000px; top: 495px; width: 30.0px; height: 31.8px; transform: rotate(8deg);"></div>
+        <div id="hud-gear-7" class="hud-element" style="background-image: url('_assets/7.png'); left: 2059px; top: 532px; width: 29.4px; height: 31.8px; transform: rotate(2deg);"></div>
+        <div id="hud-gear-8" class="hud-element" style="background-image: url('_assets/8.png'); left: 2111px; top: 577px; width: 31.2px; height: 36.6px; transform: rotate(3deg);"></div>
+    </div>
+    <script>
+        const throttleMeter = document.getElementById('hud-throttle-meter');
+        const brakeMeter = document.getElementById('hud-brake-meter');
+        const rpmLine = document.getElementById('hud-rpm-line');
+        const maxRpmText = document.getElementById('hud-max-rpm-text');
+        const kmhMain = document.getElementById('hud-kmh-main');
+        const kmhShadow = document.getElementById('hud-kmh-shadow');
+        const mphMain = document.getElementById('hud-mph-main');
+        const mphShadow = document.getElementById('hud-mph-shadow');
+        
+        const throttleConfigs = {
+            10: { left: 1449.3, top: 344.8, width: 118.7, height: 39.9 },
+            20: { left: 1449.3, top: 330.3, width: 121.8, height: 54.6 },
+            30: { left: 1449.3, top: 316.3, width: 126.0, height: 68.3 },
+            40: { left: 1449.3, top: 301.8, width: 129.2, height: 83.0 },
+            50: { left: 1449.3, top: 284.8, width: 133.4, height: 99.8 },
+            60: { left: 1449.4, top: 268.3, width: 136.5, height: 116.6 },
+            70: { left: 1449.0, top: 251.8, width: 140.7, height: 133.4 },
+            80: { left: 1449.3, top: 235.0, width: 143.9, height: 150.2 },
+            90: { left: 1449.3, top: 217.3, width: 148.1, height: 168.0 },
+            100: { left: 1449.6, top: 197.3, width: 151.2, height: 188.0 }
+        };
+
+        const gearConfigs = {
+            0: { label: 'N', left: 1648, top: 314, width: 39.6, height: 35.4 },
+            1: { label: '1', left: 1712, top: 335, width: 24.6, height: 33.6 },
+            2: { label: '2', left: 1768, top: 359, width: 31.8, height: 34.8 },
+            3: { label: '3', left: 1827, top: 386, width: 31.8, height: 34.2 },
+            4: { label: '4', left: 1884, top: 424, width: 30.0, height: 30.6 },
+            5: { label: '5', left: 1943, top: 453, width: 31.8, height: 36.0 },
+            6: { label: '6', left: 2000, top: 495, width: 30.0, height: 31.8 },
+            7: { label: '7', left: 2059, top: 532, width: 29.4, height: 31.8 },
+            8: { label: '8', left: 2111, top: 577, width: 31.2, height: 36.6 }
+        };
+
+        let lastGear = null;
+
+        // Telemetry Frequency Counter logic
+        let messageCount = 0;
+        let speedChangeCount = 0;
+        let rpmChangeCount = 0;
+        let lastSpeed = -1;
+        let lastRpm = -1;
+        
+        const debugHz = document.getElementById('debug-hz');
+        setInterval(() => {
+            if (debugHz) {
+                debugHz.innerText = `Telemetry: ${messageCount} Hz | Speed: ${speedChangeCount} Hz | RPM: ${rpmChangeCount} Hz`;
+            }
+            messageCount = 0;
+            speedChangeCount = 0;
+            rpmChangeCount = 0;
+        }, 1000);
+
+        function connectWebSocket() {
+            const ws = new WebSocket('ws://' + location.host + '/ws');
+
+            ws.onopen = () => {
+                console.log('F1 HUD connected to telemetry bridge.');
+            };
+
+            ws.onmessage = (event) => {
+                try {
+                    // Track update rate
+                    messageCount++;
+
+                    const data = JSON.parse(event.data);
+                    const t = data.viewed;
+                    
+                    if (t) {
+                        // Track actual data change rate
+                        if (t.speed_kph !== lastSpeed) {
+                            speedChangeCount++;
+                            lastSpeed = t.speed_kph;
+                        }
+                        if (t.rpm !== lastRpm) {
+                            rpmChangeCount++;
+                            lastRpm = t.rpm;
+                        }
+                        // Throttle comes in as 0.0 to 1.0. Snap it to intervals of 10 for the PNGs: 10, 20... 100
+                        let throttlePct = Math.round(t.throttle * 10) * 10;
+                        if (throttlePct > 100) throttlePct = 100;
+                        
+                        if (throttlePct <= 0) {
+                            throttleMeter.style.opacity = '0';
+                        } else {
+                            const conf = throttleConfigs[throttlePct];
+                            throttleMeter.style.opacity = '1';
+                            throttleMeter.style.backgroundImage = `url('_assets/${throttlePct}.png')`;
+                            throttleMeter.style.left = conf.left + 'px';
+                            throttleMeter.style.top = conf.top + 'px';
+                            throttleMeter.style.width = conf.width + 'px';
+                            throttleMeter.style.height = conf.height + 'px';
+                        }
+                        
+                        // Speed updates
+                        const kmh = Math.round(t.speed_kph);
+                        const mph = Math.round(t.speed_kph * 0.621371);
+                        
+                        kmhMain.innerText = kmh;
+                        kmhShadow.innerText = kmh;
+                        mphMain.innerText = mph;
+                        mphShadow.innerText = mph;
+
+                        // Gear updates
+                        let currentGear = t.gear;
+                        if (currentGear !== lastGear) {
+                            // Turn OFF all gears first
+                            for (let i = 0; i <= 8; i++) {
+                                const el = document.getElementById('hud-gear-' + i);
+                                if (!el) continue;
+                                const conf = gearConfigs[i];
+                                el.style.backgroundImage = `url('_assets/${conf.label}.png')`;
+                                el.style.left = conf.left + 'px';
+                                el.style.top = conf.top + 'px';
+                                el.style.width = conf.width + 'px';
+                                el.style.height = conf.height + 'px';
+                            }
+                            
+                            // Turn ON current gear
+                            if (currentGear >= 0 && currentGear <= 8) {
+                                const el = document.getElementById('hud-gear-' + currentGear);
+                                const conf = gearConfigs[currentGear];
+                                if (el) {
+                                    el.style.backgroundImage = `url('_assets_Gears/${conf.label} on.png')`;
+                                    el.style.left = (conf.left - 7.8) + 'px';
+                                    el.style.top = (conf.top - 7.5) + 'px';
+                                    el.style.width = (conf.width + 15.6) + 'px';
+                                    el.style.height = (conf.height + 15.0) + 'px';
+                                }
+                            }
+                            lastGear = currentGear;
+                        }
+
+                        // Brake updates (Simulated segments using exact radial projection)
+                        if (t.brake <= 0) {
+                            brakeMeter.style.opacity = '0';
+                        } else {
+                            brakeMeter.style.opacity = '0.8';
+                            let brakePct = Math.round(t.brake * 10) * 10;
+                            
+                            if (brakePct >= 100) {
+                                brakeMeter.style.clipPath = 'none';
+                            } else {
+                                // Relative center of speedometer to brake div
+                                const Cx = 1223.1 - 855.3; // 367.8
+                                const Cy = 251.8 - 214.8;  // 37.0
+                                const H = 200.5;
+                                const W = 130.2;
+                                const X_mid = W / 2;
+
+                                // Y height of the current segment cut (0 is top, H is bottom)
+                                const Y = ((100 - brakePct) / 100) * H;
+
+                                // Slope of the radial line from center (Cx, Cy) through (X_mid, Y)
+                                const m = (Y - Cy) / (X_mid - Cx);
+
+                                // Pixel Y coordinates at left (X=0) and right (X=W)
+                                const Y_left_px = m * (0 - Cx) + Cy;
+                                const Y_right_px = m * (W - Cx) + Cy;
+
+                                // Convert to percentages
+                                const Y_left_pct = (Y_left_px / H) * 100;
+                                const Y_right_pct = (Y_right_px / H) * 100;
+
+                                // Use 200% for bottom vertices so polygon never self-intersects
+                                brakeMeter.style.clipPath = `polygon(0 200%, 100% 200%, 100% ${Y_right_pct}%, 0 ${Y_left_pct}%)`;
+                            }
+                        }
+
+                        // Linear RPM bar under gears (scales dynamically to car's max revs)
+                        const maxRpm = t.max_rpm || 15000;
+                        let rpmPct = (t.rpm / maxRpm) * 100;
+                        if (rpmPct < 0) rpmPct = 0;
+                        if (rpmPct > 100) rpmPct = 100;
+                        const insetRight = 100 - rpmPct;
+                        rpmLine.style.clipPath = `inset(0 ${insetRight}% 0 0)`;
+                        
+                        // Update the dynamic text at the end of the RPM line
+                        // Round up to a single integer (e.g. 7600 -> 8)
+                        maxRpmText.innerText = Math.ceil(maxRpm / 1000);
+                    }
+                } catch (e) {
+                    console.error("Error parsing telemetry", e);
+                }
+            };
+
+            ws.onclose = () => {
+                console.log('Connection closed, retrying...');
+                setTimeout(connectWebSocket, 1000);
+            };
+        }
+
+        connectWebSocket();
+    </script>
+</body>
+</html>

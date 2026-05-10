@@ -1,0 +1,97 @@
+{
+    "Leclair": {
+        "team": "Mercedes",
+        "color": "#00D2BE",
+        "logo": "Mercedes.png"
+    },
+    "NDF": {
+        "team": "Mercedes",
+        "color": "#00D2BE",
+        "logo": "Mercedes.png"
+    },
+    "D3BuG-": {
+        "team": "Ferrari",
+        "color": "#C00000",
+        "logo": "Ferrari.png"
+    },
+    "Garrett O'Brien": {
+        "team": "Ferrari",
+        "color": "#C00000",
+        "logo": "Ferrari.png"
+    },
+    "natedelta": {
+        "team": "Red Bull",
+        "color": "#0600EF",
+        "logo": "Redbull.png"
+    },
+    "CumSum": {
+        "team": "Red Bull",
+        "color": "#0600EF",
+        "logo": "Redbull.png"
+    },
+    "Shattered.Compass": {
+        "team": "Mclaren",
+        "color": "#45494e",
+        "logo": "Mclaren.png"
+    },
+    "cloning888": {
+        "team": "Mclaren",
+        "color": "#45494e",
+        "logo": "Mclaren.png"
+    },
+    "brauchen9": {
+        "team": "Renault",
+        "color": "#FFF500",
+        "logo": "Renault.png"
+    },
+    "jrookareenz": {
+        "team": "Renault",
+        "color": "#FFF500",
+        "logo": "Renault.png"
+    },
+    "abc123": {
+        "team": "Toro Rosso",
+        "color": "#00144A",
+        "logo": "Toro Rosso.png"
+    },
+    "Force India": {
+        "team": "Force India",
+        "color": "#00A85C",
+        "logo": "Force India.png"
+    },
+    "orangetrptboi": {
+        "team": "Sauber",
+        "color": "#0063FF",
+        "logo": "Sauber.png"
+    },
+    "TTAR": {
+        "team": "Sauber",
+        "color": "#0063FF",
+        "logo": "Sauber.png"
+    },
+    "Arty94": {
+        "team": "Haas",
+        "color": "#B6BABD",
+        "logo": "Haas.png"
+    },
+    "CrackaColdone": {
+        "team": "Haas",
+        "color": "#B6BABD",
+        "logo": "Haas.png"
+    },
+    "Rick Ardow": {
+        "team": "Williams",
+        "color": "#FFFFFF",
+        "logo": "Williams.png"
+    },
+    "Enigma": {
+        "team": "Williams",
+        "color": "#FFFFFF",
+        "logo": "Williams.png"
+    },
+    "Manor Racing": {
+        "team": "Manor Racing",
+        "color": "#e06914",
+        "logo": "Manor Racing.png"
+    }
+}

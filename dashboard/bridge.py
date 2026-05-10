@@ -7,6 +7,12 @@ import threading
 import websockets
 import http
 import mimetypes
+import logging
+
+# Suppress websockets connection/EOF tracebacks flooding the console
+logging.getLogger("websockets.server").setLevel(logging.CRITICAL)
+
+from core.models.sector_tracker import SectorTrackerManager
 
 class DashboardBridge:
     def __init__(self):
@@ -79,14 +85,30 @@ class DashboardBridge:
         }
         self._pit_tracker = {}
         self._pit_events = []
+        self._sector_manager = SectorTrackerManager()
         
         self.names = {}
         self.participants = {}
+        self._tyre_compound_cache: dict[int, str] = {}
         
         # Debounce state for viewed_index changes
         self._viewed_idx_candidate = -1
         self._viewed_idx_count = 0
-        
+
+        # Load lookups
+        self.team_lookup = {}
+        lookup_path = os.path.join(os.path.dirname(__file__), "team_lookup.json")
+        if os.path.exists(lookup_path):
+            with open(lookup_path, 'r', encoding='utf-8') as f:
+                self.team_lookup = json.load(f)
+                
+        self.driver_lookup = {}
+        driver_lookup_path = os.path.join(os.path.dirname(__file__), "driver_lookup.json")
+        if os.path.exists(driver_lookup_path):
+            with open(driver_lookup_path, 'r', encoding='utf-8') as f:
+                raw_lookup = json.load(f)
+                self.driver_lookup = {k.lower().strip(): v for k, v in raw_lookup.items()}
+
     def start(self, provider, main_app):
         if self._running:
             return
@@ -129,6 +151,7 @@ class DashboardBridge:
         """Serve HTTP requests for the dashboard directory."""
         from websockets.http11 import Response
         from websockets.datastructures import Headers
+        from urllib.parse import unquote
 
         path = request.path
         if path == "/ws":
@@ -136,6 +159,10 @@ class DashboardBridge:
 
         if path == "/":
             path = "/index.html"
+
+        # URL-decode path so assets with spaces (e.g. 'Top Stroke.png')
+        # resolve correctly — browsers encode spaces as %20 in HTTP requests
+        path = unquote(path)
             
         web_dir = os.path.dirname(os.path.abspath(__file__))
         file_path = os.path.abspath(os.path.join(web_dir, path.lstrip('/')))
@@ -165,8 +192,31 @@ class DashboardBridge:
         try:
             # Send immediate state on connect
             await websocket.send(json.dumps(self.state))
-            async for _ in websocket:
-                pass # Keep connection open, ignore incoming messages
+            async for message in websocket:
+                # Allow control panels to bounce messages to overlays
+                try:
+                    data = json.loads(message)
+                    if data.get("type") == "f1tv_config":
+                        payload = json.dumps(data)
+                        # Broadcast to all OTHER connected clients
+                        websockets.broadcast([c for c in self.clients if c != websocket], payload)
+                    elif data.get("type") == "save_json":
+                        target_path = data.get("path", "")
+                        content = data.get("content")
+                        if target_path and content is not None:
+                            web_dir = os.path.dirname(os.path.abspath(__file__))
+                            file_path = os.path.abspath(os.path.join(web_dir, target_path.lstrip('/')))
+                            if file_path.startswith(web_dir) and file_path.endswith('.json'):
+                                with open(file_path, "w", encoding="utf-8") as f:
+                                    json.dump(content, f, indent=2)
+                                
+                                # Hot reload lookups in memory
+                                if "team_lookup.json" in target_path:
+                                    self.team_lookup = content
+                                elif "driver_lookup.json" in target_path:
+                                    self.driver_lookup = {k.lower().strip(): v for k, v in content.items()}
+                except Exception:
+                    pass
         except websockets.exceptions.ConnectionClosed:
             pass
         finally:
@@ -251,16 +301,17 @@ class DashboardBridge:
         raw_viewed_index = self.state["viewed_index"]
         p559 = self.packet_buffer.get(559) or self.packet_buffer.get(556)
         
-        # Poll SHM at 60Hz if in shared_memory mode
+        # Poll SHM at 60Hz if in shared_memory mode AND not in UDP effective source
         shm = None
-        if getattr(self.main_app, '_mode', '') == 'shared_memory':
+        effective_source = getattr(self.main_app, '_effective_source', 'hybrid')
+        if effective_source == 'hybrid' and getattr(self.main_app, '_mode', '') == 'shared_memory':
             shm = self.main_app._read_shared_memory()
             if shm is not None:
                 current_time = getattr(shm, 'mCurrentTime', 0.0)
                 if current_time != getattr(self, '_last_shm_time', -1.0):
                     self._last_shm_time = current_time
                     changed = True
-        else:
+        elif effective_source == 'hybrid':
             shm = getattr(self.main_app, '_shm', None)
         
         if p559:
@@ -308,6 +359,8 @@ class DashboardBridge:
                     raw = p559[378+i*40:378+(i+1)*40]
                     compounds.append(raw.split(b'\x00')[0].decode('utf-8', errors='replace').strip())
                 self.state["viewed"]["tyre_compound"] = compounds
+                if self.state.get("viewed_index", -1) >= 0:
+                    self._tyre_compound_cache[self.state["viewed_index"]] = compounds[0]
 
         # 308 bytes - RaceData
         p308 = self.packet_buffer.get(308)
@@ -442,6 +495,8 @@ class DashboardBridge:
                     for i in range(4):
                         compounds.append(bytes(shm.mTyreCompound[i]).split(b'\x00')[0].decode('utf-8', errors='replace').strip())
                     self.state["viewed"]["tyre_compound"] = compounds
+                    if getattr(shm, 'mViewedParticipantIndex', -1) >= 0:
+                        self._tyre_compound_cache[getattr(shm, 'mViewedParticipantIndex', -1)] = compounds[0]
                 except Exception:
                     pass
 
@@ -521,21 +576,39 @@ class DashboardBridge:
                     pit_count = self._pit_tracker[idx].get("pit_count", 0)
                     laps_since = self._pit_tracker[idx].get("laps_since_last_pit", -1)
 
+                gap_val = p.get("time_gap_to_leader", p.get("gap_ahead", 0.0))
+
+                # Update Sector Tracker
+                sector = p.get("current_sector", 0)
+                game_time = p.get("current_time", 0.0)
+                in_pits = p.get("pit_mode", 0) != 0
+                if idx >= 0:
+                    current_sectors = self._sector_manager.update_driver(idx, sector, game_time, in_pits)
+                else:
+                    current_sectors = [0.0, 0.0, 0.0]
+
                 entry = {
                     "pos": p.get("race_position"),
                     "name": p.get("name"),
                     "lap": p.get("current_lap"),
-                    "gap": p.get("gap_ahead"),
+                    "lap_distance": p.get("lap_distance", 0.0),
+                    "true_distance": p.get("true_distance", 0.0),
+                    "tyre_stint_laps": p.get("tyre_stint_laps", 0),
+                    "tyre_compound": self._tyre_compound_cache.get(idx, ""),
+                    "gap": gap_val,
+                    "current_time": p.get("current_time", 0.0),
+                    "current_sector_time": p.get("current_sector_time", 0.0),
                     "speed": p.get("speed"),
                     "pit": pit_count,
                     "pit_mode": p.get("pit_mode"),
-                    "laps_since_last_pit": laps_since
+                    "laps_since_last_pit": laps_since,
+                    "current_sector": sector
                 }
 
                 if shm is not None and idx >= 0 and idx < len(getattr(shm, 'mFastestLapTimes', [])):
                     entry["fastest_lap"] = shm.mFastestLapTimes[idx]
                     entry["last_lap"] = shm.mLastLapTimes[idx]
-                    entry["current_sectors"] = [shm.mCurrentSector1Times[idx], shm.mCurrentSector2Times[idx], shm.mCurrentSector3Times[idx]]
+                    entry["current_sectors"] = current_sectors
                     entry["fastest_sectors"] = [shm.mFastestSector1Times[idx], shm.mFastestSector2Times[idx], shm.mFastestSector3Times[idx]]
                 elif self.last_packets.get(1040):
                     p1040 = self.last_packets[1040]
@@ -545,53 +618,72 @@ class DashboardBridge:
                             fl, ll, _, fs1, fs2, fs3 = struct.unpack_from('<6f', p1040, offset)
                             entry["fastest_lap"] = fl
                             entry["last_lap"] = ll
-                            entry["current_sectors"] = [0.0, 0.0, 0.0]
+                            entry["current_sectors"] = current_sectors
                             entry["fastest_sectors"] = [fs1, fs2, fs3]
                         except Exception:
                             entry["fastest_lap"] = 0.0
                             entry["last_lap"] = 0.0
-                            entry["current_sectors"] = [0.0, 0.0, 0.0]
+                            entry["current_sectors"] = current_sectors
                             entry["fastest_sectors"] = [0.0, 0.0, 0.0]
                     else:
                         entry["fastest_lap"] = 0.0
                         entry["last_lap"] = 0.0
-                        entry["current_sectors"] = [0.0, 0.0, 0.0]
+                        entry["current_sectors"] = current_sectors
                         entry["fastest_sectors"] = [0.0, 0.0, 0.0]
                 else:
                     entry["fastest_lap"] = 0.0
                     entry["last_lap"] = 0.0
-                    entry["current_sectors"] = [0.0, 0.0, 0.0]
+                    entry["current_sectors"] = current_sectors
                     entry["fastest_sectors"] = [0.0, 0.0, 0.0]
 
+                d_name = p.get("name", "")
+                name_key = str(d_name).lower().strip()
+                
+                # 1. Manual JSON Override has highest priority
+                if name_key in self.driver_lookup:
+                    entry["nationality"] = self.driver_lookup[name_key]
+                # 2. Live Telemetry Hash has second priority
+                elif p.get("nationality"):
+                    # We convert to lower here just in case the UI expects lowercase 'br' instead of 'BR'
+                    entry["nationality"] = p.get("nationality").lower()
+                else:
+                    entry["nationality"] = ""
+                
                 if shm is not None and idx >= 0:
-                    entry["nationality"] = shm.mNationalities[idx] if idx < len(getattr(shm, 'mNationalities', [])) else 0
                     entry["car_name"] = bytes(shm.mCarNames[idx]).split(b'\x00')[0].decode('utf-8', errors='replace').strip() if idx < len(getattr(shm, 'mCarNames', [])) else ""
                     entry["car_class"] = bytes(shm.mCarClassNames[idx]).split(b'\x00')[0].decode('utf-8', errors='replace').strip() if idx < len(getattr(shm, 'mCarClassNames', [])) else ""
-                elif self.last_packets.get(1136):
-                    p1136 = self.last_packets[1136]
-                    if idx >= 0 and idx < 16:
-                        try:
-                            entry["nationality"] = struct.unpack_from('<I', p1136, 1040 + idx * 4)[0]
-                        except Exception:
-                            entry["nationality"] = 0
-                        entry["car_name"] = ""
-                        entry["car_class"] = ""
-                    else:
-                        entry["nationality"] = 0
-                        entry["car_name"] = ""
-                        entry["car_class"] = ""
+                elif effective_source in ('udp_auto', 'udp_manual'):
+                    # Use UDP-parsed car data when in UDP mode
+                    udp_car_names = self.provider.get_udp_car_names() if hasattr(self.provider, 'get_udp_car_names') else {}
+                    udp_car_classes = self.provider.get_udp_car_classes() if hasattr(self.provider, 'get_udp_car_classes') else {}
+                    entry["car_name"] = udp_car_names.get(idx, "")
+                    entry["car_class"] = udp_car_classes.get(idx, "")
                 else:
-                    entry["nationality"] = 0
                     entry["car_name"] = ""
                     entry["car_class"] = ""
 
                 leaderboard.append(entry)
             self.state["leaderboard"] = leaderboard
             
+            # Calculate actual session fastest lap from active drivers (ignoring all-time track records)
+            session_fastest = 0.0
+            session_sectors = [0.0, 0.0, 0.0]
+            
+            for entry in leaderboard:
+                fl = entry.get("fastest_lap", 0.0)
+                if fl > 0 and (session_fastest == 0.0 or fl < session_fastest):
+                    session_fastest = fl
+                    
+                fs = entry.get("fastest_sectors", [0.0, 0.0, 0.0])
+                for i in range(3):
+                    if fs[i] > 0 and (session_sectors[i] == 0.0 or fs[i] < session_sectors[i]):
+                        session_sectors[i] = fs[i]
+            
+            if session_fastest > 0:
+                self.state["session"]["world_fastest_lap"] = session_fastest
+            if any(s > 0 for s in session_sectors):
+                self.state["session"]["world_fastest_sectors"] = session_sectors
+            
             changed = True
-
-        cam_ctrl = getattr(self.main_app, 'camera_controller', None)
-        self.state["director"]["camera_type"] = getattr(cam_ctrl, 'current_camera_type', 'tv_cam') if cam_ctrl else 'tv_cam'
-        self.state["director"]["is_auto_directing"] = getattr(self.main_app, 'is_enabled', False)
 
         return changed

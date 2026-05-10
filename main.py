@@ -38,12 +38,17 @@ class AutoDirectorApp:
         self.camera = CameraController()
 
         self._mode = mode
+        self._user_mode = 'hybrid'  # User's GUI selection: 'hybrid' or 'udp_only'
+        self._effective_source = 'hybrid'  # Runtime: 'hybrid', 'udp_auto', or 'udp_manual'
+        self._auto_switch_counter = 0  # Hysteresis counter for auto-detection
         self._director_enabled = False
         self._last_switch_time = 0.0
         self._switch_interval = 7.0
+        self._camera_close_gap = 0.5
         self._sweep_dwell_time = 1.0
         self._participants: dict[int, dict] = {}
         self._scores: dict[int, dict] = {}
+        self._last_logged_cam = None
 
         # Shared memory handle
         self._shm = None
@@ -131,6 +136,10 @@ class AutoDirectorApp:
                                           style='Status.TLabel')
         self.lbl_session_time.pack(side=tk.RIGHT, padx=20)
 
+        self.lbl_source = ttk.Label(status_frame, text='Source: Hybrid',
+                                    style='Status.TLabel')
+        self.lbl_source.pack(side=tk.RIGHT, padx=10)
+
         self.lbl_track = ttk.Label(status_frame, text='Track: —',
                                     style='Status.TLabel')
         self.lbl_track.pack(side=tk.RIGHT, padx=10)
@@ -178,6 +187,7 @@ class AutoDirectorApp:
             ('Leader Mult', 'leader_cars_ahead_multiplier', self.scorer.leader_cars_ahead_multiplier),
             ('Other Mult', 'other_cars_ahead_multiplier', self.scorer.other_cars_ahead_multiplier),
             ('Max Gap', 'close_racing_max_gap', self.scorer.close_racing_max_gap),
+            ('Cam Gap (s)', 'camera_close_gap', self._camera_close_gap),
             ('Event Pre-Off', 'timeline_pre_offset', self.scorer.timeline_pre_offset),
             ('Event Post-Off', 'timeline_post_offset', self.scorer.timeline_post_offset),
         ]
@@ -196,21 +206,54 @@ class AutoDirectorApp:
                                 command=self._apply_tuning)
         btn_apply.pack(side=tk.LEFT, padx=15)
 
-        btn_toggle = ttk.Button(tune_frame, text='Toggle Director (Space)',
+        btn_toggle = ttk.Button(tune_frame, text='Toggle Director (Ctrl+Space)',
                                  style='Dark.TButton', command=self._toggle_director)
         btn_toggle.pack(side=tk.LEFT, padx=5)
 
         btn_load_log = ttk.Button(tune_frame, text='Load Replay Log',
                                    style='Dark.TButton', command=self._load_log)
         btn_load_log.pack(side=tk.LEFT, padx=5)
+        
+        btn_overlays = ttk.Button(tune_frame, text='Web Overlays',
+                                   style='Dark.TButton', command=self._open_overlays)
+        btn_overlays.pack(side=tk.LEFT, padx=5)
+
+        self._btn_data_source = ttk.Button(tune_frame, text='Mode: Hybrid',
+                                            style='Dark.TButton',
+                                            command=self._toggle_data_source)
+        self._btn_data_source.pack(side=tk.LEFT, padx=5)
 
         # True OS-level global binding for Ctrl+Space
         try:
+            def on_key_event(e):
+                # Ignore releases
+                if e.event_type != 'down':
+                    return
+                
+                print(f"[KEYLOG] {e.name} pressed")
+                
+                # Check exact key names to avoid pyKey DOWN/UP alias overlaps with Numpad 2/8
+                if e.name == '1':
+                    print("[CAM EVENT] Key 1 triggered camera change to cockpit")
+                    self.camera.current_camera_type = 'cockpit'
+                elif e.name in ['2', '3', '4', '5', '6', '7', '8']:
+                    print(f"[CAM EVENT] Key {e.name} triggered camera change to tv_cam")
+                    self.camera.current_camera_type = 'tv_cam'
+
+            keyboard.hook(on_key_event)
             keyboard.add_hotkey('ctrl+space', lambda: self.root.after(0, self._toggle_director))
         except Exception as e:
             print(f"Warning: Could not bind global hotkey: {e}")
             # Fallback to application-level global binding
             self.root.bind_all('<Control-space>', lambda e: self._toggle_director())
+            self.root.bind_all('1', lambda e: setattr(self.camera, 'current_camera_type', 'cockpit'))
+            for k in ['2', '3', '4', '5', '6', '7', '8']:
+                self.root.bind_all(k, lambda e, key=k: setattr(self.camera, 'current_camera_type', 'tv_cam'))
+
+    def _open_overlays(self):
+        """Open the local dashboard portal in the default web browser."""
+        import webbrowser
+        webbrowser.open("http://localhost:8765/")
 
     def _apply_tuning(self):
         """Write GUI values to scorer attributes."""
@@ -231,6 +274,8 @@ class AutoDirectorApp:
                 self._tuning_vars['other_cars_ahead_multiplier'].get())
             self.scorer.close_racing_max_gap = float(
                 self._tuning_vars['close_racing_max_gap'].get())
+            self._camera_close_gap = float(
+                self._tuning_vars['camera_close_gap'].get())
             self.scorer.timeline_pre_offset = float(
                 self._tuning_vars['timeline_pre_offset'].get())
             self.scorer.timeline_post_offset = float(
@@ -243,6 +288,58 @@ class AutoDirectorApp:
         self._director_enabled = not self._director_enabled
         status = 'ON' if self._director_enabled else 'OFF'
         self.lbl_director.configure(text=f'Director: {status}')
+
+    def _toggle_data_source(self):
+        """Toggle between Hybrid and UDP Only data source modes."""
+        if self._user_mode == 'hybrid':
+            self._user_mode = 'udp_only'
+            self._effective_source = 'udp_manual'
+            self._auto_switch_counter = 0
+            self._btn_data_source.configure(text='Mode: UDP Only')
+        else:
+            self._user_mode = 'hybrid'
+            self._effective_source = 'hybrid'
+            self._auto_switch_counter = 0
+            self._btn_data_source.configure(text='Mode: Hybrid')
+        self._update_source_label()
+
+    def _update_source_label(self):
+        """Update the status bar source label."""
+        labels = {
+            'hybrid': 'Source: Hybrid',
+            'udp_auto': 'Source: UDP (auto)',
+            'udp_manual': 'Source: UDP (manual)'
+        }
+        self.lbl_source.configure(text=labels.get(self._effective_source, 'Source: Unknown'))
+
+    def _should_auto_switch_to_udp(self, sm) -> bool:
+        """Check if conditions warrant auto-switching from Hybrid to UDP.
+
+        Returns True when:
+        1. UDP has track_length > 0 (308-byte packet)
+        2. UDP has >= 1 participant name cached
+        3. SHM has no active participants
+        """
+        if not self.provider.udp_has_track_length():
+            return False
+        if not self.provider.udp_has_participant_names():
+            return False
+
+        # Check if SHM has no active participants
+        if sm is None:
+            return True  # SHM unavailable
+
+        num_participants = getattr(sm, 'mNumParticipants', 0)
+        if num_participants <= 0:
+            return True
+
+        # Check if any participant is actually active
+        part_info = getattr(sm, 'mParticipantInfo', [])
+        for i in range(min(num_participants, len(part_info))):
+            if getattr(part_info[i], 'mIsActive', False):
+                return False  # Found an active participant — SHM is viable
+
+        return True  # SHM exists but no active participants
 
     def _load_log(self):
         """Open a file dialog to load the Replay Analyser Log."""
@@ -281,7 +378,35 @@ class AutoDirectorApp:
 
     def _tick(self):
         """Main tick loop — poll telemetry, score, update grid."""
-        sm = self._read_shared_memory() if self._mode == 'shared_memory' else None
+        # Determine data source based on user mode and auto-detection
+        if self._user_mode == 'udp_only':
+            # Manual UDP Only: never read SHM
+            sm = None
+            self._effective_source = 'udp_manual'
+        else:
+            # Hybrid mode: read SHM, then check auto-detection
+            sm = self._read_shared_memory() if self._mode == 'shared_memory' else None
+
+            if self._effective_source == 'udp_auto':
+                # Currently auto-switched to UDP — check if SHM has recovered
+                if sm is not None and not self._should_auto_switch_to_udp(sm):
+                    # SHM has active participants again — revert to Hybrid
+                    self._effective_source = 'hybrid'
+                    self._auto_switch_counter = 0
+                else:
+                    sm = None  # Stay on UDP
+            else:
+                # Currently in Hybrid — check if we should auto-switch
+                if self._should_auto_switch_to_udp(sm):
+                    self._auto_switch_counter += 1
+                    if self._auto_switch_counter >= 5:
+                        self._effective_source = 'udp_auto'
+                        sm = None  # Use UDP
+                else:
+                    self._auto_switch_counter = 0
+                    self._effective_source = 'hybrid'
+
+        self._update_source_label()
         self._participants = self.provider.poll(sm) or {}
         
         track_info = None
@@ -350,7 +475,23 @@ class AutoDirectorApp:
                     viewed_pos = self._participants[viewed_idx].get('race_position')
                 
                 if best is not None:
+                    is_new_focus = (viewed_pos != best)
                     self.camera.move_to_position(best, viewed_pos)
+                    
+                    if is_new_focus:
+                        # Determine if close racing
+                        is_close = False
+                        for p in self._participants.values():
+                            if p.get('race_position') == best:
+                                gap_ahead = p.get('gap_ahead', 999.0)
+                                gap_behind = p.get('gap_behind', 999.0)
+                                speed = max(p.get('speed', 1.0), 1.0)
+                                time_ahead = gap_ahead / speed
+                                time_behind = gap_behind / speed
+                                if time_ahead <= self._camera_close_gap or time_behind <= self._camera_close_gap:
+                                    is_close = True
+                                break
+                        self.camera.select_random_camera(is_close)
                     
                     best_name = "Unknown"
                     for p in self._participants.values():
@@ -360,6 +501,10 @@ class AutoDirectorApp:
                             
                     self.lbl_focus.configure(text=f'Focus: {best_name} (P{best})')
                     self._last_switch_time = now
+
+        if self.camera.current_camera_type != getattr(self, '_last_logged_cam', None):
+            print(f"CAMERA TYPE CHANGED TO: {self.camera.current_camera_type}")
+            self._last_logged_cam = self.camera.current_camera_type
 
         # Schedule next tick
         self.root.after(self.TICK_MS, self._tick)

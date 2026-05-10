@@ -6,6 +6,7 @@ navigation and configurable key timing.
 No GUI imports. Testable via monkeypatched _press_key/_release_key.
 """
 import time
+import random
 
 CAMERA_SET_MAP = {
     "Cockpit": "cockpit", 
@@ -21,12 +22,12 @@ CAMERA_SET_MAP = {
 class CameraController:
     """Manages pyKey injection for AMS2 camera switching."""
 
-    def __init__(self, key_hold_ms: float = 0.01, key_gap_ms: float = 0.01):
+    def __init__(self, key_hold_ms: float = 0.03, key_gap_ms: float = 0.03):
         """Initialise with configurable key timing.
 
         Args:
-            key_hold_ms: Hold duration per keystroke (seconds, default 10ms).
-            key_gap_ms: Gap between keystrokes (seconds, default 10ms).
+            key_hold_ms: Hold duration per keystroke (seconds, default 30ms).
+            key_gap_ms: Gap between keystrokes (seconds, default 30ms).
         """
         self.key_hold_ms = key_hold_ms
         self.key_gap_ms = key_gap_ms
@@ -93,3 +94,30 @@ class CameraController:
     def update_camera_type(self, camera_set_name: str):
         """Update the internal camera type based on the AMS2 camera set name."""
         self.current_camera_type = CAMERA_SET_MAP.get(camera_set_name, "tv_cam")
+
+    def select_random_camera(self, is_close: bool):
+        """Select a random camera based on proximity rules.
+        
+        Args:
+            is_close: True if the target driver is in a close battle.
+        """
+        if is_close:
+            choices = ['1', '1', '2', '3', '4', '5']
+        else:
+            choices = ['7', '2', '3', '4', '5']
+            
+        choice = random.choice(choices)
+        
+        # Pause briefly to allow AMS2 to process the driver switch (ENTER)
+        # before we attempt to change the camera angle
+        time.sleep(0.2)
+        
+        self._tap_key(choice)
+        
+        # Optimistically update the internal state
+        if choice == '1':
+            self.current_camera_type = 'cockpit'
+        elif choice == '7':
+            self.current_camera_type = 'tv_cam'
+        elif choice in ['2', '3', '4', '5']:
+            self.current_camera_type = 'chase'

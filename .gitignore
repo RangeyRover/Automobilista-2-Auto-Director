@@ -1,4 +1,8 @@
-# Python
+# ═══════════════════════════════════════════════════════════════════
+# AMS2 Auto Director V4.0 — Beta Release .gitignore
+# ═══════════════════════════════════════════════════════════════════
+
+# ── Python Build Artifacts ──────────────────────────────────────────
 __pycache__/
 *.py[cod]
 *$py.class
@@ -19,10 +23,10 @@ var/
 *.egg-info/
 .installed.cfg
 *.egg
-.venv
+.venv/
 venv/
 
-# Testing
+# ── Testing / QA ───────────────────────────────────────────────────
 .coverage
 .pytest_cache/
 .tox/
@@ -30,8 +34,10 @@ nosetests.xml
 coverage.xml
 *.cover
 .hypothesis/
+.mypy_cache/
+.ruff_cache/
 
-# IDE / Editor
+# ── IDE / Editor ───────────────────────────────────────────────────
 .vscode/
 .idea/
 *.swp
@@ -39,5 +45,81 @@ coverage.xml
 *~
 .DS_Store
 
-# Logs
+# ── Logs & Debug Dumps ─────────────────────────────────────────────
 *.log
+sector_debug.log
+
+# ── Raw Packet Captures (dev debugging) ────────────────────────────
+raw_*.bin
+
+# ── Scratch / Temp Scripts ─────────────────────────────────────────
+scratch/
+beta_staging/
+repro_task_003.py
+test_ws.py
+test_udp_cycling.py
+
+# ── Dev-Only Decode/Extract Scripts (not needed for runtime) ───────
+decode1063LB-Lap-Sector.py
+decode1136.py
+extract_all.ps1
+extract_brake.py
+extract_gear_bindings.py
+extract_gears.py
+extract_rpm.py
+
+# ── Legacy V3 Monolith (superseded by core/) ──────────────────────
+AMS2AutoDirector.py
+ReplayAutoDirector4.py
+
+# ── Reference Docs (not runtime) ──────────────────────────────────
+AMS2 Shared Memory Map Offsets.csv
+AMS2 Auto Director Flowchart.pdf
+AMS2 UDP DIFF.pdf
+SMS_UDP_Definitions.hpp
+SMS_UDP_Definitions_AMS2_RR.hpp
+AutoDirector.png
+
+# ── Legacy SimHub Dashboard Directories (not part of web overlay) ──
+AMS Laps - Time -Flags UDP V1.1/
+Analyser/
+Director/
+/mmdash/
+
+# ── F1TV v4.2 SimHub Dashboards (massive .simhubdash binaries) ────
+F1TV v4.2/
+
+# ── Dashboard: Legacy SimHub / Dev Artifacts ──────────────────────
+dashboard/__pycache__/
+dashboard/_extracted/
+dashboard/Videos/
+
+# ── Dashboard: SimHub DJSON source files (not used by web overlay) ─
+dashboard/*.djson
+dashboard/*.djson.*
+dashboard/JavascriptExtensions/
+
+# ── Dashboard: Halo HUD SimHub Source & Extracted Assets ───────────
+dashboard/F1TV - Halo HUD/*.djson
+dashboard/F1TV - Halo HUD/*.djson.*
+dashboard/F1TV - Halo HUD/*.zip
+dashboard/F1TV - Halo HUD/_assets*/
+dashboard/F1TV - Halo HUD/_SHFonts/
+dashboard/F1TV - Halo HUD/JavascriptExtensions/
+
+# ── Dashboard: SimHub Font Bundles (web overlay uses CSS @font-face) ─
+dashboard/_SHFonts/
+
+# ── Dashboard: SimHub setup scripts ───────────────────────────────
+dashboard/setup_halo_assets.ps1
+
+# ── Dashboard: Dev/Test pages (not needed for production overlay) ──
+dashboard/test_time.html
+
+# ── Speckit Feature Specs (development process, not runtime) ──────
+.specify/
+
+# ── Tools (dev utilities, not runtime) ────────────────────────────
+tools/convert_djson.py
+tools/extract_simhub.py
+tools/__pycache__/

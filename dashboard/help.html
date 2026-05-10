@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auto Director Help & Documentation</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #15151E;
+            color: #e0e0e0;
+            margin: 0;
+            line-height: 1.6;
+            display: flex;
+        }
+        
+        /* Sidebar Navigation */
+        .sidebar {
+            width: 250px;
+            background-color: #1e1e24;
+            height: 100vh;
+            position: fixed;
+            border-right: 1px solid #333;
+            overflow-y: auto;
+            padding-top: 20px;
+        }
+        .sidebar a {
+            display: block;
+            padding: 12px 20px;
+            color: #ccc;
+            text-decoration: none;
+            font-weight: bold;
+            border-left: 4px solid transparent;
+            transition: all 0.2s;
+        }
+        .sidebar a:hover, .sidebar a.active {
+            background-color: #2a2a35;
+            color: #fff;
+            border-left: 4px solid #E10600;
+        }
+        .sidebar-header {
+            padding: 0 20px 20px 20px;
+            font-size: 1.2em;
+            font-weight: 800;
+            color: #fff;
+            border-bottom: 1px solid #333;
+            margin-bottom: 10px;
+        }
+
+        /* Main Content area */
+        .content {
+            margin-left: 250px;
+            padding: 40px 60px;
+            max-width: 900px;
+        }
+        
+        h1 { color: #ffffff; border-bottom: 1px solid #333; padding-bottom: 10px; font-size: 2.5em; margin-top: 0; }
+        h2 { color: #E10600; margin-top: 40px; border-bottom: 1px dashed #333; padding-bottom: 5px; }
+        h3 { color: #fff; margin-top: 25px; }
+        p, li { font-size: 16px; color: #cccccc; }
+        a.link { color: #E10600; text-decoration: none; font-weight: bold; }
+        a.link:hover { text-decoration: underline; }
+        
+        .back-btn {
+            display: inline-block;
+            margin-bottom: 30px;
+            background: #38383F;
+            padding: 8px 16px;
+            border-radius: 4px;
+            color: white;
+            font-weight: bold;
+            text-decoration: none;
+            transition: background 0.3s;
+        }
+        .back-btn:hover { background: #E10600; }
+        
+        code {
+            background: #111;
+            padding: 2px 6px;
+            border-radius: 4px;
+            color: #00FF00;
+            font-family: monospace;
+        }
+        
+        .box {
+            background: #2a2a35;
+            padding: 15px 20px;
+            border-radius: 6px;
+            border-left: 4px solid #00A85C;
+            margin: 20px 0;
+        }
+        .box.warning { border-left-color: #E10600; }
+        .box.info { border-left-color: #3b82f6; }
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <div class="sidebar-header">Documentation</div>
+        <a href="#intro">Introduction</a>
+        <a href="#scoring">Scoring Method Summary</a>
+        <a href="#controls">Auto Director GUI Controls</a>
+        <a href="#obs">Adding Overlays to OBS</a>
+        <a href="#overlays">Web Overlays Guide</a>
+        <a href="#schemas">JSON Schemas</a>
+    </div>
+
+    <div class="content">
+        <a href="index.html" class="back-btn">&larr; Back to Dashboard</a>
+        
+        <h1 id="intro">AMS2 Auto Director V4.0 Guide</h1>
+        <p>Welcome to the AMS2 Auto Director! This application uses an intelligent scoring engine to evaluate the live telemetry of Automobilista 2, automatically switching your game's broadcast cameras to focus on the most interesting action on the track.</p>
+        
+        <p>It also features a robust local Websocket server that provides highly accurate, zero-latency HTML/CSS web overlays directly to OBS Studio or your browser.</p>
+
+        <!-- SCORING METHOD -->
+        <h2 id="scoring">1. Scoring Method Summary</h2>
+        <p>The Auto Director evaluates every active car 60 times a second and calculates a <strong>Composite Interest Score</strong>. The camera always focuses on the highest-scoring driver. The scoring factors are:</p>
+        
+        <ul>
+            <li><strong>Close Racing Bonus:</strong> The core driver of the director. The smaller the gap to the car ahead, the higher the score. Caps at the defined 'Max Gap'.</li>
+            <li><strong>Closing Speed Bonus:</strong> Additive points based on how fast a car is catching the car ahead.</li>
+            <li><strong>Cars Ahead Bonus:</strong> Multiplier based on the number of cars visible within 250m ahead. The race leader receives a much higher multiplier for navigating traffic.</li>
+            <li><strong>Race Position Bonus:</strong> A linear decay bonus (e.g., P1 gets the most, P32 gets the least) ensuring the camera prefers front-runners when action is equal elsewhere.</li>
+            <li><strong>Speed & Pit Penalties:</strong> Cars that are stopped, crashing, or in the pit lane receive massive negative score penalties to pull the camera away from boring stationary action.</li>
+            <li><strong>Leader Final Lap Sequence:</strong> Automatically triggers a massive +10,000 point bonus to lock the camera onto the race leader for the final half-lap of the race, ensuring the checkered flag is captured.</li>
+        </ul>
+
+        <div class="box info">
+            <strong>Replay Mode Modifications:</strong>
+            <p>If you load a Replay Timeline Log (gathered via the Replay Logger in the Web Overlays), the scoring engine fundamentally shifts to predictive scoring.</p>
+            <p>It reads ahead in the timeline log. When an <strong>Accident</strong> or <strong>Overtake</strong> is about to happen, it injects a massive bonus score into the involved drivers exactly X seconds <em>before</em> the event occurs (using the <code>Event Pre-Off</code> setting). This guarantees the camera switches to the driver just in time to watch the crash or overtake happen on the replay.</p>
+        </div>
+
+        <!-- AUTO DIRECTOR CONTROLS -->
+        <h2 id="controls">2. Auto Director GUI Controls</h2>
+        <p>The main Python GUI contains a live scoring table and a tuning panel at the bottom. These parameters can be changed mid-race to influence what the AI director cares about.</p>
+
+        <h3>Core Controls</h3>
+        <ul>
+            <li><strong>Toggle Director:</strong> Turns the automated AI switching ON or OFF. 
+                <br><em>Global Hotkey:</em> <code>Ctrl+Space</code> can be pressed anywhere (even while in-game) to instantly pause or resume the Auto Director. <code>1-8</code> keys can force specific camera angles while paused.</li>
+            <li><strong>Load Replay Log:</strong> Opens a file dialog to select a <code>.txt</code> timeline log for predictive Replay mode.</li>
+            <li><strong>Web Overlays:</strong> Opens the local dashboard portal in your default web browser.</li>
+        </ul>
+
+        <h3>Tuning Parameters</h3>
+        <ul>
+            <li><strong>Interval (s):</strong> <em>(Default: 3.0)</em> The minimum "Dwell Time". The camera will not switch away from a driver until this many seconds have passed, preventing rapid nauseating camera cuts.</li>
+            <li><strong>Sweep Dwell:</strong> <em>(Default: 1.0)</em> Used during the post-race "Cooldown Sweep". When a car crosses the finish line, the camera will hold on them for this many seconds before cascading back to the next highest-placed finishing car.</li>
+            <li><strong>Pos Factor:</strong> <em>(Default: 12.0)</em> How strongly the algorithm prefers cars at the front of the pack.</li>
+            <li><strong>Max Gap:</strong> <em>(Default: 50.0)</em> The maximum distance in meters between two cars for them to be considered "battling". If cars are further apart than this, they get no Close Racing bonus.</li>
+            <li><strong>Event Pre-Off:</strong> <em>(Default: 15.0)</em> In Replay Mode, how many seconds before an overtake/crash the camera should switch to the driver.</li>
+            <li><strong>Event Post-Off:</strong> <em>(Default: 10.0)</em> In Replay Mode, how many seconds the camera is forced to stay on the driver after the event concludes.</li>
+        </ul>
+
+        <h3>Data Source Mode</h3>
+        <p>The <strong>Mode</strong> button toggles between two data source strategies:</p>
+        <ul>
+            <li><strong>Hybrid</strong> <em>(Default)</em>: Uses Shared Memory as the primary data source, supplemented by UDP for additional telemetry. This is the best option when running AMS2 locally (driving or watching replays).</li>
+            <li><strong>UDP Only</strong>: Forces all telemetry to come exclusively from UDP packets. Use this when spectating a multiplayer race remotely, where Shared Memory is present but not populated with active participants.</li>
+        </ul>
+        <div class="box info">
+            <strong>Automated Fallback:</strong>
+            <p>When in Hybrid mode, the system monitors Shared Memory health. If SHM reports no active participants but UDP has valid track and driver data, it will automatically switch to UDP after 5 consecutive ticks (1 second). The status bar shows "Source: UDP (auto)" in this case. If SHM recovers, it automatically reverts to Hybrid.</p>
+        </div>
+        <div class="box info">
+            <strong>Team Colours in UDP Mode:</strong>
+            <p>When running in UDP mode, the overlays parse car name and car class data from the UDP Strings packet. If the packet has not yet been received, car_name and car_class fields in the WebSocket telemetry payload will be blank, and overlays will render with default grey team strips until the data arrives.</p>
+        </div>
+
+        <!-- OBS INTEGRATION -->
+        <h2 id="obs">3. Adding Overlays to OBS Studio</h2>
+        <p>The AMS2 Auto Director runs a local web server to provide zero-latency overlays.</p>
+        <ol>
+            <li>In OBS, go to the <strong>Sources</strong> dock and click the <strong>+</strong> button.</li>
+            <li>Select <strong>Browser</strong>. Name it something like "F1TV Leaderboard".</li>
+            <li>In the properties window, check the box for <strong>Local file</strong> to FALSE (leave it unchecked).</li>
+            <li>Set the <strong>URL</strong> to the specific overlay address (e.g., <code>http://localhost:8765/f1tv_overlay.html</code>).</li>
+            <li>Set the Width and Height to match your canvas (usually <code>1920</code>x<code>1080</code>).</li>
+            <li><strong style="color:#E10600">CRITICAL:</strong> Delete all text in the "Custom CSS" box, except for this: <code>body { background-color: rgba(0, 0, 0, 0); margin: 0px auto; overflow: hidden; }</code>. This ensures the background is completely transparent!</li>
+            <li>Click OK. The overlay will now appear perfectly on top of your gameplay.</li>
+        </ol>
+
+        <!-- WEB OVERLAYS -->
+        <h2 id="overlays">4. Web Overlays Guide</h2>
+        <p>These are the tools and overlays available on the Dashboard Portal.</p>
+
+        <h3>F1TV Leaderboard Overlay</h3>
+        <p>A highly polished, dynamic F1TV-style broadcast graphic that automatically reacts to the game state. Includes live gaps, fastest lap highlighting, and an animated pit lane timer.</p>
+
+        <h3>F1TV Overlay Control Panel</h3>
+        <p>Because interacting with overlays inside OBS is difficult, we built a dedicated Remote Control Panel. Open it on a second monitor or smartphone. Clicking any toggle instantly triggers a Websocket command that hides/shows elements on your OBS stream with a smooth animation.</p>
+
+        <h3>F1TV Halo HUD</h3>
+        <p>An exact replica of the modern F1TV Halo Graphic used for onboard shots. Includes dynamic RPM scaling based on the car's max revs, exact speed telemetry, and an ERS deployment radial glow ring.</p>
+
+        <h3>JSON Configuration Editor</h3>
+        <p>Live-edit JSON config files directly from your browser. Allows you to map exact driver names to specific teams, assign Hex color codes, and assign nationality flags. The Python server hot-reloads these changes instantly mid-race!</p>
+
+        <h3>Replay Logger & Analyser</h3>
+        <p>A completely browser-based tool that silently monitors your live race. Open the page, set your close battle gap, and click "Start Capture". It automatically tracks overtakes, accidents, close battles, and leader laps. When finished, it exports a `.txt` log perfectly formatted for the Auto Director's Replay mode!</p>
+
+        <!-- JSON SCHEMAS -->
+        <h2 id="schemas">5. JSON Configuration Schemas</h2>
+        <p>For developers or users wanting to manually build configuration files, below are the required JSON structures for the system's files.</p>
+
+        <h3><code>mmdash/drivers_teams.json</code> (MM Dash Colours)</h3>
+        <p>Maps specific driver names to team names, custom Hex colours, and optional logos.</p>
+        <pre><code>{
+  "Max Verstappen": {
+    "team": "Red Bull Racing",
+    "color": "#0600EF",
+    "logo": "url_or_path_to_logo.png"
+  }
+}</code></pre>
+
+        <h3><code>team_lookup.json</code> (F1TV Colours)</h3>
+        <p>Assigns a primary team colour to either an entire AMS2 Car Class, or overrides it for a specific driver name.</p>
+        <pre><code>{
+  "Formula Ultimate Gen 2": {
+    "name": "Formula Ultimate",
+    "color": "#E10600",
+    "short": "FU2"
+  },
+  "Lando Norris": "#FF8700"
+}</code></pre>
+
+        <h3><code>driver_lookup.json</code> (F1TV Nationalities)</h3>
+        <p>Maps a driver's name to a 2-letter ISO country code. The overlay will dynamically fetch the corresponding flag from a global CDN.</p>
+        <pre><code>{
+  "Charles Leclerc": "mc",
+  "Oscar Piastri": "au"
+}</code></pre>
+
+        <h3>Websocket Telemetry Payload (<code>ws://localhost:8765/ws</code>)</h3>
+        <p>If you want to build your own custom overlays, you can connect to the local websocket server. It broadcasts a JSON state object at 60Hz. Below is the <strong>complete, exhaustive schema</strong> showing every single telemetry element available to you (with the `leaderboard` array showing just one driver example instead of all 32):</p>
+        <pre><code>{
+  "viewed_index": 5,
+  "viewed": {
+    "position": 1,
+    "name": "Max Verstappen",
+    "gear": 6,
+    "speed_kph": 285.5,
+    "rpm": 11500,
+    "last_lap": 82.451,
+    "brake": 0.0,
+    "throttle": 1.0,
+    "max_rpm": 13000,
+    "num_gears": 8,
+    "crash_state": 0,
+    "aero_damage": 0.0,
+    "engine_damage": 0.0,
+    "suspension_damage": [0.0, 0.0, 0.0, 0.0],
+    "brake_damage": [0.0, 0.0, 0.0, 0.0],
+    "tyre_wear": [0.0, 0.0, 0.0, 0.0],
+    "tyre_compound": ["Soft", "Soft", "Soft", "Soft"]
+  },
+  "ahead": { "name": "...", "gap_seconds": 1.2 },
+  "behind": { "name": "...", "position": 2, "gap_seconds": 3.4 },
+  "weather": {
+    "ambient_temp": 24,
+    "track_temp": 32,
+    "rain_density": 0.0,
+    "snow_density": 0.0,
+    "wind_speed": 12
+  },
+  "director": {
+    "camera_type": "tv_cam",
+    "is_auto_directing": true
+  },
+  "pit_events": [
+    { "name": "Lando Norris", "state": "entered", "timestamp": 1245.5 }
+  ],
+  "session": {
+    "state": 2,
+    "session_state": 4,
+    "laps_in_event": 50,
+    "leader_lap": 12,
+    "time_remaining": 0.0,
+    "yellow_flag_state": 0,
+    "total_drivers": 20,
+    "track_name": "Silverstone",
+    "track_variation": "Grand Prix",
+    "world_fastest_lap": 81.234,
+    "world_fastest_sectors": [25.1, 30.2, 25.9],
+    "enforced_pit_stop_lap": -1
+  },
+  "leaderboard": [
+    {
+      "pos": 1,
+      "name": "Max Verstappen",
+      "lap": 12,
+      "lap_distance": 0.5,
+      "true_distance": 55000.5,
+      "tyre_stint_laps": 12,
+      "tyre_compound": "Soft",
+      "gap": 0.0,
+      "current_time": 1500.5,
+      "current_sector_time": 12.5,
+      "speed": 75.5,
+      "pit": 0,
+      "pit_mode": 0,
+      "laps_since_last_pit": 12,
+      "current_sector": 1,
+      "fastest_lap": 81.5,
+      "last_lap": 82.0,
+      "current_sectors": [25.5, 0.0, 0.0],
+      "fastest_sectors": [25.3, 30.4, 25.8],
+      "nationality": "nl",
+      "car_name": "Formula Ultimate Gen 2",
+      "car_class": "Formula Ultimate Gen 2"
+    }
+  ]
+}</code></pre>
+
+    </div>
+
+    <script>
+        // Simple script to highlight active section in sidebar on scroll
+        const links = document.querySelectorAll('.sidebar a');
+        const sections = document.querySelectorAll('h1, h2');
+        
+        window.addEventListener('scroll', () => {
+            let current = '';
+            sections.forEach(section => {
+                const sectionTop = section.offsetTop;
+                if (pageYOffset >= sectionTop - 60) {
+                    current = section.getAttribute('id');
+                }
+            });
+
+            links.forEach(link => {
+                link.classList.remove('active');
+                if (link.getAttribute('href').substring(1) === current) {
+                    link.classList.add('active');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

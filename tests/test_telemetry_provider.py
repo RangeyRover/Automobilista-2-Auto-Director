@@ -394,6 +394,7 @@ class TestUDPParsing:
         """TP-34: Parse 1367-byte strings packet."""
         provider = TelemetryProvider()
         packet = bytearray(1367)
+        packet[8] = 1
         # Offset 16 is where 16 names of 64 bytes each start
         name_bytes = b'Bob UDP' + b'\x00' * 57
         packet[16:16+64] = name_bytes

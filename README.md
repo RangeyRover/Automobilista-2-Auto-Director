@@ -57,3 +57,9 @@ python -m pytest tests/ -v
 This V4.0 was extracted from the V3.0 monolith (`AMS2AutoDirector.py`, 902 lines)
 using the Strangler Pattern. The legacy file is preserved but never imported.
 All logic was decomposed into three testable `core/` modules.
+
+## Web Overlays & HUDs
+
+V4.0 includes a powerful, zero-latency Web Overlay system served locally on port `8765`. It includes F1TV-style broadcast graphics, a Halo HUD, and remote control panels for OBS integration.
+
+**👉 Please see the [Overlays Guide](OVERLAYS_GUIDE.md) for full documentation on how to use and customize the graphics.**

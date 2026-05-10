@@ -52,13 +52,51 @@
     </style>
 </head>
 <body>
-    <h1>Auto Director Dashboards</h1>
-    <p>Select a dashboard to open. For OBS, add a Browser Source pointing to the dashboard URL with a transparent background.</p>
+    <div class="header">
+        <h1>AMS2 Auto Director Dashboards</h1>
+        <p>Live HTML/CSS overlays powered by the Python WebSocket Bridge.</p>
+        <a href="help.html" class="help-btn" style="display:inline-block; margin-top:10px; background:#E10600; color:white; padding:8px 16px; border-radius:4px; text-decoration:none; font-weight:bold;">Documentation & Help</a>
+    </div>
     
     <div class="dashboard-grid">
         <a href="now_watching.html" class="card">
             <h2>NOW WATCHING / Battle For</h2>
             <p>Replicates the original SimHub overlay. Shows current driver telemetry and gaps for close racing. Transparent background.</p>
+        </a>
+        
+        <a href="mmdash/index.html" class="card">
+            <h2>MM Dash (SimHub Conversion)</h2>
+            <p>1:1 converted SimHub dashboard. Shows driver focus, gaps, team colours, and logos. Transparent background.</p>
+        </a>
+        
+        <a href="F1TV - Halo HUD/f1_hud.html" class="card">
+            <h2>F1TV Halo HUD</h2>
+            <p>Replicates the F1TV Halo graphic overlay. Shows speed, RPM, gear, inputs, and DRS/ERS state. Transparent background.</p>
+        </a>
+        
+        <a href="f1tv_overlay.html" class="card">
+            <h2>F1TV Leaderboard Overlay</h2>
+            <p>F1TV style dynamic left-sided leaderboard showing driver positions, gaps, tyre stints, and sector times. Transparent background.</p>
+        </a>
+        
+        <a href="f1tv_control.html" class="card">
+            <h2>F1TV Overlay Control Panel</h2>
+            <p>Remote control panel to dynamically toggle F1TV overlay elements on/off while it runs in OBS.</p>
+        </a>
+        
+        <a href="json_editor.html" class="card">
+            <h2>JSON Configuration Editor</h2>
+            <p>Live-edit JSON config files (like team colours and driver mappings) directly from your browser.</p>
+        </a>
+        
+        <a href="replay_logger.html" class="card">
+            <h2>Replay Logger & Analyser</h2>
+            <p>Runs in the browser to silently monitor your live race and generate a Replay Timeline Log for the Auto Director.</p>
+        </a>
+        
+        <a href="diagnostic.html" class="card">
+            <h2>Diagnostic & Data Feed</h2>
+            <p>Raw JSON telemetry feed viewer and system status diagnostic tool.</p>
         </a>
     </div>
 

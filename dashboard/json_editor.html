@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard JSON Configuration Editor</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #15151E;
+            color: #e0e0e0;
+            margin: 0;
+            padding: 40px;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background-color: #1e1e24;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            border: 1px solid #333;
+        }
+        h1 { color: #ffffff; margin-top: 0; border-bottom: 1px solid #333; padding-bottom: 10px; }
+        .controls { display: flex; gap: 10px; margin-bottom: 20px; align-items: center; }
+        select {
+            padding: 8px;
+            background: #2a2a35;
+            color: white;
+            border: 1px solid #444;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+        button {
+            background: #E10600;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 14px;
+        }
+        button:hover { background: #ff1a1a; }
+        textarea {
+            width: 100%;
+            height: 500px;
+            background: #111;
+            color: #00FF00;
+            font-family: 'Consolas', monospace;
+            border: 1px solid #444;
+            border-radius: 4px;
+            padding: 15px;
+            box-sizing: border-box;
+            resize: vertical;
+        }
+        .status {
+            margin-left: auto;
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-weight: bold;
+            font-size: 14px;
+            background: #333;
+        }
+        .error { color: #ff5555; margin-top: 10px; font-weight: bold; }
+        .back-btn {
+            display: inline-block;
+            margin-bottom: 20px;
+            background: #38383F;
+            padding: 8px 16px;
+            border-radius: 4px;
+            color: white;
+            font-weight: bold;
+            text-decoration: none;
+        }
+        .back-btn:hover { background: #555; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="index.html" class="back-btn">&larr; Back to Dashboard</a>
+        <h1>JSON Configuration Editor</h1>
+        <p style="color:#aaa;">Live-edit configuration files for the dashboard overlays. Changes apply immediately upon saving.</p>
+        
+        <div class="controls">
+            <select id="file-select" onchange="loadFile()">
+                <option value="mmdash/drivers_teams.json">MM Dash: Team Colours & Logos</option>
+                <option value="team_lookup.json">F1TV Overlay: Team Colours & Names</option>
+                <option value="driver_lookup.json">F1TV Overlay: Driver Nationalities</option>
+            </select>
+            <button onclick="saveFile()">Save Changes</button>
+            <div id="ws-status" class="status">WS: CONNECTING...</div>
+        </div>
+        
+        <div id="schema-info" style="margin-bottom: 15px; padding: 10px; background: #222; border-left: 4px solid #E10600; font-family: monospace; white-space: pre-wrap; color: #bbb;"></div>
+        
+        <div id="error-msg" class="error"></div>
+        <textarea id="json-editor" spellcheck="false"></textarea>
+    </div>
+
+    <script>
+        let ws;
+        const editor = document.getElementById('json-editor');
+        const errorMsg = document.getElementById('error-msg');
+        const fileSelect = document.getElementById('file-select');
+        const schemaInfo = document.getElementById('schema-info');
+
+        const schemas = {
+            "mmdash/drivers_teams.json": "Schema: Driver mapping to teams.\n{\n  \"Driver Name\": {\n    \"team\": \"Team Name\",\n    \"color\": \"#HexColor\",\n    \"logo\": \"URL or path to logo (optional)\"\n  }\n}",
+            "team_lookup.json": "Schema: F1TV Team colours by Driver Name or AMS2 Car Class.\n{\n  \"Car Class Name\": {\n    \"name\": \"Display Name\",\n    \"color\": \"#HexColor\",\n    \"short\": \"3-Letter ID\"\n  },\n  \"Driver Name\": \"#HexColor\"\n}",
+            "driver_lookup.json": "Schema: F1TV Driver Nationality flags (2-letter ISO code).\n{\n  \"driver name\": \"gb\"\n}\nExample flags: gb, us, au, br, de, it, fr, nl, mc, es, mx, ca, jp, fi, ar, nz, za, se, no. (You can use ANY 2-letter country code!)"
+        };
+
+        function connect() {
+            ws = new WebSocket('ws://' + location.host + '/ws');
+            const statusEl = document.getElementById('ws-status');
+            
+            ws.onopen = () => {
+                statusEl.innerText = "WS: CONNECTED";
+                statusEl.style.background = "#00A85C";
+            };
+            
+            ws.onclose = () => {
+                statusEl.innerText = "WS: DISCONNECTED";
+                statusEl.style.background = "#C00000";
+                setTimeout(connect, 2000);
+            };
+        }
+
+        async function loadFile() {
+            errorMsg.innerText = "";
+            const path = fileSelect.value;
+            schemaInfo.innerText = schemas[path] || "";
+            
+            try {
+                // Add timestamp to prevent browser caching
+                const res = await fetch(path + '?t=' + new Date().getTime());
+                if (!res.ok) throw new Error("File not found");
+                const text = await res.text();
+                // Format nicely
+                const json = JSON.parse(text);
+                editor.value = JSON.stringify(json, null, 4);
+            } catch (err) {
+                errorMsg.innerText = "Error loading file: " + err.message;
+                editor.value = "{\n\n}";
+            }
+        }
+
+        function saveFile() {
+            errorMsg.innerText = "";
+            let jsonObject;
+            try {
+                jsonObject = JSON.parse(editor.value);
+            } catch (err) {
+                errorMsg.innerText = "Invalid JSON! Please fix syntax errors before saving. " + err.message;
+                return;
+            }
+
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                    type: "save_json",
+                    path: fileSelect.value,
+                    content: jsonObject
+                }));
+                
+                // Format it nicely to confirm save
+                editor.value = JSON.stringify(jsonObject, null, 4);
+                
+                const btn = document.querySelector('button');
+                const origText = btn.innerText;
+                btn.innerText = "Saved!";
+                btn.style.background = "#00A85C";
+                setTimeout(() => {
+                    btn.innerText = origText;
+                    btn.style.background = "#E10600";
+                }, 1500);
+            } else {
+                errorMsg.innerText = "Cannot save: WebSocket disconnected.";
+            }
+        }
+
+        // Allow tab key in textarea
+        editor.addEventListener('keydown', function(e) {
+            if (e.key == 'Tab') {
+                e.preventDefault();
+                const start = this.selectionStart;
+                const end = this.selectionEnd;
+                this.value = this.value.substring(0, start) + "    " + this.value.substring(end);
+                this.selectionStart = this.selectionEnd = start + 4;
+            }
+        });
+
+        window.onload = () => {
+            connect();
+            loadFile();
+        };
+    </script>
+</body>
+</html>

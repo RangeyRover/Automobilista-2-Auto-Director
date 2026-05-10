@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auto Director Replay Logger</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #15151E;
+            color: #e0e0e0;
+            margin: 0;
+            padding: 40px;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background-color: #1e1e24;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            border: 1px solid #333;
+        }
+        h1 { color: #ffffff; margin-top: 0; border-bottom: 1px solid #333; padding-bottom: 10px; }
+        h2 { color: #E10600; margin-top: 25px; }
+        .back-btn {
+            display: inline-block;
+            margin-bottom: 20px;
+            background: #38383F;
+            padding: 8px 16px;
+            border-radius: 4px;
+            color: white;
+            font-weight: bold;
+            text-decoration: none;
+        }
+        .back-btn:hover { background: #E10600; }
+        
+        .panel {
+            background: #2a2a35;
+            padding: 20px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            border: 1px solid #444;
+        }
+        
+        .controls { display: flex; gap: 15px; margin-bottom: 20px; align-items: center; flex-wrap: wrap; }
+        
+        button {
+            background: #E10600;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 14px;
+        }
+        button:hover { background: #ff1a1a; }
+        button:disabled { background: #555; cursor: not-allowed; }
+        button.start-btn { background: #00A85C; }
+        button.start-btn:hover { background: #00cc70; }
+        
+        input {
+            padding: 8px;
+            background: #111;
+            color: white;
+            border: 1px solid #444;
+            border-radius: 4px;
+            width: 80px;
+        }
+        
+        .log-container {
+            width: 100%;
+            height: 400px;
+            background: #111;
+            color: #ccc;
+            font-family: 'Consolas', monospace;
+            border: 1px solid #444;
+            border-radius: 4px;
+            padding: 15px;
+            box-sizing: border-box;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+        
+        .status {
+            margin-left: auto;
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-weight: bold;
+            font-size: 14px;
+            background: #333;
+        }
+        
+        .tag-system { color: #aaa; }
+        .tag-overtake { color: #00ff00; }
+        .tag-accident { color: #ff4444; }
+        .tag-battle { color: #ffaa00; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="index.html" class="back-btn">&larr; Back to Dashboard</a>
+        <h1>Replay Logger & Analyser</h1>
+        
+        <div class="panel">
+            <h2>How the Replay System Works</h2>
+            <p>The AMS2 Auto Director can automatically switch cameras during your recorded game replays! To do this, it needs a <strong>Timeline Log</strong> of all the interesting events that happened during the race (overtakes, accidents, close battles).</p>
+            <p>1. Start your live race (or a multiplayer stream).<br>
+               2. Click <strong>Start Capture</strong> below. Leave this page open in the background.<br>
+               3. The logger will silently record all overtakes and crashes into a timeline.<br>
+               4. When the race ends, click <strong>Stop Capture & Download</strong> to save your `.txt` log.<br>
+               5. After the race, load the AMS2 Replay, open the Auto Director Python App, click "Load Replay Log", and the director will automatically focus on the action as the replay plays back!</p>
+        </div>
+        
+        <div class="controls">
+            <label>Close Battle Gap (m): <input type="number" id="gap-threshold" value="10.0" step="1.0"></label>
+            <button id="btn-start" class="start-btn" onclick="startCapture()">▶ Start Capture</button>
+            <button id="btn-stop" onclick="stopCapture()" disabled>⏹ Stop Capture & Download</button>
+            <div id="ws-status" class="status">WS: CONNECTING...</div>
+            <div id="rec-status" class="status" style="display:none; background: #E10600; animation: blink 1s infinite;">🔴 RECORDING</div>
+        </div>
+        
+        <div id="log-box" class="log-container"></div>
+    </div>
+
+    <style>
+        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+    </style>
+
+    <script>
+        let ws;
+        let isRecording = false;
+        let logEvents = [];
+        
+        // Incident Engine State
+        let previousPositions = {};
+        let activeBattles = {};
+        let accidentLogged = {};
+        let rollingSpeeds = {};
+        let rollingPositions = {};
+        let maxGameTime = -1.0;
+        let leaderCurrentLap = 0;
+        let gapThreshold = 10.0;
+
+        const logBox = document.getElementById('log-box');
+
+        function formatTime(gameTime) {
+            const m = Math.floor(gameTime / 60);
+            const s = Math.floor(gameTime % 60);
+            const ms = Math.floor((gameTime * 100) % 100);
+            return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}.${ms.toString().padStart(2, '0')}`;
+        }
+
+        function logMessage(msg, tag = 'system') {
+            logEvents.push(msg);
+            const span = document.createElement('div');
+            span.className = `tag-${tag}`;
+            span.innerText = msg;
+            logBox.appendChild(span);
+            logBox.scrollTop = logBox.scrollHeight;
+        }
+
+        function connect() {
+            ws = new WebSocket('ws://' + location.host + '/ws');
+            const statusEl = document.getElementById('ws-status');
+            
+            ws.onopen = () => {
+                statusEl.innerText = "WS: CONNECTED";
+                statusEl.style.background = "#00A85C";
+            };
+            
+            ws.onclose = () => {
+                statusEl.innerText = "WS: DISCONNECTED";
+                statusEl.style.background = "#C00000";
+                if (isRecording) {
+                    logMessage("WebSocket disconnected! Trying to reconnect...", 'system');
+                }
+                setTimeout(connect, 2000);
+            };
+            
+            ws.onmessage = (e) => {
+                if (!isRecording) return;
+                const state = JSON.parse(e.data);
+                if (state.type === "f1tv_config") return;
+                processTick(state);
+            };
+        }
+
+        function startCapture() {
+            gapThreshold = parseFloat(document.getElementById('gap-threshold').value) || 10.0;
+            isRecording = true;
+            logEvents = [];
+            logBox.innerHTML = '';
+            
+            previousPositions = {};
+            activeBattles = {};
+            accidentLogged = {};
+            rollingSpeeds = {};
+            rollingPositions = {};
+            maxGameTime = -1.0;
+            leaderCurrentLap = 0;
+            
+            const now = new Date().toISOString().replace('T', ' ').substring(0, 19);
+            logEvents.push(`Race data collection started at: ${now}\n`);
+            logMessage("▶ Data Collection Started...", 'system');
+            
+            document.getElementById('btn-start').disabled = true;
+            document.getElementById('gap-threshold').disabled = true;
+            document.getElementById('btn-stop').disabled = false;
+            document.getElementById('rec-status').style.display = 'block';
+        }
+
+        function stopCapture() {
+            isRecording = false;
+            
+            logEvents.push("\n--- RACE DATA SUMMARY ---");
+            logEvents.push(`Total Session Time: ${formatTime(maxGameTime)}`);
+            logEvents.push(`Leader Laps Completed: ${leaderCurrentLap}`);
+            logEvents.push("-------------------------");
+            
+            logMessage("⏹ Data Collection Stopped. Downloading log...", 'system');
+            
+            document.getElementById('btn-start').disabled = false;
+            document.getElementById('gap-threshold').disabled = false;
+            document.getElementById('btn-stop').disabled = true;
+            document.getElementById('rec-status').style.display = 'none';
+            
+            downloadLog();
+        }
+
+        function downloadLog() {
+            const blob = new Blob([logEvents.join("\n")], { type: "text/plain;charset=utf-8" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            const now = new Date().toISOString().replace(/[:T]/g, '-').substring(0, 19);
+            a.href = url;
+            a.download = `RaceLog_${now}.txt`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function processTick(state) {
+            const participants = state.leaderboard;
+            if (!participants || participants.length === 0) return;
+            
+            // Assume the leader's current_time is a good proxy for game_time
+            let gameTime = 0;
+            for (let p of participants) {
+                if (p.pos === 1) {
+                    gameTime = p.current_time;
+                    break;
+                }
+            }
+            if (gameTime <= maxGameTime) return; // Prevent backwards jumps
+            maxGameTime = gameTime;
+
+            let currentPositions = {};
+            let participantNames = {};
+            let trueDistances = [];
+            
+            // Calculate median speed
+            let activeSpeeds = [];
+            for (let p of participants) {
+                if (p.speed > 10) activeSpeeds.push(p.speed);
+            }
+            activeSpeeds.sort((a, b) => a - b);
+            let fieldMedianSpeed = activeSpeeds.length > 0 ? activeSpeeds[Math.floor(activeSpeeds.length / 2)] : 0;
+
+            for (let p of participants) {
+                let name = p.name;
+                let currentSpeed = p.speed || 0;
+                
+                if (!rollingSpeeds[name]) rollingSpeeds[name] = [];
+                if (!rollingPositions[name]) rollingPositions[name] = [];
+                
+                rollingSpeeds[name].push({t: gameTime, v: currentSpeed});
+                rollingPositions[name].push({t: gameTime, v: p.pos});
+                
+                rollingSpeeds[name] = rollingSpeeds[name].filter(x => gameTime - x.t <= 3.0);
+                rollingPositions[name] = rollingPositions[name].filter(x => gameTime - x.t <= 3.0);
+                
+                currentPositions[name] = p.pos;
+                participantNames[name] = name;
+                
+                if (p.pos === 1) {
+                    if (leaderCurrentLap === 0) leaderCurrentLap = p.lap;
+                    else if (p.lap > leaderCurrentLap) {
+                        leaderCurrentLap = p.lap;
+                        logMessage(`${formatTime(gameTime)} - Leader ${name} (P1) started Lap ${leaderCurrentLap}`, 'system');
+                    }
+                }
+                
+                trueDistances.push({ name: name, dist: p.true_distance, pit: p.pit_mode, pos: p.pos });
+            }
+
+            // Detect Overtakes
+            for (let p of participants) {
+                if (p.pit_mode !== 0) continue;
+                let name = p.name;
+                let currentPos = p.pos;
+                let prevPos = previousPositions[name];
+                
+                if (prevPos && currentPos < prevPos) {
+                    for (let other of participants) {
+                        if (other.name === name) continue;
+                        let otherPrev = previousPositions[other.name];
+                        if (other.pos > currentPos && otherPrev && otherPrev < prevPos) {
+                            if (other.pit_mode !== 0) continue;
+                            logMessage(`${formatTime(gameTime)} - Overtake! ${name} (P${currentPos}) overtook ${other.name} for position ${currentPos}`, 'overtake');
+                        }
+                    }
+                }
+            }
+
+            // Detect Accidents
+            for (let p of participants) {
+                let name = p.name;
+                if (p.pit_mode !== 0) {
+                    accidentLogged[name] = false;
+                    continue;
+                }
+                
+                let currentSpeed = p.speed || 0;
+                let isAccident = false;
+                
+                let triggerA = currentSpeed < 10.0 && gameTime >= 15.0;
+                let triggerB = false;
+                
+                let pHist = rollingPositions[name];
+                if (pHist && pHist.length > 0) {
+                    if (p.pos - pHist[0].v >= 3) triggerB = true;
+                }
+                
+                let triggerC = currentSpeed < (fieldMedianSpeed * 0.4);
+                
+                if (triggerA || (triggerB && triggerC)) {
+                    isAccident = true;
+                }
+                
+                if (isAccident) {
+                    if (!accidentLogged[name]) {
+                        logMessage(`${formatTime(gameTime)} - Accident involving: ${name} (P${p.pos})`, 'accident');
+                        accidentLogged[name] = true;
+                    }
+                } else {
+                    if (currentSpeed > 100 || currentSpeed > (fieldMedianSpeed * 0.6)) {
+                        accidentLogged[name] = false;
+                    }
+                }
+            }
+
+            // Detect Close Battles
+            trueDistances.sort((a, b) => b.dist - a.dist);
+            for (let i = 1; i < trueDistances.length; i++) {
+                let driverAhead = trueDistances[i - 1];
+                let driverBehind = trueDistances[i];
+                
+                let gap = driverAhead.dist - driverBehind.dist;
+                
+                if (gap < gapThreshold && driverAhead.dist >= 500 && driverBehind.dist >= 500 && driverAhead.pit === 0 && driverBehind.pit === 0) {
+                    let pairKey = [driverAhead.name, driverBehind.name].sort().join("|");
+                    let lastLogged = activeBattles[pairKey] || 0;
+                    
+                    if (gameTime - lastLogged >= 10.0) {
+                        logMessage(`${formatTime(gameTime)} - Close Battle! ${driverBehind.name} (P${driverBehind.pos}) is pressuring ${driverAhead.name} (P${driverAhead.pos})`, 'battle');
+                        activeBattles[pairKey] = gameTime;
+                    }
+                }
+            }
+
+            previousPositions = { ...currentPositions };
+        }
+
+        window.onload = connect;
+    </script>
+</body>
+</html>
