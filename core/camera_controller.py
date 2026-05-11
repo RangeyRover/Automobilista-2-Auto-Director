@@ -7,6 +7,8 @@ No GUI imports. Testable via monkeypatched _press_key/_release_key.
 """
 import time
 import random
+import json
+import os
 
 CAMERA_SET_MAP = {
     "Cockpit": "cockpit", 
@@ -32,6 +34,19 @@ class CameraController:
         self.key_hold_ms = key_hold_ms
         self.key_gap_ms = key_gap_ms
         self.current_camera_type = "tv_cam"
+        self.disable_camera_change = False
+        self.last_shot_was_special = False
+        
+        # Determine paths
+        core_dir = os.path.dirname(os.path.abspath(__file__))
+        self.config_path = os.path.join(os.path.dirname(core_dir), "dashboard", "camera_config.json")
+        
+        # Default config if file is missing
+        self.default_config = {
+            "trackside_keys": ["7", "8"],
+            "pool_close_racing": ["1", "1", "1", "2", "3", "7", "8"],
+            "pool_standard": ["7", "7", "7", "7", "8", "8", "2", "3"]
+        }
 
     def _press_key(self, key: str):
         """Press a key. Override in tests via monkeypatch."""
@@ -95,18 +110,45 @@ class CameraController:
         """Update the internal camera type based on the AMS2 camera set name."""
         self.current_camera_type = CAMERA_SET_MAP.get(camera_set_name, "tv_cam")
 
+    def _load_config(self) -> dict:
+        """Load the camera configuration from disk, with a fallback to defaults."""
+        try:
+            if os.path.exists(self.config_path):
+                with open(self.config_path, 'r', encoding='utf-8') as f:
+                    return json.load(f)
+        except Exception:
+            pass
+        return self.default_config
+
     def select_random_camera(self, is_close: bool):
-        """Select a random camera based on proximity rules.
+        """Select a random camera based on proximity rules and anchor logic.
         
         Args:
             is_close: True if the target driver is in a close battle.
         """
-        if is_close:
-            choices = ['1', '1', '2', '3', '4', '5']
+        if getattr(self, 'disable_camera_change', False):
+            return
+            
+        config = self._load_config()
+        trackside_keys = config.get("trackside_keys", self.default_config["trackside_keys"])
+        
+        # Enforce Trackside Anchor Rule
+        if self.last_shot_was_special:
+            choices = trackside_keys
         else:
-            choices = ['7', '2', '3', '4', '5']
+            if is_close:
+                choices = config.get("pool_close_racing", self.default_config["pool_close_racing"])
+            else:
+                choices = config.get("pool_standard", self.default_config["pool_standard"])
+                
+        # Ensure choices isn't empty due to a bad config
+        if not choices:
+            choices = trackside_keys
             
         choice = random.choice(choices)
+        
+        # Update Anchor State
+        self.last_shot_was_special = choice not in trackside_keys
         
         # Pause briefly to allow AMS2 to process the driver switch (ENTER)
         # before we attempt to change the camera angle
@@ -117,7 +159,7 @@ class CameraController:
         # Optimistically update the internal state
         if choice == '1':
             self.current_camera_type = 'cockpit'
-        elif choice == '7':
+        elif choice in trackside_keys:
             self.current_camera_type = 'tv_cam'
-        elif choice in ['2', '3', '4', '5']:
+        else:
             self.current_camera_type = 'chase'

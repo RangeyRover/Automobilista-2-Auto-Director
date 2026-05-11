@@ -201,7 +201,9 @@
         .lb-row:nth-child(odd) { background: var(--f1-black); }
         .lb-row:nth-child(even) { background: var(--f1-dark-grey); }
         .lb-row.viewed {
-            border-left: 4px solid var(--f1-white);
+            background-color: var(--f1-white) !important;
+            color: var(--f1-black);
+            font-weight: bold;
         }
 
         #fastest-lap {
@@ -245,7 +247,7 @@
             background: var(--panel-bg);
             border-radius: 4px;
             overflow-y: auto;
-            width: 380px;
+            width: 460px;
         }
         .flb-row {
             display: flex;
@@ -258,7 +260,18 @@
         }
         .flb-row:nth-child(odd) { background: var(--f1-black); }
         .flb-row:nth-child(even) { background: var(--f1-dark-grey); }
-        .flb-row.viewed { border-left: 4px solid var(--f1-white); }
+        .flb-row.viewed { 
+            background-color: var(--f1-white) !important;
+            color: var(--f1-black);
+            font-weight: bold;
+        }
+        
+        .tyre-info {
+            display: flex; align-items: center; font-size: 10px; color: var(--f1-light-grey); width: 45px; justify-content: flex-end; flex-shrink: 0;
+        }
+        .lb-row.viewed .tyre-info, .flb-row.viewed .tyre-info {
+            color: var(--f1-dark-grey);
+        }
         
         #fastest-sectors {
             top: 150px;
@@ -914,16 +927,16 @@
 
                 mlbHTML += `
                     <div class="lb-row ${isViewed ? 'viewed' : ''}">
-                        <div style="width:20px; text-align:right;">${driver.pos}</div>
-                        <div class="team-strip" style="background:${tc}; width:4px; height:16px;"></div>
-                        <div style="width:140px; display:flex; align-items:center; font-weight:bold; overflow:hidden; white-space:nowrap; text-overflow:ellipsis;">
-                            ${driver.nationality ? `<img src="https://flagcdn.com/w20/${driver.nationality}.png" height="11" style="margin-right:8px; border-radius:1px;">` : ''}
-                            ${getLastName(driver.name)}
+                        <div style="width:20px; text-align:right; flex-shrink:0;">${driver.pos}</div>
+                        <div class="team-strip" style="background:${tc}; width:4px; height:16px; flex-shrink:0;"></div>
+                        <div style="flex-grow:1; min-width:140px; display:flex; align-items:center; font-weight:bold; overflow:hidden; white-space:nowrap; text-overflow:ellipsis;">
+                            ${driver.nationality ? `<img src="https://flagcdn.com/w20/${driver.nationality}.png" height="11" style="margin-right:8px; border-radius:1px; flex-shrink:0;">` : ''}
+                            <span style="overflow:hidden; text-overflow:ellipsis;">${getLastName(driver.name)}</span>
                         </div>
-                        <div style="display:flex; align-items:center; font-size:10px; color:#ccc; width: 60px; justify-content: flex-end;">
+                        <div class="tyre-info">
                             <span style="color:${tCol}; margin-right: 2px; font-size: 12px;" title="${driver.tyre_compound}">●</span>${driver.tyre_stint_laps > 0 ? driver.tyre_stint_laps : 'NEW'}
                         </div>
-                        <div style="text-align:right; flex-grow:1;">${driver.pos === 1 ? 'LEADER' : formatGap(driver.gap)}</div>
+                        <div style="text-align:right; width:65px; flex-shrink:0;">${driver.pos === 1 ? 'LEADER' : formatGap(driver.gap)}</div>
                     </div>
                 `;
             });
@@ -947,18 +960,18 @@
 
                 flbHTML += `
                     <div class="flb-row ${isViewed ? 'viewed' : ''}">
-                        <div style="width:20px; text-align:right;">${driver.pos}</div>
-                        <div class="team-strip" style="background:${tc}; width:4px; height:16px;"></div>
-                        <div style="width:140px; display:flex; align-items:center; font-weight:bold; overflow:hidden; white-space:nowrap; text-overflow:ellipsis;">
-                            ${driver.nationality ? `<img src="https://flagcdn.com/w20/${driver.nationality}.png" height="11" style="margin-right:8px; border-radius:1px;">` : ''}
-                            ${getLastName(driver.name)}
+                        <div style="width:20px; text-align:right; flex-shrink:0;">${driver.pos}</div>
+                        <div class="team-strip" style="background:${tc}; width:4px; height:16px; flex-shrink:0;"></div>
+                        <div style="flex-grow:1; min-width:140px; display:flex; align-items:center; font-weight:bold; overflow:hidden; white-space:nowrap; text-overflow:ellipsis;">
+                            ${driver.nationality ? `<img src="https://flagcdn.com/w20/${driver.nationality}.png" height="11" style="margin-right:8px; border-radius:1px; flex-shrink:0;">` : ''}
+                            <span style="overflow:hidden; text-overflow:ellipsis;">${getLastName(driver.name)}</span>
                         </div>
-                        <div style="display:flex; align-items:center; font-size:10px; color:#ccc; width: 60px; justify-content: flex-end; margin-right: 5px;">
+                        <div class="tyre-info" style="margin-right: 5px;">
                             <span style="color:${tCol}; margin-right: 2px; font-size: 12px;" title="${driver.tyre_compound}">●</span>${driver.tyre_stint_laps > 0 ? driver.tyre_stint_laps : 'NEW'}
                         </div>
-                        <div style="width:80px; text-align:right;">${formatTime(driver.last_lap)}</div>
-                        <div style="text-align:right; flex-grow:1;">${driver.pos === 1 ? 'LEADER' : formatGap(driver.gap)}</div>
-                        ${driver.pit > 0 ? `<div style="background:var(--f1-red); color:white; padding:0 4px; border-radius:2px; font-size:10px;" title="${driver.laps_since_last_pit > 0 ? driver.laps_since_last_pit + ' laps since pit' : ''}">P${driver.pit}</div>` : ''}
+                        <div style="width:65px; text-align:right; flex-shrink:0;">${formatTime(driver.last_lap)}</div>
+                        <div style="width:65px; text-align:right; flex-shrink:0;">${driver.pos === 1 ? 'LEADER' : formatGap(driver.gap)}</div>
+                        ${driver.pit > 0 ? `<div style="background:var(--f1-red); color:white; padding:0 4px; border-radius:2px; font-size:10px; flex-shrink:0;" title="${driver.laps_since_last_pit > 0 ? driver.laps_since_last_pit + ' laps since pit' : ''}">P${driver.pit}</div>` : ''}
                     </div>
                 `;
             });

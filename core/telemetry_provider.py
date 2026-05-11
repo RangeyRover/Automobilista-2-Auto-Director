@@ -229,6 +229,9 @@ class TelemetryProvider:
             else:
                 name = str(raw_name).strip()
 
+            if name.lower().startswith('safety car'):
+                is_active = False
+
             participants[i] = {
                 'name': name,
                 'nationality': self._udp_participant_nationalities.get(i, ""),
@@ -740,6 +743,9 @@ class TelemetryProvider:
                 # Lookup name and nationality from cache
                 name = self._udp_participant_names.get(i, f"Driver {i}")
                 nationality = self._udp_participant_nationalities.get(i, "")
+
+                if name.lower().startswith('safety car'):
+                    is_active = False
 
                 participants[i] = {
                     'name': name,

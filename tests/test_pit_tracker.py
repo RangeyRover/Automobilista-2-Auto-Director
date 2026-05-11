@@ -18,8 +18,7 @@ def test_pit_entry_recorded(bridge):
     }
     bridge._pit_tracker = {0: {"prev_pit_mode": 0}}
     
-    with patch('time.time', return_value=100.0):
-        bridge._update_pit_tracker(participants)
+    bridge._update_pit_tracker(participants, 100.0)
         
     assert 0 in bridge._pit_tracker
     assert bridge._pit_tracker[0].get("entry_time") == 100.0
@@ -40,8 +39,7 @@ def test_pit_exit_calculates_duration(bridge):
         }
     }
     
-    with patch('time.time', return_value=125.5):
-        bridge._update_pit_tracker(participants)
+    bridge._update_pit_tracker(participants, 125.5)
         
     assert bridge._pit_tracker[0].get("in_progress") == False
     assert bridge._pit_tracker[0].get("duration") == pytest.approx(25.5)
@@ -55,16 +53,18 @@ def test_pit_count_increments(bridge):
     
     bridge._pit_tracker = {0: {"prev_pit_mode": 0}}
 
-    bridge._update_pit_tracker(participants_enter1)
+    bridge._update_pit_tracker(participants_enter1, 100.0)
     bridge._pit_tracker[0]["prev_pit_mode"] = 3
-    bridge._update_pit_tracker(participants_exit1)
+    # Use >5s difference to avoid flicker revert
+    bridge._update_pit_tracker(participants_exit1, 110.0)
     
     assert bridge._pit_tracker[0].get("pit_count") == 1
     
     bridge._pit_tracker[0]["prev_pit_mode"] = 0
-    bridge._update_pit_tracker(participants_enter2)
+    # Add >20s difference between exit and new entry to pass debounce
+    bridge._update_pit_tracker(participants_enter2, 140.0)
     bridge._pit_tracker[0]["prev_pit_mode"] = 3
-    bridge._update_pit_tracker(participants_exit2)
+    bridge._update_pit_tracker(participants_exit2, 150.0)
     
     assert bridge._pit_tracker[0].get("pit_count") == 2
 
@@ -76,12 +76,12 @@ def test_laps_since_last_pit(bridge):
         0: {
             "prev_pit_mode": 0,
             "exit_lap": 10,
-            "exit_time": time.time() - 2.0,
+            "exit_time": 100.0,
             "in_progress": False
         }
     }
     
-    bridge._update_pit_tracker(participants)
+    bridge._update_pit_tracker(participants, 102.0)
     assert len(bridge._pit_events) == 1
     assert bridge._pit_events[0]["laps_since_last_pit"] == 13
 
@@ -95,7 +95,7 @@ def test_multiple_drivers_pit_simultaneously(bridge):
         1: {"prev_pit_mode": 0}
     }
     
-    bridge._update_pit_tracker(participants)
+    bridge._update_pit_tracker(participants, 100.0)
     
     assert bridge._pit_tracker[0].get("in_progress") == True
     assert bridge._pit_tracker[1].get("in_progress") == True
@@ -104,7 +104,7 @@ def test_pit_events_list_contains_recent(bridge):
     participants = {
         0: {"name": "Driver A", "race_position": 3, "pit_mode": 0, "current_lap": 10}
     }
-    now = time.time()
+    now = 100.0
     bridge._pit_tracker = {
         0: {
             "prev_pit_mode": 0,
@@ -116,7 +116,7 @@ def test_pit_events_list_contains_recent(bridge):
         }
     }
     
-    bridge._update_pit_tracker(participants)
+    bridge._update_pit_tracker(participants, now)
     
     assert len(bridge._pit_events) == 1
     event = bridge._pit_events[0]
@@ -124,7 +124,7 @@ def test_pit_events_list_contains_recent(bridge):
     assert event["duration"] == 25.0
     assert event["pit_count"] == 1
     
-    # Now test an old event
-    bridge._pit_tracker[0]["exit_time"] = now - 15.0
-    bridge._update_pit_tracker(participants)
+    # Now test an old event (> 15s)
+    bridge._pit_tracker[0]["exit_time"] = now - 20.0
+    bridge._update_pit_tracker(participants, now)
     assert len(bridge._pit_events) == 0

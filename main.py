@@ -128,6 +128,10 @@ class AutoDirectorApp:
                                        style='Status.TLabel')
         self.lbl_director.pack(side=tk.LEFT, padx=20)
 
+        self.lbl_camera = ttk.Label(status_frame, text='Auto Cam: ON',
+                                       style='Status.TLabel')
+        self.lbl_camera.pack(side=tk.LEFT, padx=20)
+
         self.lbl_focus = ttk.Label(status_frame, text='Focus: —',
                                     style='Status.TLabel')
         self.lbl_focus.pack(side=tk.LEFT, padx=20)
@@ -239,6 +243,8 @@ class AutoDirectorApp:
                 elif e.name in ['2', '3', '4', '5', '6', '7', '8']:
                     print(f"[CAM EVENT] Key {e.name} triggered camera change to tv_cam")
                     self.camera.current_camera_type = 'tv_cam'
+                elif e.name == '9':
+                    self.root.after(0, self._toggle_camera_change)
 
             keyboard.hook(on_key_event)
             keyboard.add_hotkey('ctrl+space', lambda: self.root.after(0, self._toggle_director))
@@ -249,6 +255,7 @@ class AutoDirectorApp:
             self.root.bind_all('1', lambda e: setattr(self.camera, 'current_camera_type', 'cockpit'))
             for k in ['2', '3', '4', '5', '6', '7', '8']:
                 self.root.bind_all(k, lambda e, key=k: setattr(self.camera, 'current_camera_type', 'tv_cam'))
+            self.root.bind_all('9', lambda e: self._toggle_camera_change())
 
     def _open_overlays(self):
         """Open the local dashboard portal in the default web browser."""
@@ -284,10 +291,21 @@ class AutoDirectorApp:
             pass  # Ignore invalid input
 
     def _toggle_director(self):
-        """Toggle auto director on/off."""
+        """Toggle Auto Director status (Ctrl+Space)."""
         self._director_enabled = not self._director_enabled
-        status = 'ON' if self._director_enabled else 'OFF'
+        status = "ACTIVE" if self._director_enabled else "PAUSED"
+        color = '#00ff00' if self._director_enabled else '#ffaa00'
+        
         self.lbl_director.configure(text=f'Director: {status}')
+        
+        print(f"Auto Director {status}")
+
+    def _toggle_camera_change(self):
+        """Toggle whether the Auto Director can change cameras (Key 9)."""
+        self.camera.disable_camera_change = not self.camera.disable_camera_change
+        state = "OFF" if self.camera.disable_camera_change else "ON"
+        self.lbl_camera.configure(text=f'Auto Cam: {state}')
+        print(f"[CAM EVENT] Auto Camera Switch {state}")
 
     def _toggle_data_source(self):
         """Toggle between Hybrid and UDP Only data source modes."""

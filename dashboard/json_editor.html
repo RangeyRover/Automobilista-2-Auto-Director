@@ -87,6 +87,7 @@
                 <option value="mmdash/drivers_teams.json">MM Dash: Team Colours & Logos</option>
                 <option value="team_lookup.json">F1TV Overlay: Team Colours & Names</option>
                 <option value="driver_lookup.json">F1TV Overlay: Driver Nationalities</option>
+                <option value="camera_config.json">Auto Director: Camera Config</option>
             </select>
             <button onclick="saveFile()">Save Changes</button>
             <div id="ws-status" class="status">WS: CONNECTING...</div>
@@ -108,7 +109,8 @@
         const schemas = {
             "mmdash/drivers_teams.json": "Schema: Driver mapping to teams.\n{\n  \"Driver Name\": {\n    \"team\": \"Team Name\",\n    \"color\": \"#HexColor\",\n    \"logo\": \"URL or path to logo (optional)\"\n  }\n}",
             "team_lookup.json": "Schema: F1TV Team colours by Driver Name or AMS2 Car Class.\n{\n  \"Car Class Name\": {\n    \"name\": \"Display Name\",\n    \"color\": \"#HexColor\",\n    \"short\": \"3-Letter ID\"\n  },\n  \"Driver Name\": \"#HexColor\"\n}",
-            "driver_lookup.json": "Schema: F1TV Driver Nationality flags (2-letter ISO code).\n{\n  \"driver name\": \"gb\"\n}\nExample flags: gb, us, au, br, de, it, fr, nl, mc, es, mx, ca, jp, fi, ar, nz, za, se, no. (You can use ANY 2-letter country code!)"
+            "driver_lookup.json": "Schema: F1TV Driver Nationality flags (2-letter ISO code).\n{\n  \"driver name\": \"gb\"\n}\nExample flags: gb, us, au, br, de, it, fr, nl, mc, es, mx, ca, jp, fi, ar, nz, za, se, no. (You can use ANY 2-letter country code!)",
+            "camera_config.json": "Schema: Camera configuration for Auto Director.\n{\n  \"trackside_keys\": [\"7\", \"8\"],\n  \"pool_close_racing\": [\"1\", \"1\", \"1\", \"2\", \"3\", \"7\", \"8\"],\n  \"pool_standard\": [\"7\", \"7\", \"7\", \"7\", \"8\", \"8\", \"2\", \"3\"]\n}\nKey mapping: 1=Cockpit, 2=Roof, 3=Bonnet, 4=Bumper, 5=Chase Near, 6=Chase Far, 7=TV Cam, 8=TV Cam 2."
         };
 
         function connect() {

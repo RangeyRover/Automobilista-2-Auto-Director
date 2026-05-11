@@ -4,7 +4,22 @@
     <meta charset='utf-8'>
     <title>Converted Dashboard</title>
     <style>
-        body { margin: 0; padding: 0; overflow: hidden; background-color: transparent; }
+        @font-face {
+            font-family: 'Formula1';
+            src: url('../_SHFonts/Formula1-Bold.ttf') format('truetype');
+        }
+        @font-face {
+            font-family: 'F1TV-2022';
+            src: url('../_SHFonts/F1TV-2022-Bold.ttf') format('truetype');
+            font-weight: bold;
+        }
+        @font-face {
+            font-family: 'F1TV-2022';
+            src: url('../_SHFonts/F1TV-2022-Regular.ttf') format('truetype');
+            font-weight: normal;
+        }
+        
+        body { margin: 0; padding: 0; overflow: hidden; background-color: transparent; font-family: 'Formula1', sans-serif; }
         .dashboard-container { position: relative; width: 740px; height: 148px; }
         /* Default layer handling to not disrupt position */
         .layer { position: absolute; left: 0; top: 0; width: 100%; height: 100%; pointer-events: none; }
@@ -21,20 +36,20 @@
 <div class='layer Gaps'>
 <div id='Green_Arrow' class='image Green_Arrow' style="position: absolute; left: 710.0px; top: 78.0px; width: 25.0px; height: 25.0px; background-size: contain; background-repeat: no-repeat; background-position: center; background-image: url('assets/MM season 13/Green_triangle.svg.png'); transform: rotate(180deg);"></div>
 <div id='Red_Arrow' class='image Red_Arrow' style="position: absolute; left: 710.0px; top: 119.0px; width: 25.0px; height: 25.0px; background-size: contain; background-repeat: no-repeat; background-position: center; background-image: url('assets/MM season 13/Red_triangle.svg.png');"></div>
-<div id='Driver_Behind' class='text Driver_Behind' style="position: absolute; left: 290.0px; top: 115.0px; width: 410.0px; height: 35.0px; font-size: 29.0px; font-family: 'KH Interference'; color: rgba(255, 255, 0, 1.00); font-weight: 300; text-align: left; display: flex; align-items: center">ShatteredCompass</div>
-<div id='Driver_Ahead' class='text Driver_Ahead' style="position: absolute; left: 290.0px; top: 78.0px; width: 410.0px; height: 35.0px; font-size: 29.0px; font-family: 'KH Interference'; color: rgba(255, 255, 0, 1.00); font-weight: 300; text-align: left; display: flex; align-items: center">ShatteredCompass</div>
-<div id='Gap_Ahead' class='text Gap_Ahead' style="position: absolute; left: 587.0px; top: 73.0px; width: 120.0px; height: 50.0px; font-size: 30.0px; font-family: 'KH Interference'; color: rgba(255, 255, 0, 1.00); text-align: center; display: flex; align-items: center; justify-content: center">+5.42</div>
-<div id='Gap_Behind' class='text Gap_Behind' style="position: absolute; left: 587.0px; top: 110.0px; width: 120.0px; height: 50.0px; font-size: 30.0px; font-family: 'KH Interference'; color: rgba(255, 255, 0, 1.00); text-align: center; display: flex; align-items: center; justify-content: center">-5.42</div>
+<div id='Driver_Behind' class='text Driver_Behind' style="position: absolute; left: 290.0px; top: 115.0px; width: 410.0px; height: 35.0px; font-size: 29.0px; font-family: 'Formula1', sans-serif; color: rgba(255, 255, 0, 1.00); font-weight: 300; text-align: left; display: flex; align-items: center">ShatteredCompass</div>
+<div id='Driver_Ahead' class='text Driver_Ahead' style="position: absolute; left: 290.0px; top: 78.0px; width: 410.0px; height: 35.0px; font-size: 29.0px; font-family: 'Formula1', sans-serif; color: rgba(255, 255, 0, 1.00); font-weight: 300; text-align: left; display: flex; align-items: center">ShatteredCompass</div>
+<div id='Gap_Ahead' class='text Gap_Ahead' style="position: absolute; left: 587.0px; top: 73.0px; width: 120.0px; height: 50.0px; font-size: 30.0px; font-family: 'Formula1', sans-serif; color: rgba(255, 255, 0, 1.00); text-align: center; display: flex; align-items: center; justify-content: center">+5.42</div>
+<div id='Gap_Behind' class='text Gap_Behind' style="position: absolute; left: 587.0px; top: 110.0px; width: 120.0px; height: 50.0px; font-size: 30.0px; font-family: 'Formula1', sans-serif; color: rgba(255, 255, 0, 1.00); text-align: center; display: flex; align-items: center; justify-content: center">-5.42</div>
 </div>
 
 <div class='layer Team'>
-<div id='Team_Name' class='text Team_Name' style="position: absolute; left: 26.0px; top: 77.0px; width: 268.0px; height: 75.0px; font-size: 36.0px; font-family: 'KH Interference'; color: rgba(255, 255, 255, 1.00); text-align: left; display: flex; align-items: center">Force India</div>
+<div id='Team_Name' class='text Team_Name' style="position: absolute; left: 26.0px; top: 77.0px; width: 268.0px; height: 75.0px; font-size: 36.0px; font-family: 'Formula1', sans-serif; color: rgba(255, 255, 255, 1.00); text-align: left; display: flex; align-items: center">Force India</div>
 <div id='Team_Logo' class='image Team_Logo' style="position: absolute; left: 70.0px; top: 0.0px; width: 75.0px; height: 75.0px; background-color: rgba(1, 8, 64, 1.00); background-size: contain; background-repeat: no-repeat; background-position: center;"></div>
 </div>
 
 <div class='layer Driver_Info'>
-<div id='Driver' class='text Driver' style="position: absolute; left: 147.0px; top: 3.0px; width: 592.0px; height: 75.0px; font-size: 50.0px; font-family: 'KH Interference'; color: rgba(0, 0, 0, 1.00); font-weight: bold; text-align: center; display: flex; align-items: center; justify-content: center">Shattered.Compass</div>
-<div id='Pos' class='text Pos' style="position: absolute; left: 2.0px; top: 4.0px; width: 70.0px; height: 75.0px; font-size: 39.0px; font-family: 'KH Interference'; color: rgba(0, 0, 0, 1.00); font-weight: bold; text-align: center; display: flex; align-items: center; justify-content: center">4</div>
+<div id='Driver' class='text Driver' style="position: absolute; left: 147.0px; top: 3.0px; width: 592.0px; height: 75.0px; font-size: 50.0px; font-family: 'Formula1', sans-serif; color: rgba(0, 0, 0, 1.00); font-weight: bold; text-align: center; display: flex; align-items: center; justify-content: center">Shattered.Compass</div>
+<div id='Pos' class='text Pos' style="position: absolute; left: 2.0px; top: 4.0px; width: 70.0px; height: 75.0px; font-size: 39.0px; font-family: 'Formula1', sans-serif; color: rgba(0, 0, 0, 1.00); font-weight: bold; text-align: center; display: flex; align-items: center; justify-content: center">4</div>
 </div>
 
     </div>

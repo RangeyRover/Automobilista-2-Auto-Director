@@ -4,6 +4,8 @@ Uses monkeypatched pyKey to capture key sequences.
 """
 import pytest
 from unittest.mock import patch
+import unittest.mock
+import json
 from core.camera_controller import CameraController
 
 
@@ -176,3 +178,84 @@ class TestEdgeCases:
             controller.move_to_position(32, 1)
         down_presses = [e for e in log if e == ('press', 'DOWN')]
         assert len(down_presses) == 31
+
+
+# ── Camera Selection & Flags ────────────────────────────────────────────
+
+class TestCameraSelection:
+    def test_select_random_camera_enabled(self, controller, key_log):
+        """When disable_camera_change is False, a camera key should be pressed."""
+        log, mock_press, mock_release = key_log
+        controller.disable_camera_change = False
+        
+        with patch.object(controller, '_press_key', mock_press), \
+             patch.object(controller, '_release_key', mock_release), \
+             patch('time.sleep'), \
+             patch('random.choice', return_value='3'):
+            controller.select_random_camera(is_close=True)
+            
+        press_events = [e for e in log if e[0] == 'press']
+        assert len(press_events) == 1
+        assert press_events[0] == ('press', '3')
+        assert controller.current_camera_type == 'chase'
+
+    def test_select_random_camera_disabled(self, controller, key_log):
+        """When disable_camera_change is True, no camera key should be pressed."""
+        log, mock_press, mock_release = key_log
+        controller.disable_camera_change = True
+        
+        with patch.object(controller, '_press_key', mock_press), \
+             patch.object(controller, '_release_key', mock_release), \
+             patch('time.sleep'), \
+             patch('random.choice', return_value='3'):
+            controller.select_random_camera(is_close=True)
+            
+        assert len(log) == 0
+
+    def test_trackside_anchor_rule(self, controller, key_log):
+        """When last shot was special, the next shot must be from trackside_keys."""
+        log, mock_press, mock_release = key_log
+        controller.disable_camera_change = False
+        controller.last_shot_was_special = True
+        
+        test_config = {
+            "trackside_keys": ["7", "8"],
+            "pool_close_racing": ["1"],
+            "pool_standard": ["2"]
+        }
+        
+        with patch.object(controller, '_press_key', mock_press), \
+             patch.object(controller, '_release_key', mock_release), \
+             patch.object(controller, '_load_config', return_value=test_config), \
+             patch('time.sleep'), \
+             patch('random.choice') as mock_choice:
+            mock_choice.return_value = '8'
+            controller.select_random_camera(is_close=True)
+            
+            # Should have chosen from trackside_keys, not pool_close_racing
+            mock_choice.assert_called_once_with(["7", "8"])
+            assert controller.last_shot_was_special is False
+
+    def test_config_loading(self, controller, key_log):
+        """It should load the configuration file if available."""
+        log, mock_press, mock_release = key_log
+        controller.disable_camera_change = False
+        controller.last_shot_was_special = False
+        
+        custom_config = {
+            "trackside_keys": ["9"],
+            "pool_close_racing": ["1"],
+            "pool_standard": ["2"]
+        }
+        
+        with patch.object(controller, '_press_key', mock_press), \
+             patch.object(controller, '_release_key', mock_release), \
+             patch('time.sleep'), \
+             patch('os.path.exists', return_value=True), \
+             patch('builtins.open', unittest.mock.mock_open(read_data=json.dumps(custom_config))), \
+             patch('random.choice') as mock_choice:
+            mock_choice.return_value = '1'
+            controller.select_random_camera(is_close=True)
+            
+            mock_choice.assert_called_once_with(["1"])
+            assert controller.last_shot_was_special is True

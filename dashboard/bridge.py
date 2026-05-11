@@ -154,6 +154,9 @@ class DashboardBridge:
         from urllib.parse import unquote
 
         path = request.path
+        if '?' in path:
+            path = path.split('?')[0]
+            
         if path == "/ws":
             return None  # Proceed to websocket handshake
 
@@ -236,8 +239,7 @@ class DashboardBridge:
             
             await asyncio.sleep(0.016)  # ~60Hz
 
-    def _update_pit_tracker(self, participants: dict):
-        now = time.time()
+    def _update_pit_tracker(self, participants: dict, current_time: float):
         for idx, p in participants.items():
             if idx not in self._pit_tracker:
                 self._pit_tracker[idx] = {"prev_pit_mode": 0}
@@ -247,16 +249,24 @@ class DashboardBridge:
             current = p.get("pit_mode", 0)
             
             if prev == 0 and current == 1:
-                tracker["entry_time"] = now
-                tracker["entry_lap"] = p.get("current_lap", 0)
-                tracker["in_progress"] = True
-                tracker["pit_count"] = tracker.get("pit_count", 0) + 1
-            elif prev == 3 and current == 0:
-                tracker["exit_time"] = now
-                if "entry_time" in tracker:
-                    tracker["duration"] = now - tracker["entry_time"]
+                last_exit = tracker.get("exit_time", 0.0)
+                if current_time - last_exit > 20.0:
+                    tracker["entry_time"] = current_time
+                    tracker["entry_lap"] = p.get("current_lap", 0)
+                    tracker["in_progress"] = True
+                    tracker["pit_count"] = tracker.get("pit_count", 0) + 1
+            elif tracker.get("in_progress", False) and current == 0:
+                entry_time = tracker.get("entry_time", current_time)
+                tracker["exit_time"] = current_time
+                tracker["duration"] = current_time - entry_time
                 tracker["in_progress"] = False
                 tracker["exit_lap"] = p.get("current_lap", 0)
+                
+                # Revert if it was a flicker (< 5s)
+                if tracker["duration"] < 5.0:
+                    tracker["pit_count"] = max(0, tracker.get("pit_count", 1) - 1)
+                    tracker["exit_time"] = 0.0
+                    tracker["duration"] = 0.0
                 
             tracker["prev_pit_mode"] = current
 
@@ -269,13 +279,13 @@ class DashboardBridge:
             in_progress = tracker.get("in_progress", False)
             exit_time = tracker.get("exit_time")
             
-            if in_progress or (exit_time and now - exit_time <= 10.0):
+            if in_progress or (exit_time and current_time - exit_time <= 15.0):
                 exit_lap = tracker.get("exit_lap", -1)
                 laps_since = p.get("current_lap", 0) - exit_lap if exit_lap >= 0 else -1
                 
                 duration = tracker.get("duration")
                 if in_progress and "entry_time" in tracker:
-                    duration = now - tracker["entry_time"]
+                    duration = current_time - tracker["entry_time"]
                 
                 event = {
                     "driver_name": p.get("name", ""),
@@ -324,6 +334,7 @@ class DashboardBridge:
                 self._viewed_idx_count += 1
                 if self._viewed_idx_count >= 10:
                     self.state["viewed_index"] = raw_viewed_index
+                    self._last_camera_change_time = time.time()
                     self._viewed_idx_count = 0
                     changed = True
             else:
@@ -359,7 +370,7 @@ class DashboardBridge:
                     raw = p559[378+i*40:378+(i+1)*40]
                     compounds.append(raw.split(b'\x00')[0].decode('utf-8', errors='replace').strip())
                 self.state["viewed"]["tyre_compound"] = compounds
-                if self.state.get("viewed_index", -1) >= 0:
+                if self.state.get("viewed_index", -1) >= 0 and time.time() - getattr(self, '_last_camera_change_time', 0.0) > 1.0:
                     self._tyre_compound_cache[self.state["viewed_index"]] = compounds[0]
 
         # 308 bytes - RaceData
@@ -495,8 +506,8 @@ class DashboardBridge:
                     for i in range(4):
                         compounds.append(bytes(shm.mTyreCompound[i]).split(b'\x00')[0].decode('utf-8', errors='replace').strip())
                     self.state["viewed"]["tyre_compound"] = compounds
-                    if getattr(shm, 'mViewedParticipantIndex', -1) >= 0:
-                        self._tyre_compound_cache[getattr(shm, 'mViewedParticipantIndex', -1)] = compounds[0]
+                    if self.state.get("viewed_index", -1) >= 0 and time.time() - getattr(self, '_last_camera_change_time', 0.0) > 1.0:
+                        self._tyre_compound_cache[self.state["viewed_index"]] = compounds[0]
                 except Exception:
                     pass
 
@@ -545,7 +556,7 @@ class DashboardBridge:
             
             participants_dict = getattr(self.main_app, '_participants', {})
             
-            self._update_pit_tracker(participants_dict)
+            self._update_pit_tracker(participants_dict, cur_time)
             self.state["pit_events"] = self._pit_events
             
             self.state["session"]["total_drivers"] = len([p for p in participants_dict.values() if p.get('is_active', False)])
