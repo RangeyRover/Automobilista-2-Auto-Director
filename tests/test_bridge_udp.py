@@ -85,7 +85,7 @@ def test_weather_from_shm(mock_shared_memory, bridge):
     assert bridge.state["weather"]["track_temp"] == pytest.approx(42.0)
     assert bridge.state["weather"]["rain_density"] == pytest.approx(0.5)
     assert bridge.state["weather"]["snow_density"] == pytest.approx(0.0)
-    assert bridge.state["weather"]["wind_speed"] == pytest.approx(8.0)
+    assert bridge.state["weather"]["wind_speed"] == pytest.approx(8.0 * 3.6)
 
 def test_leaderboard_timing_stats_from_shm(mock_shared_memory, bridge):
     bridge.main_app._shm = mock_shared_memory(
@@ -185,7 +185,7 @@ def test_udp_fallback_weather(make_udp_game_state_packet, bridge):
     assert bridge.state["weather"]["track_temp"] == 35
     assert bridge.state["weather"]["rain_density"] == pytest.approx(0.0)
     assert bridge.state["weather"]["snow_density"] == pytest.approx(0.0)
-    assert bridge.state["weather"]["wind_speed"] == 5
+    assert bridge.state["weather"]["wind_speed"] == pytest.approx(5.0 * 3.6)
 
 def test_udp_fallback_timing_stats(make_udp_time_stats_packet, bridge):
     bridge.main_app._shm = None

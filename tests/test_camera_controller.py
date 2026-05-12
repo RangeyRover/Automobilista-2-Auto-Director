@@ -11,7 +11,9 @@ from core.camera_controller import CameraController
 
 @pytest.fixture
 def controller():
-    return CameraController()
+    cc = CameraController()
+    cc.bypass_focus_check = True
+    return cc
 
 
 @pytest.fixture

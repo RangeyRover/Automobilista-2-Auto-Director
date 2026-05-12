@@ -66,11 +66,14 @@ class TestScoringEngineTimeline(unittest.TestCase):
         acc_1, ovt_1 = self.engine._calculate_timeline_bonus(participant_1, current_time=205.0)
         acc_2, ovt_2 = self.engine._calculate_timeline_bonus(participant_2, current_time=205.0)
         
-        # Both drivers involved in the overtake should receive the bonus nudge
+        # Both drivers involved in the overtake should receive the decayed bonus nudge
+        # event is at 200.0, current_time is 205.0. 5.0s past event.
+        # post_offset is 10.0, so decay ratio is 1.0 - 5.0/10.0 = 0.5
+        # 4.0 * 0.5 = 2.0
         self.assertEqual(acc_1, 0.0)
-        self.assertEqual(ovt_1, 4.0)
+        self.assertEqual(ovt_1, 2.0)
         self.assertEqual(acc_2, 0.0)
-        self.assertEqual(ovt_2, 4.0)
+        self.assertEqual(ovt_2, 2.0)
 
     # T016: Load timeline log footer fallback variables
     def test_load_timeline_log_footer_events(self):

@@ -1,5 +1,5 @@
 # ═══════════════════════════════════════════════════════════════════
-# AMS2 Auto Director V4.0 — Beta Release .gitignore
+# AMS2 Auto Director v4.1.1 — Beta Release .gitignore
 # ═══════════════════════════════════════════════════════════════════
 
 # ── Python Build Artifacts ──────────────────────────────────────────
@@ -48,6 +48,8 @@ coverage.xml
 # ── Logs & Debug Dumps ─────────────────────────────────────────────
 *.log
 sector_debug.log
+shm_dump.json
+udp_dump.json
 
 # ── Raw Packet Captures (dev debugging) ────────────────────────────
 raw_*.bin
@@ -58,6 +60,7 @@ beta_staging/
 repro_task_003.py
 test_ws.py
 test_udp_cycling.py
+extract_overlay.py
 
 # ── Dev-Only Decode/Extract Scripts (not needed for runtime) ───────
 decode1063LB-Lap-Sector.py

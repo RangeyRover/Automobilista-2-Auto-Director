@@ -10,6 +10,9 @@ import time
 import socket
 import threading
 import struct
+import json
+import os
+from core.utils import ctypes_serializer
 
 UDP_NATIONALITY_HASHES = {
     933178424:  'BR', # Brazil
@@ -48,6 +51,10 @@ class TelemetryProvider:
         self._leader_spline: list[tuple[float, float]] = []  # (true_distance, game_time)
         self._last_poll_time = time.time()
         self._packet_buffer: dict[int, bytes] = {}  # keyed by packet size
+        
+        # Telemetry Dumper
+        self._dump_raw_json = True
+        self._last_json_dump_time = 0.0
         self._udp_time_splits: dict[int, float] = {}
         
         # UDP State
@@ -136,6 +143,10 @@ class TelemetryProvider:
         game_time = time.time()
         if self._mode == 'shared_memory' and shared_memory_obj is not None:
             game_time = getattr(shared_memory_obj, 'mCurrentTime', game_time)
+        else:
+            udp_info = self._extract_udp_session_info()
+            if udp_info.get('current_time', 0.0) > 0:
+                game_time = udp_info['current_time']
 
         self._calc_live_time_gaps(participants, track_length, game_time)
 
@@ -164,6 +175,11 @@ class TelemetryProvider:
                     p['speed'] = 0.0
 
         self._last_poll_time = now
+        
+        if self._dump_raw_json and now - self._last_json_dump_time >= 1.0:
+            self._last_json_dump_time = now
+            self._dump_telemetry(shared_memory_obj)
+            
         return participants
 
     def get_game_time(self, shared_memory_obj=None) -> float | None:
@@ -726,7 +742,8 @@ class TelemetryProvider:
                     is_active = is_active and (i < num_participants)
                     
                 lap_distance = int.from_bytes(packet[lap_distance_offset:lap_distance_offset + 2], byteorder='little')
-                current_sector = packet[current_sector_offset] & 0x0F
+                # AMS2 UDP sector is 0, 1, 2. Add 1 to match Shared Memory logic (1, 2, 3).
+                current_sector = (packet[current_sector_offset] & 0x0F) + 1
                 current_lap = packet[current_lap_offset]
                 
                 try:
@@ -771,3 +788,29 @@ class TelemetryProvider:
             return participants
         except Exception:
             return None
+
+    def _dump_telemetry(self, shared_memory_obj):
+        """FR-001/002: Dump raw struct data to JSON."""
+        # Dump Shared Memory if available
+        if shared_memory_obj is not None:
+            ctypes_serializer.dump_struct_to_file(shared_memory_obj, 'shm_dump.json')
+            
+        # Dump UDP packets if available
+        udp_dump = {}
+        for size, packet in self._packet_buffer.items():
+            udp_dump[f"packet_{size}_hex"] = packet.hex()
+            
+        # Include the parsed participants as well for UDP visibility
+        if self._mode == 'udp' or (self._mode == 'shared_memory' and shared_memory_obj is None):
+            if self._packet_buffer.get(1063):
+                udp_dump["parsed_participants"] = self._parse_udp_participants(self._packet_buffer.get(1063))
+            if self._packet_buffer.get(308):
+                udp_dump["parsed_track_info"] = self._extract_udp_track_info(self._packet_buffer.get(308))
+                udp_dump["parsed_session_info"] = self._extract_udp_session_info()
+                
+        if udp_dump:
+            try:
+                with open('udp_dump.json', 'w', encoding='utf-8') as f:
+                    json.dump(udp_dump, f, indent=4)
+            except Exception as e:
+                print(f"[TelemetryProvider] Error dumping UDP JSON: {e}")

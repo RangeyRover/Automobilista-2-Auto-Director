@@ -1,0 +1,377 @@
+@font-face {
+            font-family: 'Formula1';
+            src: url('../_SHFonts/Formula1-Bold.ttf') format('truetype');
+        }
+        @font-face {
+            font-family: 'F1TV-2022';
+            src: url('_SHFonts/F1TV-2022-Bold.ttf') format('truetype');
+            font-weight: bold;
+        }
+        @font-face {
+            font-family: 'F1TV-2022';
+            src: url('_SHFonts/F1TV-2022-Regular.ttf') format('truetype');
+            font-weight: normal;
+        }
+        /* Halo HUD layer images */
+        #halo-hud img { position: absolute; }
+        #halo-hud .hud-layer { position: absolute; }
+        #halo-hud.mode-hidden { display: none !important; }
+        :root {
+            --f1-red: #E10600;
+            --f1-white: #FFFFFF;
+            --f1-black: #15151E;
+            --f1-dark-grey: #38383F;
+            --f1-light-grey: #949498;
+            --f1-timing-green: #00FF00;
+            --f1-timing-purple: #A020F0;
+            --f1-timing-yellow: #FFD700;
+            --panel-bg: rgba(21,21,30,0.85);
+            --panel-border: rgba(255,255,255,0.1);
+            --transition-speed: 0.6s;
+        }
+        body {
+            margin: 0;
+            background: transparent;
+            overflow: hidden;
+            width: 1920px;
+            height: 1080px;
+            font-family: 'Formula1', sans-serif;
+            color: var(--f1-white);
+        }
+        
+        .overlay-component {
+            position: absolute;
+            transition: opacity var(--transition-speed) ease-in-out, transform var(--transition-speed) ease-in-out;
+        }
+        .overlay-component.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        .overlay-component.slide-left { transform: translateX(-100%); }
+        .overlay-component.slide-right { transform: translateX(100%); }
+        .overlay-component.slide-up { transform: translateY(-100%); }
+
+        #connection-status {
+            position: absolute;
+            top: 4px;
+            left: 4px;
+            font-size: 10px;
+            opacity: 0.5;
+            z-index: 9999;
+        }
+        
+        #settings-panel {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%,-50%);
+            background: var(--panel-bg);
+            border: 1px solid var(--panel-border);
+            border-radius: 12px;
+            padding: 24px;
+            z-index: 10000;
+            display: none;
+            backdrop-filter: blur(10px);
+            min-width: 320px;
+            font-size: 14px;
+        }
+        #settings-panel h3 { margin-top: 0; }
+        .settings-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        .preset-btns {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .preset-btn {
+            background: var(--f1-dark-grey);
+            border: none;
+            border-radius: 20px;
+            padding: 6px 16px;
+            color: white;
+            cursor: pointer;
+            font-family: 'Formula1', sans-serif;
+            font-size: 12px;
+        }
+        .preset-btn:hover { background: var(--f1-red); }
+
+        #driver-name {
+            bottom: 60px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--panel-bg);
+            border-radius: 4px;
+            padding: 8px 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 22px;
+        }
+        .pos-box {
+            background: var(--f1-dark-grey);
+            padding: 4px 8px;
+            border-radius: 4px;
+            min-width: 30px;
+            text-align: center;
+        }
+        .team-strip {
+            width: 8px;
+            height: 24px;
+            border-radius: 4px;
+        }
+
+        #lap-timer {
+            bottom: 120px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--panel-bg);
+            border-radius: 4px;
+            padding: 8px 16px;
+            display: flex;
+            gap: 16px;
+            font-size: 16px;
+            font-variant-numeric: tabular-nums;
+            transition: opacity var(--transition-speed) ease-in-out;
+            opacity: 1;
+        }
+        #lap-timer.close-car-hidden {
+            opacity: 0 !important;
+        }
+
+        #live-speed {
+            bottom: 60px;
+            right: 40px;
+            font-size: 48px;
+            font-weight: bold;
+            text-shadow: 0 2px 8px rgba(0,0,0,0.8);
+            font-variant-numeric: tabular-nums;
+        }
+
+        #ahead-behind {
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--panel-bg);
+            border-radius: 4px;
+            padding: 6px 16px;
+            font-size: 14px;
+            display: flex;
+            gap: 24px;
+            font-variant-numeric: tabular-nums;
+        }
+        .gap-up { color: var(--f1-timing-green); }
+        .gap-down { color: var(--f1-red); }
+
+        #session-info {
+            top: 20px;
+            right: 20px;
+            background: var(--panel-bg);
+            border-radius: 4px;
+            padding: 10px 16px;
+            text-align: right;
+            font-size: 14px;
+        }
+
+        #mini-leaderboard {
+            top: 115px;
+            left: 20px;
+            border-radius: 4px;
+            overflow: hidden;
+            font-size: 13px;
+            min-width: 380px;
+        }
+        .lb-row {
+            display: flex;
+            padding: 6px 12px;
+            gap: 12px;
+            align-items: center;
+            font-variant-numeric: tabular-nums;
+        }
+        .lb-row:nth-child(odd) { background: var(--f1-black); }
+        .lb-row:nth-child(even) { background: var(--f1-dark-grey); }
+        .lb-row.viewed {
+            background-color: var(--f1-white) !important;
+            color: var(--f1-black);
+            font-weight: bold;
+        }
+
+        #fastest-lap {
+            top: 150px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: linear-gradient(135deg, var(--f1-timing-purple), #6B0F9E);
+            border-radius: 8px;
+            padding: 16px 32px;
+            text-align: center;
+            font-size: 20px;
+            font-variant-numeric: tabular-nums;
+        }
+
+        #weather-panel {
+            top: 100px;
+            right: 20px;
+            background: var(--panel-bg);
+            border-radius: 4px;
+            padding: 8px 12px;
+            font-size: 12px;
+            color: var(--f1-light-grey);
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        #pit-window {
+            bottom: 120px;
+            left: 20px;
+            background: var(--panel-bg);
+            border-radius: 4px;
+            padding: 8px 16px;
+            font-size: 14px;
+        }
+
+        #full-leaderboard {
+            top: 115px;
+            left: 20px;
+            bottom: 20px;
+            background: var(--panel-bg);
+            border-radius: 4px;
+            overflow-y: auto;
+            width: 460px;
+        }
+        .flb-row {
+            display: flex;
+            padding: 0 12px;
+            height: 32px;
+            align-items: center;
+            gap: 12px;
+            font-size: 13px;
+            font-variant-numeric: tabular-nums;
+        }
+        .flb-row:nth-child(odd) { background: var(--f1-black); }
+        .flb-row:nth-child(even) { background: var(--f1-dark-grey); }
+        .flb-row.viewed { 
+            background-color: var(--f1-white) !important;
+            color: var(--f1-black);
+            font-weight: bold;
+        }
+        
+        .tyre-info {
+            display: flex; align-items: center; font-size: 10px; color: var(--f1-light-grey); width: 45px; justify-content: flex-end; flex-shrink: 0;
+        }
+        .lb-row.viewed .tyre-info, .flb-row.viewed .tyre-info {
+            color: var(--f1-dark-grey);
+        }
+        
+        #fastest-sectors {
+            top: 150px;
+            right: 20px;
+            background: linear-gradient(135deg, var(--f1-timing-purple), #6B0F9E);
+            border-radius: 8px;
+            padding: 12px 24px;
+            font-size: 16px;
+            font-variant-numeric: tabular-nums;
+        }
+
+
+
+
+
+        #pit-timer {
+            top: 50%;
+            right: 40px;
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            z-index: 1000;
+        }
+        
+        .pit-box {
+            background: linear-gradient(135deg, var(--f1-red), #8B0000);
+            border-radius: 6px;
+            padding: 8px 16px;
+            text-align: center;
+            color: white;
+            min-width: 160px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+        }
+
+        @keyframes pit-pulse {
+            0% { box-shadow: 0 0 0 0 rgba(225, 6, 0, 0.7), 0 4px 12px rgba(0,0,0,0.5); }
+            70% { box-shadow: 0 0 0 15px rgba(225, 6, 0, 0), 0 4px 12px rgba(0,0,0,0.5); }
+            100% { box-shadow: 0 0 0 0 rgba(225, 6, 0, 0), 0 4px 12px rgba(0,0,0,0.5); }
+        }
+        .pit-active {
+            animation: pit-pulse 1.5s infinite;
+        }
+
+        .fade-anim {
+            animation: fadeInOut 5s ease-in-out forwards;
+        }
+        @keyframes fadeInOut {
+            0% { opacity: 0; transform: translateY(-20px) translateX(-50%); }
+            15% { opacity: 1; transform: translateY(0) translateX(-50%); }
+            85% { opacity: 1; transform: translateY(0) translateX(-50%); }
+            100% { opacity: 0; transform: translateY(-20px) translateX(-50%); }
+        }
+        .fade-anim-right {
+            animation: fadeInOutRight 4s ease-in-out forwards;
+        }
+        @keyframes fadeInOutRight {
+            0% { opacity: 0; transform: translateY(-20px); }
+            15% { opacity: 1; transform: translateY(0); }
+            85% { opacity: 1; transform: translateY(0); }
+            100% { opacity: 0; transform: translateY(-20px); }
+        }
+
+        .tyre-soft { color: #E10600; }
+        .tyre-medium { color: #FFD700; }
+        .tyre-hard { color: #FFFFFF; }
+        .tyre-inter { color: #00FF00; }
+        .tyre-wet { color: #0000FF; }
+    
+        /* NEW HALO HUD STYLES */
+        :root {
+            /* Configurable HUD Variables */
+            --hud-scale: 0.36;
+            --hud-bottom-offset: 0px;
+        }
+        
+        
+        #halo-hud {
+            position: absolute;
+            width: 2430px;
+            height: 1020px;
+            /* Center Horizontally (Unscaled Width / 2) */
+            left: 50%;
+            margin-left: -1215px; 
+            
+            /* Vertical Placement: Anchored to bottom + configurable offset */
+            bottom: var(--hud-bottom-offset);
+            
+            /* Global Scale */
+            transform: scale(var(--hud-scale));
+            transform-origin: bottom center;
+            pointer-events: none;
+        }
+        .hud-element {
+            position: absolute;
+            background-size: 100% 100%;
+            background-repeat: no-repeat;
+        }
+        .text-element {
+            position: absolute;
+            color: white;
+            font-weight: bold;
+            text-align: center;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            letter-spacing: -2px;
+            line-height: 1; /* Fix vertical alignment issues */
+        }
+        #halo-hud.mode-hidden { display: none !important; }

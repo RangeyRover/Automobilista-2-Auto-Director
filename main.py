@@ -70,7 +70,7 @@ class AutoDirectorApp:
     def _build_ui(self):
         """Build the tkinter GUI."""
         self.root = tk.Tk()
-        self.root.title("AMS2 Auto Director V4.0")
+        self.root.title("AMS2 Auto Director v4.1.1")
         self.root.configure(bg='#1a1a2e')
         self.root.geometry('1100x700')
 
@@ -116,7 +116,7 @@ class AutoDirectorApp:
         status_frame = ttk.Frame(self.root, style='Panel.TFrame')
         status_frame.pack(fill=tk.X, padx=5, pady=5)
 
-        self.lbl_title = ttk.Label(status_frame, text='AMS2 AUTO DIRECTOR V4.0',
+        self.lbl_title = ttk.Label(status_frame, text='AMS2 AUTO DIRECTOR v4.1.1',
                                     style='Header.TLabel')
         self.lbl_title.pack(side=tk.LEFT, padx=10)
 
@@ -602,7 +602,7 @@ def main():
     except Exception:
         pass
 
-    parser = argparse.ArgumentParser(description='AMS2 Auto Director V4.0')
+    parser = argparse.ArgumentParser(description='AMS2 Auto Director v4.1.1')
     parser.add_argument('--mode', choices=['shared_memory', 'udp'],
                         default='shared_memory',
                         help='Data source mode (default: shared_memory)')

@@ -238,7 +238,17 @@ class ScoringEngine:
                     if event.get('type') == 'Accident':
                         acc_bonus = max(acc_bonus, score)
                     elif event.get('type') == 'Overtake':
-                        ovt_bonus = max(ovt_bonus, score)
+                        # Transient decay for overtake points (ramp-up then decay)
+                        if current_time < event_time:
+                            time_until = event_time - current_time
+                            ramp_ratio = 1.0 - (time_until / self.timeline_pre_offset)
+                            ramped_score = score * max(0.0, ramp_ratio)
+                            ovt_bonus = max(ovt_bonus, ramped_score)
+                        else:
+                            time_passed = current_time - event_time
+                            decay_ratio = 1.0 - (time_passed / self.timeline_post_offset)
+                            decayed_score = score * max(0.0, decay_ratio)
+                            ovt_bonus = max(ovt_bonus, decayed_score)
                     
         return acc_bonus, ovt_bonus
 

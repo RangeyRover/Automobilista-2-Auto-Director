@@ -66,6 +66,13 @@ class DashboardBridge:
                 "camera_type": "tv_cam",
                 "is_auto_directing": False
             },
+            "events": {
+                "fastest_lap": {
+                    "driver_name": "",
+                    "lap_time": 0.0,
+                    "timestamp": 0.0
+                }
+            },
             "pit_events": [],
             "session": {
                 "state": 0,
@@ -83,9 +90,11 @@ class DashboardBridge:
             },
             "leaderboard": []
         }
-        self._pit_tracker = {}
-        self._pit_events = []
+        from dashboard.state_engine.pit_tracker import PitTracker
+        self.pit_manager = PitTracker()
         self._sector_manager = SectorTrackerManager()
+        self._last_current_time = 0.0
+        self._fastest_lap_events = []
         
         self.names = {}
         self.participants = {}
@@ -179,7 +188,13 @@ class DashboardBridge:
         with open(file_path, "rb") as f:
             content = f.read()
             
-        content_type, _ = mimetypes.guess_type(file_path)
+        if file_path.endswith('.css'):
+            content_type = "text/css"
+        elif file_path.endswith('.js'):
+            content_type = "application/javascript"
+        else:
+            content_type, _ = mimetypes.guess_type(file_path)
+            
         if not content_type:
             content_type = "application/octet-stream"
             
@@ -239,67 +254,7 @@ class DashboardBridge:
             
             await asyncio.sleep(0.016)  # ~60Hz
 
-    def _update_pit_tracker(self, participants: dict, current_time: float):
-        for idx, p in participants.items():
-            if idx not in self._pit_tracker:
-                self._pit_tracker[idx] = {"prev_pit_mode": 0}
-                
-            tracker = self._pit_tracker[idx]
-            prev = tracker.get("prev_pit_mode", 0)
-            current = p.get("pit_mode", 0)
-            
-            if prev == 0 and current == 1:
-                last_exit = tracker.get("exit_time", 0.0)
-                if current_time - last_exit > 20.0:
-                    tracker["entry_time"] = current_time
-                    tracker["entry_lap"] = p.get("current_lap", 0)
-                    tracker["in_progress"] = True
-                    tracker["pit_count"] = tracker.get("pit_count", 0) + 1
-            elif tracker.get("in_progress", False) and current == 0:
-                entry_time = tracker.get("entry_time", current_time)
-                tracker["exit_time"] = current_time
-                tracker["duration"] = current_time - entry_time
-                tracker["in_progress"] = False
-                tracker["exit_lap"] = p.get("current_lap", 0)
-                
-                # Revert if it was a flicker (< 5s)
-                if tracker["duration"] < 5.0:
-                    tracker["pit_count"] = max(0, tracker.get("pit_count", 1) - 1)
-                    tracker["exit_time"] = 0.0
-                    tracker["duration"] = 0.0
-                
-            tracker["prev_pit_mode"] = current
 
-        self._pit_events = []
-        for idx, tracker in self._pit_tracker.items():
-            p = participants.get(idx)
-            if not p:
-                continue
-                
-            in_progress = tracker.get("in_progress", False)
-            exit_time = tracker.get("exit_time")
-            
-            if in_progress or (exit_time and current_time - exit_time <= 15.0):
-                exit_lap = tracker.get("exit_lap", -1)
-                laps_since = p.get("current_lap", 0) - exit_lap if exit_lap >= 0 else -1
-                
-                duration = tracker.get("duration")
-                if in_progress and "entry_time" in tracker:
-                    duration = current_time - tracker["entry_time"]
-                
-                event = {
-                    "driver_name": p.get("name", ""),
-                    "position": p.get("race_position", 0),
-                    "entry_time": tracker.get("entry_time"),
-                    "exit_time": exit_time,
-                    "duration": duration,
-                    "in_progress": in_progress,
-                    "pit_count": tracker.get("pit_count", 0),
-                    "entry_lap": tracker.get("entry_lap", 0),
-                    "laps_since_last_pit": laps_since
-                }
-                self._pit_events.append(event)
-                tracker["laps_since_last_pit"] = laps_since
 
     def _parse_packets(self) -> bool:
         if self.packet_buffer is None or not hasattr(self, 'main_app'):
@@ -401,7 +356,7 @@ class DashboardBridge:
                 self.state["weather"]["track_temp"] = struct.unpack_from('<b', p24, 17)[0]
                 self.state["weather"]["rain_density"] = p24[18] / 255.0
                 self.state["weather"]["snow_density"] = p24[19] / 255.0
-                self.state["weather"]["wind_speed"] = struct.unpack_from('<b', p24, 20)[0]
+                self.state["weather"]["wind_speed"] = struct.unpack_from('<b', p24, 20)[0] * 3.6
             except Exception:
                 pass
 
@@ -524,11 +479,20 @@ class DashboardBridge:
             self.state["weather"]["track_temp"] = getattr(shm, 'mTrackTemperature', 0)
             self.state["weather"]["rain_density"] = getattr(shm, 'mRainDensity', 0.0)
             self.state["weather"]["snow_density"] = getattr(shm, 'mSnowDensity', 0.0)
-            self.state["weather"]["wind_speed"] = getattr(shm, 'mWindSpeed', 0)
+            self.state["weather"]["wind_speed"] = getattr(shm, 'mWindSpeed', 0) * 3.6
         session_info = self.provider.get_session_info(shm)
         if session_info:
             time_remaining = session_info.get("event_time_remaining", 0.0)
             cur_time = session_info.get("current_time", 0.0)
+            
+            # Time-Travel Rewind Detection
+            if cur_time < self._last_current_time - 5.0:
+                self.pit_manager.process_rewind(cur_time)
+                
+                # Prune fastest laps
+                self._fastest_lap_events = [ev for ev in self._fastest_lap_events if ev.get("timestamp", 0.0) <= cur_time]
+                
+            self._last_current_time = cur_time
             laps = session_info.get("laps_in_event", 0)
             
             # Replay Log Fallbacks
@@ -556,8 +520,8 @@ class DashboardBridge:
             
             participants_dict = getattr(self.main_app, '_participants', {})
             
-            self._update_pit_tracker(participants_dict, cur_time)
-            self.state["pit_events"] = self._pit_events
+            self.pit_manager.update(participants_dict, cur_time)
+            self.state["pit_events"] = self.pit_manager.pit_events
             
             self.state["session"]["total_drivers"] = len([p for p in participants_dict.values() if p.get('is_active', False)])
             # Find leader lap
@@ -570,128 +534,30 @@ class DashboardBridge:
             self.state["session"]["leader_lap"] = leader_lap
             
             # Leaderboard (sorted by race_position)
-            active_drivers = [p for p in participants_dict.values() if p.get('is_active', False) and p.get('race_position', 999) > 0]
-            active_drivers.sort(key=lambda x: x.get('race_position', 999))
-            
-            leaderboard = []
-            for p in active_drivers:
-                idx = -1
-                for key, val in participants_dict.items():
-                    if val == p:
-                        idx = key
-                        break
-
-                pit_count = 0
-                laps_since = -1
-                if idx >= 0 and idx in self._pit_tracker:
-                    pit_count = self._pit_tracker[idx].get("pit_count", 0)
-                    laps_since = self._pit_tracker[idx].get("laps_since_last_pit", -1)
-
-                gap_val = p.get("time_gap_to_leader", p.get("gap_ahead", 0.0))
-
-                # Update Sector Tracker
-                sector = p.get("current_sector", 0)
-                game_time = p.get("current_time", 0.0)
-                in_pits = p.get("pit_mode", 0) != 0
-                if idx >= 0:
-                    current_sectors = self._sector_manager.update_driver(idx, sector, game_time, in_pits)
-                else:
-                    current_sectors = [0.0, 0.0, 0.0]
-
-                entry = {
-                    "pos": p.get("race_position"),
-                    "name": p.get("name"),
-                    "lap": p.get("current_lap"),
-                    "lap_distance": p.get("lap_distance", 0.0),
-                    "true_distance": p.get("true_distance", 0.0),
-                    "tyre_stint_laps": p.get("tyre_stint_laps", 0),
-                    "tyre_compound": self._tyre_compound_cache.get(idx, ""),
-                    "gap": gap_val,
-                    "current_time": p.get("current_time", 0.0),
-                    "current_sector_time": p.get("current_sector_time", 0.0),
-                    "speed": p.get("speed"),
-                    "pit": pit_count,
-                    "pit_mode": p.get("pit_mode"),
-                    "laps_since_last_pit": laps_since,
-                    "current_sector": sector
-                }
-
-                if shm is not None and idx >= 0 and idx < len(getattr(shm, 'mFastestLapTimes', [])):
-                    entry["fastest_lap"] = shm.mFastestLapTimes[idx]
-                    entry["last_lap"] = shm.mLastLapTimes[idx]
-                    entry["current_sectors"] = current_sectors
-                    entry["fastest_sectors"] = [shm.mFastestSector1Times[idx], shm.mFastestSector2Times[idx], shm.mFastestSector3Times[idx]]
-                elif self.last_packets.get(1040):
-                    p1040 = self.last_packets[1040]
-                    if idx >= 0 and idx < 32:
-                        offset = 16 + idx * 32
-                        try:
-                            fl, ll, _, fs1, fs2, fs3 = struct.unpack_from('<6f', p1040, offset)
-                            entry["fastest_lap"] = fl
-                            entry["last_lap"] = ll
-                            entry["current_sectors"] = current_sectors
-                            entry["fastest_sectors"] = [fs1, fs2, fs3]
-                        except Exception:
-                            entry["fastest_lap"] = 0.0
-                            entry["last_lap"] = 0.0
-                            entry["current_sectors"] = current_sectors
-                            entry["fastest_sectors"] = [0.0, 0.0, 0.0]
-                    else:
-                        entry["fastest_lap"] = 0.0
-                        entry["last_lap"] = 0.0
-                        entry["current_sectors"] = current_sectors
-                        entry["fastest_sectors"] = [0.0, 0.0, 0.0]
-                else:
-                    entry["fastest_lap"] = 0.0
-                    entry["last_lap"] = 0.0
-                    entry["current_sectors"] = current_sectors
-                    entry["fastest_sectors"] = [0.0, 0.0, 0.0]
-
-                d_name = p.get("name", "")
-                name_key = str(d_name).lower().strip()
-                
-                # 1. Manual JSON Override has highest priority
-                if name_key in self.driver_lookup:
-                    entry["nationality"] = self.driver_lookup[name_key]
-                # 2. Live Telemetry Hash has second priority
-                elif p.get("nationality"):
-                    # We convert to lower here just in case the UI expects lowercase 'br' instead of 'BR'
-                    entry["nationality"] = p.get("nationality").lower()
-                else:
-                    entry["nationality"] = ""
-                
-                if shm is not None and idx >= 0:
-                    entry["car_name"] = bytes(shm.mCarNames[idx]).split(b'\x00')[0].decode('utf-8', errors='replace').strip() if idx < len(getattr(shm, 'mCarNames', [])) else ""
-                    entry["car_class"] = bytes(shm.mCarClassNames[idx]).split(b'\x00')[0].decode('utf-8', errors='replace').strip() if idx < len(getattr(shm, 'mCarClassNames', [])) else ""
-                elif effective_source in ('udp_auto', 'udp_manual'):
-                    # Use UDP-parsed car data when in UDP mode
-                    udp_car_names = self.provider.get_udp_car_names() if hasattr(self.provider, 'get_udp_car_names') else {}
-                    udp_car_classes = self.provider.get_udp_car_classes() if hasattr(self.provider, 'get_udp_car_classes') else {}
-                    entry["car_name"] = udp_car_names.get(idx, "")
-                    entry["car_class"] = udp_car_classes.get(idx, "")
-                else:
-                    entry["car_name"] = ""
-                    entry["car_class"] = ""
-
-                leaderboard.append(entry)
+            from dashboard.state_engine.telemetry_builder import TelemetryBuilder
+            leaderboard = TelemetryBuilder.build_leaderboard(
+                shm, participants_dict, self.pit_manager, self._sector_manager,
+                self._tyre_compound_cache, self.last_packets, self.driver_lookup,
+                effective_source, self.provider
+            )
             self.state["leaderboard"] = leaderboard
             
-            # Calculate actual session fastest lap from active drivers (ignoring all-time track records)
-            session_fastest = 0.0
-            session_sectors = [0.0, 0.0, 0.0]
+            # Calculate actual session fastest lap from active drivers
+            session_fastest, session_sectors = TelemetryBuilder.calculate_session_bests(
+                leaderboard, self._fastest_lap_events, cur_time
+            )
             
-            for entry in leaderboard:
-                fl = entry.get("fastest_lap", 0.0)
-                if fl > 0 and (session_fastest == 0.0 or fl < session_fastest):
-                    session_fastest = fl
-                    
-                fs = entry.get("fastest_sectors", [0.0, 0.0, 0.0])
-                for i in range(3):
-                    if fs[i] > 0 and (session_sectors[i] == 0.0 or fs[i] < session_sectors[i]):
-                        session_sectors[i] = fs[i]
+            # Update history and JSON payload
+            current_best_in_history = self._fastest_lap_events[-1].get("lap_time", 0.0) if self._fastest_lap_events else 0.0
             
+            # Ignore 0.0 times or the very first packet (cur_time < 5.0) to prevent initial floods
             if session_fastest > 0:
                 self.state["session"]["world_fastest_lap"] = session_fastest
+
+            
+            if self._fastest_lap_events:
+                self.state["events"]["fastest_lap"] = self._fastest_lap_events[-1]
+                
             if any(s > 0 for s in session_sectors):
                 self.state["session"]["world_fastest_sectors"] = session_sectors
             

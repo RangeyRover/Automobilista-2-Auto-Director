@@ -64,8 +64,23 @@ class CameraController:
         except ImportError:
             pass
 
+    def _is_ams2_focused(self) -> bool:
+        """Check if Automobilista 2 is the foreground window."""
+        try:
+            import ctypes
+            hwnd = ctypes.windll.user32.GetForegroundWindow()
+            length = ctypes.windll.user32.GetWindowTextLengthW(hwnd)
+            buf = ctypes.create_unicode_buffer(length + 1)
+            ctypes.windll.user32.GetWindowTextW(hwnd, buf, length + 1)
+            return "automobilista 2" in buf.value.lower()
+        except Exception:
+            return True  # Fallback to true if API fails so we don't break functionality
+
     def _tap_key(self, key: str):
         """Press, hold, release a single key with configured timing."""
+        if not getattr(self, 'bypass_focus_check', False) and not self._is_ams2_focused():
+            return
+            
         self._press_key(key)
         time.sleep(self.key_hold_ms)
         self._release_key(key)
