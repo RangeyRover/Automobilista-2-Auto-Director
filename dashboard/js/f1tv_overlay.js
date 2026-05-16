@@ -142,10 +142,10 @@ const components = [
                 else el.classList.remove('mode-hidden');
             });
 
-            // T008: Halo HUD — cockpit-only component
+            // T008: Halo HUD — roof-only component
             const haloHud = document.getElementById('halo-hud');
             if (haloHud) {
-                if (isCockpit) haloHud.classList.remove('mode-hidden');
+                if (camType === "roof") haloHud.classList.remove('mode-hidden');
                 else haloHud.classList.add('mode-hidden');
             }
         }

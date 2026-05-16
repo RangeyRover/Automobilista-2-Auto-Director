@@ -70,7 +70,7 @@ class AutoDirectorApp:
     def _build_ui(self):
         """Build the tkinter GUI."""
         self.root = tk.Tk()
-        self.root.title("AMS2 Auto Director v4.1.5")
+        self.root.title("AMS2 Auto Director v4.1.6")
         self.root.configure(bg='#1a1a2e')
         self.root.geometry('1100x700')
 
@@ -246,8 +246,8 @@ class AutoDirectorApp:
                     print("[CAM EVENT] Key 3 triggered camera change to roof (Halo HUD)")
                     self.camera.current_camera_type = 'roof'
                 elif e.name in ['4', '5', '6']:
-                    print(f"[CAM EVENT] Key {e.name} triggered camera change to cockpit/onboard")
-                    self.camera.current_camera_type = 'cockpit'
+                    print(f"[CAM EVENT] Key {e.name} triggered camera change to chase (Onboard)")
+                    self.camera.current_camera_type = 'chase'
                 elif e.name in ['7', '8']:
                     print(f"[CAM EVENT] Key {e.name} triggered camera change to tv_cam/trackside")
                     self.camera.current_camera_type = 'tv_cam'
@@ -264,7 +264,7 @@ class AutoDirectorApp:
             self.root.bind_all('2', lambda e: setattr(self.camera, 'current_camera_type', 'chase'))
             self.root.bind_all('3', lambda e: setattr(self.camera, 'current_camera_type', 'roof'))
             for k in ['4', '5', '6']:
-                self.root.bind_all(k, lambda e, key=k: setattr(self.camera, 'current_camera_type', 'cockpit'))
+                self.root.bind_all(k, lambda e, key=k: setattr(self.camera, 'current_camera_type', 'chase'))
             for k in ['7', '8']:
                 self.root.bind_all(k, lambda e, key=k: setattr(self.camera, 'current_camera_type', 'tv_cam'))
             self.root.bind_all('9', lambda e: self._toggle_camera_change())
