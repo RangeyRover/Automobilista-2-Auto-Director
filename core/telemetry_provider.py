@@ -48,7 +48,7 @@ class TelemetryProvider:
         self._gap_history: dict[int, float] = {}
         self._closing_speed_ema: dict[int, float] = {}
         self._tyre_stint_start_lap: dict[int, int] = {}
-        self._leader_spline: list[tuple[float, float]] = []  # (true_distance, game_time)
+        self._car_splines: dict[int, list[tuple[float, float]]] = {}  # {idx: [(true_distance, game_time)]}
         self._last_poll_time = time.time()
         self._packet_buffer: dict[int, bytes] = {}  # keyed by packet size
         
@@ -176,10 +176,7 @@ class TelemetryProvider:
 
         self._last_poll_time = now
         
-        if self._dump_raw_json and now - self._last_json_dump_time >= 1.0:
-            self._last_json_dump_time = now
-            self._dump_telemetry(shared_memory_obj)
-            
+        self._last_poll_time = now
         return participants
 
     def get_game_time(self, shared_memory_obj=None) -> float | None:
@@ -400,48 +397,58 @@ class TelemetryProvider:
         avg_speed = 60.0 
         
         leader = active[0][1]
+        leader_idx = active[0][0]
         last_lap = leader.get('last_lap', 0.0)
         leader_dist = leader.get('true_distance', 0.0)
         
         if last_lap > 10.0 and track_length > 100.0:
             avg_speed = track_length / last_lap
 
-        # Spline update logic for the leader
-        if not self._leader_spline:
-            self._leader_spline.append((leader_dist, game_time))
-        else:
-            last_dist, last_time = self._leader_spline[-1]
-            # Only record a new point every 5 meters to keep array size manageable
-            if leader_dist > last_dist + 5.0:
-                self._leader_spline.append((leader_dist, game_time))
-                # Keep array massive to support GT3 cars that are many laps down (e.g. 500km of history)
-                if len(self._leader_spline) > 100000:
-                    self._leader_spline.pop(0)
-            elif leader_dist < last_dist - track_length:
-                # If leader distance jumps backwards massively (session reset), clear spline
-                self._leader_spline.clear()
-                self._leader_spline.append((leader_dist, game_time))
+        # Update splines for all active cars
+        for idx, p in active:
+            dist = p.get('true_distance', 0.0)
+            if idx not in self._car_splines:
+                self._car_splines[idx] = []
+                
+            spline = self._car_splines[idx]
+            
+            if not spline:
+                spline.append((dist, game_time))
+            else:
+                last_dist, last_time = spline[-1]
+                # Only record a new point every 5 meters to keep array size manageable
+                if dist > last_dist + 5.0:
+                    spline.append((dist, game_time))
+                    # Support up to ~25km of track history for 32 cars without memory bloat
+                    if len(spline) > 5000:
+                        spline.pop(0)
+                elif dist < last_dist - track_length:
+                    # Session reset detected (e.g. true distance dropped)
+                    spline.clear()
+                    spline.append((dist, game_time))
 
-        def get_spline_time_at_distance(dist: float) -> float | None:
-            if not self._leader_spline or dist < self._leader_spline[0][0]:
+        def get_spline_time_at_distance(spline: list, dist: float) -> float | None:
+            if not spline or dist < spline[0][0]:
                 return None
-            if dist >= self._leader_spline[-1][0]:
-                return self._leader_spline[-1][1]
+            if dist >= spline[-1][0]:
+                return spline[-1][1]
+            if dist == spline[0][0]:
+                return spline[0][1]
                 
             # Simple binary search to find the two points to interpolate between
-            left, right = 0, len(self._leader_spline) - 1
+            left, right = 0, len(spline) - 1
             while left <= right:
                 mid = (left + right) // 2
-                if self._leader_spline[mid][0] < dist:
+                if spline[mid][0] < dist:
                     left = mid + 1
                 else:
                     right = mid - 1
                     
-            if left >= len(self._leader_spline) or left == 0:
+            if left >= len(spline) or left == 0:
                 return None
                 
-            d1, t1 = self._leader_spline[left - 1]
-            d2, t2 = self._leader_spline[left]
+            d1, t1 = spline[left - 1]
+            d2, t2 = spline[left]
             
             if d2 == d1:
                 return t1
@@ -449,6 +456,8 @@ class TelemetryProvider:
             # Linear interpolation
             ratio = (dist - d1) / (d2 - d1)
             return t1 + ratio * (t2 - t1)
+
+        leader_spline = self._car_splines.get(leader_idx, [])
 
         for i in range(len(active)):
             idx = active[i][0]
@@ -468,12 +477,13 @@ class TelemetryProvider:
             if i == 0:
                 p['time_gap_to_leader'] = 0.0
             else:
-                spline_time = get_spline_time_at_distance(my_dist)
+                spline_time = get_spline_time_at_distance(leader_spline, my_dist)
                 if spline_time is not None:
                     p['time_gap_to_leader'] = game_time - spline_time
                 else:
                     # Fallback to physical if the spline hasn't recorded that far back yet
                     p['time_gap_to_leader'] = dist_to_leader / avg_speed
+
 
     # ── Track Change Detection ──────────────────────────────────────────────
 
@@ -789,28 +799,37 @@ class TelemetryProvider:
         except Exception:
             return None
 
-    def _dump_telemetry(self, shared_memory_obj):
-        """FR-001/002: Dump raw struct data to JSON."""
-        # Dump Shared Memory if available
-        if shared_memory_obj is not None:
-            ctypes_serializer.dump_struct_to_file(shared_memory_obj, 'shm_dump.json')
-            
-        # Dump UDP packets if available
+    def get_debug_dump_shm(self) -> dict:
+        """FR-001/002: Generate raw struct data JSON on-demand."""
+        dump_data = {}
+        try:
+            import mmap
+            shm = mmap.mmap(0, ctypes.sizeof(shared_memory_struct.SharedMemory), "$pcars2$")
+            shared_memory_obj = shared_memory_struct.SharedMemory.from_buffer_copy(shm)
+            shm.close()
+            dump_data["shm"] = ctypes_serializer.struct_to_dict(shared_memory_obj)
+        except Exception as e:
+            dump_data["shm"] = {"error": f"Shared Memory not found or unavailable: {e}"}
+        return dump_data
+
+    def get_debug_dump_udp(self) -> dict:
+        """FR-001/002: Generate raw struct data JSON on-demand."""
         udp_dump = {}
         for size, packet in self._packet_buffer.items():
             udp_dump[f"packet_{size}_hex"] = packet.hex()
             
-        # Include the parsed participants as well for UDP visibility
-        if self._mode == 'udp' or (self._mode == 'shared_memory' and shared_memory_obj is None):
-            if self._packet_buffer.get(1063):
-                udp_dump["parsed_participants"] = self._parse_udp_participants(self._packet_buffer.get(1063))
-            if self._packet_buffer.get(308):
-                udp_dump["parsed_track_info"] = self._extract_udp_track_info(self._packet_buffer.get(308))
-                udp_dump["parsed_session_info"] = self._extract_udp_session_info()
-                
-        if udp_dump:
-            try:
-                with open('udp_dump.json', 'w', encoding='utf-8') as f:
-                    json.dump(udp_dump, f, indent=4)
-            except Exception as e:
-                print(f"[TelemetryProvider] Error dumping UDP JSON: {e}")
+        if self._packet_buffer.get(1063):
+            udp_dump["parsed_participants"] = self._parse_udp_participants(self._packet_buffer.get(1063))
+        if self._packet_buffer.get(308):
+            udp_dump["parsed_track_info"] = self._extract_udp_track_info(self._packet_buffer.get(308))
+            
+        udp_dump["parsed_session_info"] = self._extract_udp_session_info()
+        
+        # Include internal string caches
+        udp_dump["parsed_names"] = self._udp_participant_names
+        udp_dump["parsed_nationalities"] = self._udp_participant_nationalities
+        udp_dump["parsed_car_names"] = self._udp_car_names
+        udp_dump["parsed_car_classes"] = self._udp_car_classes
+        udp_dump["parsed_time_splits"] = self._udp_time_splits
+            
+        return {"udp": udp_dump}

@@ -199,7 +199,7 @@ class TestCameraSelection:
         press_events = [e for e in log if e[0] == 'press']
         assert len(press_events) == 1
         assert press_events[0] == ('press', '3')
-        assert controller.current_camera_type == 'chase'
+        assert controller.current_camera_type == 'roof'
 
     def test_select_random_camera_disabled(self, controller, key_log):
         """When disable_camera_change is True, no camera key should be pressed."""

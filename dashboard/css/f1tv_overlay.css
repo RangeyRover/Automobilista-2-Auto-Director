@@ -178,11 +178,11 @@
 
         #mini-leaderboard {
             top: 115px;
-            left: 20px;
+            left: 10px;
             border-radius: 4px;
             overflow: hidden;
             font-size: 13px;
-            min-width: 380px;
+            min-width: 420px;
         }
         .lb-row {
             display: flex;
@@ -267,7 +267,7 @@
         }
         
         #fastest-sectors {
-            top: 150px;
+            top: 200px;
             right: 20px;
             background: linear-gradient(135deg, var(--f1-timing-purple), #6B0F9E);
             border-radius: 8px;

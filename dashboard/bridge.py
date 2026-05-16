@@ -233,6 +233,20 @@ class DashboardBridge:
                                     self.team_lookup = content
                                 elif "driver_lookup.json" in target_path:
                                     self.driver_lookup = {k.lower().strip(): v for k, v in content.items()}
+                    elif data.get("type") == "request_debug_dump_udp":
+                        if hasattr(self, 'provider') and self.provider:
+                            dump = self.provider.get_debug_dump_udp()
+                            await websocket.send(json.dumps({
+                                "type": "debug_dump_response",
+                                "data": dump
+                            }))
+                    elif data.get("type") == "request_debug_dump_shm":
+                        if hasattr(self, 'provider') and self.provider:
+                            dump = self.provider.get_debug_dump_shm()
+                            await websocket.send(json.dumps({
+                                "type": "debug_dump_response",
+                                "data": dump
+                            }))
                 except Exception:
                     pass
         except websockets.exceptions.ConnectionClosed:

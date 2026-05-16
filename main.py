@@ -237,10 +237,16 @@ class AutoDirectorApp:
                 print(f"[KEYLOG] {e.name} pressed")
                 
                 # Check exact key names to avoid pyKey DOWN/UP alias overlaps with Numpad 2/8
-                if e.name == '1':
-                    print("[CAM EVENT] Key 1 triggered camera change to cockpit")
+                if e.name in ['1', '2']:
+                    print(f"[CAM EVENT] Key {e.name} triggered camera change to cockpit")
                     self.camera.current_camera_type = 'cockpit'
-                elif e.name in ['2', '3', '4', '5', '6', '7', '8']:
+                elif e.name == '3':
+                    print("[CAM EVENT] Key 3 triggered camera change to roof")
+                    self.camera.current_camera_type = 'roof'
+                elif e.name in ['4', '5', '6']:
+                    print(f"[CAM EVENT] Key {e.name} triggered camera change to chase")
+                    self.camera.current_camera_type = 'chase'
+                elif e.name in ['7', '8']:
                     print(f"[CAM EVENT] Key {e.name} triggered camera change to tv_cam")
                     self.camera.current_camera_type = 'tv_cam'
                 elif e.name == '9':
@@ -252,8 +258,12 @@ class AutoDirectorApp:
             print(f"Warning: Could not bind global hotkey: {e}")
             # Fallback to application-level global binding
             self.root.bind_all('<Control-space>', lambda e: self._toggle_director())
-            self.root.bind_all('1', lambda e: setattr(self.camera, 'current_camera_type', 'cockpit'))
-            for k in ['2', '3', '4', '5', '6', '7', '8']:
+            for k in ['1', '2']:
+                self.root.bind_all(k, lambda e, key=k: setattr(self.camera, 'current_camera_type', 'cockpit'))
+            self.root.bind_all('3', lambda e: setattr(self.camera, 'current_camera_type', 'roof'))
+            for k in ['4', '5', '6']:
+                self.root.bind_all(k, lambda e, key=k: setattr(self.camera, 'current_camera_type', 'chase'))
+            for k in ['7', '8']:
                 self.root.bind_all(k, lambda e, key=k: setattr(self.camera, 'current_camera_type', 'tv_cam'))
             self.root.bind_all('9', lambda e: self._toggle_camera_change())
 

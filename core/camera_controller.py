@@ -172,8 +172,10 @@ class CameraController:
         self._tap_key(choice)
         
         # Optimistically update the internal state
-        if choice == '1':
+        if choice in ('1', '2'):
             self.current_camera_type = 'cockpit'
+        elif choice == '3':
+            self.current_camera_type = 'roof'
         elif choice in trackside_keys:
             self.current_camera_type = 'tv_cam'
         else:

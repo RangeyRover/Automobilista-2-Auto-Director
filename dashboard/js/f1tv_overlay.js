@@ -130,7 +130,7 @@ const components = [
             const camType = state.director.camera_type || "tv_cam";
             
             // Cockpit mode vs Broadcast mode
-            const isCockpit = (camType === "cockpit");
+            const isCockpit = (camType === "cockpit" || camType === "roof");
             
             document.querySelectorAll('.cockpit-only').forEach(el => {
                 if (isCockpit) el.classList.remove('mode-hidden');

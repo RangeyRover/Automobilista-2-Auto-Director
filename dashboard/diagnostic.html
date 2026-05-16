@@ -63,6 +63,8 @@
     <div class="controls">
         <span id="connStatus" class="status">Connecting...</span> | 
         UI Update Rate: <strong>1 Hz</strong> (Network Data: 60 Hz)
+        <button onclick="requestDebugDumpUDP()" style="margin-left:20px; padding: 5px 10px; background: #e94560; color: white; border: none; cursor: pointer; border-radius: 4px;">Fetch UDP Dump</button>
+        <button onclick="requestDebugDumpSHM()" style="margin-left:10px; padding: 5px 10px; background: #e94560; color: white; border: none; cursor: pointer; border-radius: 4px;">Fetch SHM Dump</button>
     </div>
 
     <div class="container">
@@ -92,14 +94,22 @@
             <p style="font-size:12px; margin-top:0;">This is exactly what the bridge sends out.</p>
             <pre id="jsonViewer">{}</pre>
         </div>
+
+        <!-- Debug Dump Panel -->
+        <div class="panel">
+            <h2>Internal Memory Dump (On-Demand)</h2>
+            <p style="font-size:12px; margin-top:0;">Requested directly from the provider.</p>
+            <pre id="debugDumpViewer">Click 'Fetch Debug Struct JSON' to load.</pre>
+        </div>
     </div>
 
     <script>
         let latestData = null;
         let lastUpdateTime = 0;
 
+        let ws;
         function connectWebSocket() {
-            const ws = new WebSocket(`ws://${window.location.host}/ws`);
+            ws = new WebSocket(`ws://${window.location.host}/ws`);
             
             ws.onopen = () => {
                 document.getElementById('connStatus').innerText = "Connected";
@@ -107,11 +117,16 @@
             };
             
             ws.onmessage = (event) => {
-                // Save the data at 60Hz
-                latestData = JSON.parse(event.data);
-                
-                // Expose globally for users poking around in the console
-                window.telemetryData = latestData;
+                let data = JSON.parse(event.data);
+                if (data.type === "debug_dump_response") {
+                    document.getElementById('debugDumpViewer').innerText = JSON.stringify(data.data, null, 2);
+                } else {
+                    // Save the data at 60Hz
+                    latestData = data;
+                    
+                    // Expose globally for users poking around in the console
+                    window.telemetryData = latestData;
+                }
             };
             
             ws.onclose = () => {
@@ -164,6 +179,24 @@
             connectWebSocket();
             updateUI(); // Start the 1Hz rendering loop
         };
+
+        function requestDebugDumpUDP() {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                document.getElementById('debugDumpViewer').innerText = "Requesting UDP dump from server...";
+                ws.send(JSON.stringify({ type: "request_debug_dump_udp" }));
+            } else {
+                document.getElementById('debugDumpViewer').innerText = "WebSocket not connected!";
+            }
+        }
+
+        function requestDebugDumpSHM() {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                document.getElementById('debugDumpViewer').innerText = "Requesting SHM dump from server...";
+                ws.send(JSON.stringify({ type: "request_debug_dump_shm" }));
+            } else {
+                document.getElementById('debugDumpViewer').innerText = "WebSocket not connected!";
+            }
+        }
     </script>
 </body>
 </html>
