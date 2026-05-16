@@ -416,6 +416,18 @@ class TelemetryProvider:
                 spline.append((dist, game_time))
             else:
                 last_dist, last_time = spline[-1]
+                
+                # Fix: If game_time jumps backwards (e.g., hybrid UDP fallback or replay rewind), 
+                # purge all corrupted "future" points from the spline.
+                if game_time < last_time - 1.0:
+                    self._car_splines[idx] = [(d, t) for d, t in spline if t <= game_time]
+                    spline = self._car_splines[idx]
+                    if not spline:
+                        spline.append((dist, game_time))
+                        continue
+                        
+                last_dist, last_time = spline[-1]
+                
                 # Only record a new point every 5 meters to keep array size manageable
                 if dist > last_dist + 5.0:
                     spline.append((dist, game_time))
