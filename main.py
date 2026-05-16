@@ -70,7 +70,7 @@ class AutoDirectorApp:
     def _build_ui(self):
         """Build the tkinter GUI."""
         self.root = tk.Tk()
-        self.root.title("AMS2 Auto Director v4.1.1")
+        self.root.title("AMS2 Auto Director v4.1.2")
         self.root.configure(bg='#1a1a2e')
         self.root.geometry('1100x700')
 
@@ -415,24 +415,27 @@ class AutoDirectorApp:
             # Hybrid mode: read SHM, then check auto-detection
             sm = self._read_shared_memory() if self._mode == 'shared_memory' else None
 
-            if self._effective_source == 'udp_auto':
-                # Currently auto-switched to UDP — check if SHM has recovered
-                if sm is not None and not self._should_auto_switch_to_udp(sm):
-                    # SHM has active participants again — revert to Hybrid
-                    self._effective_source = 'hybrid'
-                    self._auto_switch_counter = 0
-                else:
-                    sm = None  # Stay on UDP
-            else:
-                # Currently in Hybrid — check if we should auto-switch
-                if self._should_auto_switch_to_udp(sm):
-                    self._auto_switch_counter += 1
-                    if self._auto_switch_counter >= 5:
-                        self._effective_source = 'udp_auto'
-                        sm = None  # Use UDP
-                else:
-                    self._auto_switch_counter = 0
-                    self._effective_source = 'hybrid'
+            # DISABLED UDP FALLBACK FOR TESTING
+            # if self._effective_source == 'udp_auto':
+            #     # Currently auto-switched to UDP — check if SHM has recovered
+            #     if sm is not None and not self._should_auto_switch_to_udp(sm):
+            #         # SHM has active participants again — revert to Hybrid
+            #         self._effective_source = 'hybrid'
+            #         self._auto_switch_counter = 0
+            #     else:
+            #         sm = None  # Stay on UDP
+            # else:
+            #     # Currently in Hybrid — check if we should auto-switch
+            #     if self._should_auto_switch_to_udp(sm):
+            #         self._auto_switch_counter += 1
+            #         if self._auto_switch_counter >= 5:
+            #             self._effective_source = 'udp_auto'
+            #             sm = None  # Use UDP
+            #     else:
+            #         self._auto_switch_counter = 0
+            #         self._effective_source = 'hybrid'
+            
+            self._effective_source = 'hybrid'
 
         self._update_source_label()
         self._participants = self.provider.poll(sm) or {}

@@ -121,7 +121,7 @@ class TelemetryProvider:
 
         if self._detect_track_change(track_info):
             self._distance_history.clear()
-            self._leader_spline.clear()
+            self._car_splines.clear()
             self._tyre_stint_start_lap.clear()
 
         # Calculate derived fields

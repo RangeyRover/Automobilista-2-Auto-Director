@@ -22,7 +22,7 @@ Copy-Item -Recurse "dashboard" "beta_staging\"
 # Clean up junk from staging
 Write-Host "Cleaning development files from staging..."
 Get-ChildItem -Path "beta_staging" -Include "*.djson", "*.djson.*", "test_time.html", "*.ps1" -Recurse | Remove-Item -Force
-Get-ChildItem -Path "beta_staging" -Include "__pycache__", "_extracted", "Videos", "F1TV - Halo HUD", "_SHFonts" -Recurse -Directory | Remove-Item -Recurse -Force
+Get-ChildItem -Path "beta_staging" -Include "__pycache__", "_extracted", "Videos", "_SHFonts" -Recurse -Directory | Remove-Item -Recurse -Force
 
 Write-Host "Generating PyInstaller Build in beta_staging..."
 Set-Location "beta_staging"
@@ -37,6 +37,6 @@ pyinstaller --name "AMS2_Auto_Director" `
             main.py
 
 Write-Host "Zipping the beta release..."
-Compress-Archive -Path "dist\AMS2_Auto_Director" -DestinationPath "AMS2_Auto_Director_v4.1.1-beta.zip" -Force
+Compress-Archive -Path "dist\AMS2_Auto_Director" -DestinationPath "AMS2_Auto_Director_v4.1.2-beta.zip" -Force
 
 Write-Host "Done!"

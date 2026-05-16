@@ -80,5 +80,40 @@ class TestSplineGaps(unittest.TestCase):
         
         self.assertAlmostEqual(participants[1]['time_gap_to_leader'], 50.0, places=1)
 
+    def test_temporal_corruption_purge_on_rewind(self):
+        # Simulate SHM -> UDP -> SHM fallback which causes game_time to jump forward then backward.
+        
+        # Frame 1: SHM Time = 100.0s
+        participants = {
+            0: {'is_active': True, 'race_position': 1, 'true_distance': 1000.0},
+            1: {'is_active': True, 'race_position': 2, 'true_distance': 950.0}
+        }
+        self.provider._calc_live_time_gaps(participants, 5000.0, 100.0)
+        
+        # Frame 2: SHM fails, falls back to UDP. UDP approximated time is WAY off (e.g., 150.0s).
+        # Leader distance increases slightly to 1010m.
+        participants[0]['true_distance'] = 1010.0
+        self.provider._calc_live_time_gaps(participants, 5000.0, 150.0)
+        
+        # Verify the corrupted point was added to the leader's spline.
+        leader_spline = self.provider._car_splines[0]
+        self.assertEqual(leader_spline[-1], (1010.0, 150.0))
+        
+        # Frame 3: SHM recovers. Time goes BACK to the true time: 101.0s.
+        # Leader distance is now 1020m. Follower reaches 1010m (where the corrupted point was).
+        participants[0]['true_distance'] = 1020.0
+        participants[1]['true_distance'] = 1010.0
+        
+        self.provider._calc_live_time_gaps(participants, 5000.0, 101.0)
+        
+        # The rewind detector should have PURGED the (1010.0, 150.0) point because game_time went backwards!
+        # If it wasn't purged, the follower's gap would be: 101.0 - 150.0 = -49.0s.
+        # But since it was purged, the follower calculates gap based on the correct physical speed fallback
+        # or the remaining valid spline history.
+        gap = participants[1]['time_gap_to_leader']
+        
+        # The gap MUST NOT be negative.
+        self.assertGreaterEqual(gap, 0.0)
+
 if __name__ == '__main__':
     unittest.main()
