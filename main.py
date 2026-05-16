@@ -70,7 +70,7 @@ class AutoDirectorApp:
     def _build_ui(self):
         """Build the tkinter GUI."""
         self.root = tk.Tk()
-        self.root.title("AMS2 Auto Director v4.1.2")
+        self.root.title("AMS2 Auto Director v4.1.3")
         self.root.configure(bg='#1a1a2e')
         self.root.geometry('1100x700')
 
@@ -237,9 +237,12 @@ class AutoDirectorApp:
                 print(f"[KEYLOG] {e.name} pressed")
                 
                 # Check exact key names to avoid pyKey DOWN/UP alias overlaps with Numpad 2/8
-                if e.name in ['1', '2']:
-                    print(f"[CAM EVENT] Key {e.name} triggered camera change to cockpit")
+                if e.name == '1':
+                    print("[CAM EVENT] Key 1 triggered camera change to cockpit")
                     self.camera.current_camera_type = 'cockpit'
+                elif e.name == '2':
+                    print("[CAM EVENT] Key 2 triggered camera change to chase")
+                    self.camera.current_camera_type = 'chase'
                 elif e.name == '3':
                     print("[CAM EVENT] Key 3 triggered camera change to roof")
                     self.camera.current_camera_type = 'roof'
@@ -258,8 +261,8 @@ class AutoDirectorApp:
             print(f"Warning: Could not bind global hotkey: {e}")
             # Fallback to application-level global binding
             self.root.bind_all('<Control-space>', lambda e: self._toggle_director())
-            for k in ['1', '2']:
-                self.root.bind_all(k, lambda e, key=k: setattr(self.camera, 'current_camera_type', 'cockpit'))
+            self.root.bind_all('1', lambda e: setattr(self.camera, 'current_camera_type', 'cockpit'))
+            self.root.bind_all('2', lambda e: setattr(self.camera, 'current_camera_type', 'chase'))
             self.root.bind_all('3', lambda e: setattr(self.camera, 'current_camera_type', 'roof'))
             for k in ['4', '5', '6']:
                 self.root.bind_all(k, lambda e, key=k: setattr(self.camera, 'current_camera_type', 'chase'))
