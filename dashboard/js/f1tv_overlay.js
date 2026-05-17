@@ -503,6 +503,9 @@ const components = [
                     fl.style.opacity = '';
                     fl.classList.add('fade-anim');
                     
+                    // Re-hide after animation completes so updateVisibility can't resurrect it
+                    fl.onanimationend = () => { fl.classList.add('hidden'); };
+                    
                     // Also trigger fastest sectors ONLY when a fastest lap is set
                     const newSectors = state.session.world_fastest_sectors;
                     if (newSectors && (newSectors[0] > 0 || newSectors[1] > 0 || newSectors[2] > 0)) {
@@ -519,6 +522,9 @@ const components = [
                         void fs.offsetWidth;
                         fs.style.opacity = '';
                         fs.classList.add('fade-anim-right');
+                        
+                        // Re-hide after animation completes
+                        fs.onanimationend = () => { fs.classList.add('hidden'); };
                     }
                 }
             }
