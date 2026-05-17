@@ -47,7 +47,7 @@ Extract `DistanceTimeSpline`, `PhysicsFlywheel`, and gap calculation functions f
 
 **What moves**:
 - `PhysicsFlywheel` class (lines 197–356 of `shm_leaderboard_server.py`)
-- Constants: `ANOMALY_THRESHOLD`, `RESYNC_AFTER`, `MAX_SYSTEM_DT`, `MIN_HEALTHY_SPEED`
+- Constants: `ANOMALY_THRESHOLD`, `RESYNC_AFTER` (20 ticks = ~10s at 2Hz), `MAX_SYSTEM_DT`, `MIN_HEALTHY_SPEED`
 
 **TDD sequence**:
 1. Update `tests/test_physics_flywheel.py` imports to `from core.physics_flywheel import PhysicsFlywheel`
@@ -109,7 +109,7 @@ for driver in participants:
     driver['time_gap_to_leader'] = compute_time_gap(driver_dist, stabilized_time, self._spline)
 ```
 
-**Session boundary**: When `_detect_track_change()` fires, call `self._spline.reset()` and `self._flywheel.reset()`.
+**Session boundary**: When `_detect_track_change()` fires OR session state changes (matching `should_reset_spline()` semantics from standalone tool), call `self._spline.reset()` and `self._flywheel.reset()`.
 
 ### 2.3 Expose flywheel/spline state for debugging
 

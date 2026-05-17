@@ -58,10 +58,10 @@ Several Python files currently exceed 500 lines (`tools/shm_leaderboard_server.p
 ### Functional Requirements
 
 **Spline & Flywheel Transplant**:
-- **FR-001**: The main program MUST use a single continuous `DistanceTimeSpline` instance per race session that is never reset except on session transitions.
+- **FR-001**: The main program MUST use a single continuous `DistanceTimeSpline` instance per race session that is never reset except on session state transitions or track changes.
 - **FR-002**: The main program MUST use the `PhysicsFlywheel` to stabilize `mCurrentTime` before any downstream consumer (spline recording, gap calculation, scoring engine).
 - **FR-003**: The flywheel MUST use system wall-clock time (`time.monotonic`) for synthetic time during anomalies, not distance/speed dead-reckoning.
-- **FR-004**: The flywheel MUST include self-healing: after 40 consecutive healthy game-time deltas (~10 seconds), force-resync to real game time.
+- **FR-004**: The flywheel MUST include self-healing: after 20 consecutive healthy game-time deltas (~10 seconds at 2Hz), force-resync to real game time. The `RESYNC_AFTER` constant MUST be 20.
 - **FR-005**: Time gap calculation MUST use `current_time - spline.interpolate_time(driver_total_dist)` where `current_time` is flywheel-stabilized.
 - **FR-006**: The spline recording and leaderboard gap calculation MUST execute in the same tick — they cannot be on separate cadences.
 
@@ -104,6 +104,6 @@ Several Python files currently exceed 500 lines (`tools/shm_leaderboard_server.p
 - **SC-001**: Time gap variance for any driver during a stable lap (no real overtakes) is ≤ 0.5 seconds in the main program.
 - **SC-002**: Camera swap anomalies (40s time jumps) produce zero negative time gaps and zero spline resets in the main program.
 - **SC-003**: The flywheel self-heals from any false-positive lock-in within 10 seconds of game time stabilization.
-- **SC-004**: No Python file in the project exceeds 500 lines of source code.
+- **SC-004**: No Python file in the project exceeds 500 total lines.
 - **SC-005**: All 282+ existing tests pass after every incremental step of the transplant and refactor.
 - **SC-006**: Both debugging HTML surfaces (spline debugger, SHM leaderboard) connect and display live data when the main program is running.

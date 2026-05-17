@@ -34,7 +34,7 @@
 
 ### 3A: Extract `core/spline.py`
 
-- [ ] T006 [US1] **TEST** Write `tests/test_spline.py` importing `DistanceTimeSpline`, `compute_total_distance`, `compute_time_gap` from `core.spline` — port relevant spline tests from `tests/test_physics_flywheel.py` (monotonicity, interpolation, extrapolation, reset, min_interval)
+- [ ] T006 [US1] **TEST** Write `tests/test_spline.py` importing `DistanceTimeSpline`, `compute_total_distance`, `compute_time_gap` from `core.spline` — audit `tests/test_physics_flywheel.py` and port spline-only tests (monotonicity, interpolation, extrapolation, reset, min_interval). Flywheel-coupled tests stay in `test_physics_flywheel.py`.
 - [ ] T007 [US1] Extract `DistanceTimeSpline` class from `tools/shm_leaderboard_server.py` (lines 118–195) into `core/spline.py`
 - [ ] T008 [US1] Extract `compute_total_distance()` function from `tools/shm_leaderboard_server.py` into `core/spline.py`
 - [ ] T009 [US1] Extract `compute_time_gap()` function from `tools/shm_leaderboard_server.py` into `core/spline.py`
@@ -62,10 +62,10 @@
 
 ### 4A: Write Integration Tests BEFORE Implementation
 
-- [ ] T021 [US1] **TEST** Create `tests/test_leaderboard_integration.py` with `test_flywheel_stabilises_time_in_main_pipeline` — mock SHM with 40s time jump, assert gap calculations stay stable
+- [ ] T021 [US1] **TEST** Create `tests/test_leaderboard_integration.py` with `test_flywheel_stabilises_time_in_main_pipeline` — mock SHM with 40s time jump, assert gap calculations stay stable AND assert synthesised time comes from `time.monotonic()` (not speed×distance dead-reckoning)
 - [ ] T022 [US1] **TEST** Add `test_spline_continuous_across_leader_change` — simulate P1 swap, assert spline is never reset
 - [ ] T023 [US1] **TEST** Add `test_time_gap_matches_spline_interpolation` — for known leader trajectory, assert `time_gap_to_leader` equals `current_time - spline.interpolate_time(dist)`
-- [ ] T024 [US1] **TEST** Add `test_flywheel_and_spline_same_tick` — assert spline.record and gap calc happen in same tick
+- [ ] T024 [US1] **TEST** Add `test_flywheel_and_spline_same_tick` — mock `spline.record()` and `compute_time_gap()`, assert both are called within the same `poll()` invocation (use call-order tracking)
 - [ ] T025 [US1] **TEST** Add `test_session_reset_clears_spline` — assert spline cleared on session state transition
 
 ### 4B: Replace `_calc_live_time_gaps()` in `core/telemetry_provider.py`
@@ -75,7 +75,7 @@
 - [ ] T028 [US1] Wire spline recording into `TelemetryProvider.poll()` — call `self._spline.record(leader_dist, stabilized_time)` in same tick as gap calc in `core/telemetry_provider.py`
 - [ ] T029 [US1] Replace `_calc_live_time_gaps()` internals with `compute_time_gap(driver_dist, stabilized_time, self._spline)` for each driver in `core/telemetry_provider.py`
 - [ ] T030 [US1] Remove old `_car_splines` dict and `get_spline_time_at_distance()` inner function from `core/telemetry_provider.py`
-- [ ] T031 [US1] Wire session boundary — call `self._spline.reset()` and `self._flywheel.reset()` when `_detect_track_change()` fires in `core/telemetry_provider.py`
+- [ ] T031 [US1] Wire session boundary — call `self._spline.reset()` and `self._flywheel.reset()` when `_detect_track_change()` fires OR session state changes (matching `should_reset_spline()` semantics) in `core/telemetry_provider.py`
 - [ ] T032 [US1] Run full test suite — confirm all integration tests (T021–T025) and existing 282+ tests pass
 
 ### 4C: Expose Flywheel/Spline State
@@ -95,8 +95,8 @@
 
 ### 5B: Add HTML Debugging Pages
 
-- [ ] T038 [P] [US2] Create `dashboard/spline_debugger.html` — copy from standalone tool, update WebSocket URL to `ws://localhost:8765`
-- [ ] T039 [P] [US2] Create `dashboard/shm_leaderboard.html` — copy from standalone tool, update WebSocket URL to `ws://localhost:8765`
+- [ ] T038 [P] [US2] Create `dashboard/spline_debugger.html` — copy from standalone tool, update WebSocket URL to `ws://localhost:8765`, verify flywheel status badge element exists (FR-009)
+- [ ] T039 [P] [US2] Create `dashboard/shm_leaderboard.html` — copy from standalone tool, update WebSocket URL to `ws://localhost:8765`, verify flywheel status badge element exists (FR-009)
 - [ ] T040 [US2] Register new HTML files in bridge's HTTP file server in `dashboard/bridge.py`
 - [ ] T041 [US2] Verify both pages accessible at `http://localhost:8765/spline_debugger.html` and `http://localhost:8765/shm_leaderboard.html`
 
@@ -114,31 +114,33 @@
 
 ### 6B: Decompose `main.py` (632 lines → target ≤ 500)
 
-- [ ] T047 [US3] Extract `_build_ui()` and grid rendering methods (`_update_grid`) from `main.py` into `core/gui_builder.py`
-- [ ] T048 [US3] Update `main.py` to import from `core.gui_builder`
-- [ ] T049 [US3] Run full test suite — confirm all tests pass
-- [ ] T050 [US3] Verify `main.py` is ≤ 500 lines
+- [ ] T047 [US3] **TEST** Write import-level tests for `core/gui_builder.py` in `tests/test_gui_builder.py`
+- [ ] T048 [US3] Extract `_build_ui()` and grid rendering methods (`_update_grid`) from `main.py` into `core/gui_builder.py`
+- [ ] T049 [US3] Update `main.py` to import from `core.gui_builder`
+- [ ] T050 [US3] Run full test suite — confirm all tests pass
+- [ ] T051 [US3] Verify `main.py` is ≤ 500 lines
 
 ### 6C: Decompose `dashboard/bridge.py` (581 lines → target ≤ 500)
 
-- [ ] T051 [US3] Extract payload building methods from `dashboard/bridge.py` into `dashboard/payload_builder.py`
-- [ ] T052 [US3] Update `dashboard/bridge.py` to import from `dashboard.payload_builder`
-- [ ] T053 [US3] Run full test suite — confirm all tests pass
-- [ ] T054 [US3] Verify `dashboard/bridge.py` is ≤ 500 lines
+- [ ] T052 [US3] **TEST** Write import-level tests for `dashboard/payload_builder.py` in `tests/test_payload_builder.py`
+- [ ] T053 [US3] Extract payload building methods from `dashboard/bridge.py` into `dashboard/payload_builder.py`
+- [ ] T054 [US3] Update `dashboard/bridge.py` to import from `dashboard.payload_builder`
+- [ ] T055 [US3] Run full test suite — confirm all tests pass
+- [ ] T056 [US3] Verify `dashboard/bridge.py` is ≤ 500 lines
 
 ### 6D: Final Line Count Audit
 
-- [ ] T055 [US3] Run line count audit across ALL `.py` files — confirm no file exceeds 500 total lines
-- [ ] T056 [US3] Verify every decomposed module has a module-level docstring (FR-012)
+- [ ] T057 [US3] Run line count audit across ALL `.py` files — confirm no file exceeds 500 total lines
+- [ ] T058 [US3] Verify every decomposed module has a module-level docstring (FR-012)
 
 ---
 
 ## Phase 7: Polish & Cross-Cutting
 
-- [ ] T057 Run full test suite one final time — confirm all tests pass (target 310+)
-- [ ] T058 Update `tools/shm_leaderboard_server.py` to use shared imports from `core/` (if any remaining direct definitions)
-- [ ] T059 Remove dead code — delete `_calc_live_time_gaps()` remnants and unused `_car_splines` references across all files
-- [ ] T060 Commit final state on `13-leaderboard-heart-transplant` branch
+- [ ] T059 Run full test suite one final time — confirm all tests pass (target 310+)
+- [ ] T060 Update `tools/shm_leaderboard_server.py` to use shared imports from `core/` (if any remaining direct definitions)
+- [ ] T061 Remove dead code — delete `_calc_live_time_gaps()` remnants and unused `_car_splines` references across all files
+- [ ] T062 Commit final state on `13-leaderboard-heart-transplant` branch
 
 ---
 
@@ -162,12 +164,12 @@ graph TD
     T032 --> T033["T033-T034 Expose state"]
     T033 --> T035["T035-T041 Bridge + HTML"]
     T032 --> T042["T042-T046 Decompose telemetry"]
-    T035 --> T051["T051-T054 Decompose bridge"]
-    T032 --> T047["T047-T050 Decompose main"]
-    T042 --> T055["T055-T056 Final audit"]
-    T047 --> T055
-    T051 --> T055
-    T055 --> T057["T057-T060 Polish"]
+    T035 --> T052["T052-T056 Decompose bridge"]
+    T032 --> T047["T047-T051 Decompose main"]
+    T042 --> T057["T057-T058 Final audit"]
+    T047 --> T057
+    T052 --> T057
+    T057 --> T059["T059-T062 Polish"]
 ```
 
 ## Parallel Opportunities
@@ -177,7 +179,7 @@ graph TD
 | T003, T004, T005 | Independent empty module creation |
 | T016 (serialiser tests) and T006 (spline tests) | Different files, no shared dependency |
 | T038, T039 | Independent HTML pages, no code dependency |
-| T042–T046, T047–T050 | Independent decompositions touching different files |
+| T042–T046, T047–T051 | Independent decompositions touching different files |
 
 ## Implementation Strategy
 
@@ -194,10 +196,10 @@ graph TD
 
 | Metric | Value |
 |--------|-------|
-| **Total tasks** | 60 |
+| **Total tasks** | 62 |
 | **US1 tasks** | 29 (T006–T034) |
 | **US2 tasks** | 7 (T035–T041) |
-| **US3 tasks** | 15 (T042–T056) |
-| **Setup/Polish** | 9 (T001–T005, T057–T060) |
-| **Test tasks (written BEFORE code)** | 12 (T006, T012, T016, T021–T025, T035, T042) |
+| **US3 tasks** | 17 (T042–T058) |
+| **Setup/Polish** | 9 (T001–T005, T059–T062) |
+| **Test tasks (written BEFORE code)** | 14 (T006, T012, T016, T021–T025, T035, T042, T047, T052) |
 | **Parallel opportunities** | 4 groups |
