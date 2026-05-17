@@ -210,6 +210,7 @@ class PhysicsFlywheel:
     FALLBACK_DT = 0.25        # seconds — used when speed is near zero
     MIN_SPEED = 1.0           # m/s — below this, use FALLBACK_DT
     DEFAULT_SPEED = 80.0      # m/s — ~288 km/h, safe racing assumption
+    SPEED_DROP_TOLERANCE = 0.1  # 10% — if implied speed < 10% of last_known_speed, reject
     
     def __init__(self):
         self.internal_master_clock: float | None = None
@@ -228,11 +229,32 @@ class PhysicsFlywheel:
         self.is_active = False
         self.last_known_speed = self.DEFAULT_SPEED
     
+    def _is_anomalous(self, game_time: float, distance_delta: float) -> bool:
+        """Two-layer anomaly detection: time threshold AND speed lie detector."""
+        time_delta = abs(game_time - self.internal_master_clock)
+        
+        # Layer 1: Time threshold — reject if time jumped more than 5.5s
+        if time_delta > self.ANOMALY_THRESHOLD:
+            return True
+        
+        # Layer 2: Speed lie detector — reject if implied speed is physically impossible
+        actual_dt = game_time - self.internal_master_clock
+        if actual_dt > 0 and self.last_known_speed >= self.MIN_SPEED:
+            implied_speed = distance_delta / actual_dt
+            if implied_speed < self.last_known_speed * self.SPEED_DROP_TOLERANCE:
+                return True
+        
+        return False
+    
     def process(self, game_time: float, leader_dist: float) -> float:
         """Process a telemetry frame and return the stabilized time.
         
         Returns either the real game_time (if healthy) or a synthetic time
         calculated via dead reckoning (if anomalous).
+        
+        Detection uses two layers:
+        1. Time threshold: abs(delta) > 5.5s
+        2. Speed lie detector: implied_speed < 10% of last_known_speed
         
         Args:
             game_time: Raw mCurrentTime from AMS2 shared memory.
@@ -248,10 +270,9 @@ class PhysicsFlywheel:
             self.is_active = False
             return game_time
         
-        time_delta = abs(game_time - self.internal_master_clock)
         distance_delta = leader_dist - self.last_leader_distance
         
-        if time_delta <= self.ANOMALY_THRESHOLD:
+        if not self._is_anomalous(game_time, distance_delta):
             # ACCEPT — healthy frame or legitimate scrub
             # Update speed only from valid ticks with positive time progression
             actual_dt = game_time - self.internal_master_clock

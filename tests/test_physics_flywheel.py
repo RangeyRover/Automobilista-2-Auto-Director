@@ -121,14 +121,16 @@ def test_flywheel_zero_speed_fallback():
 
     fw = PhysicsFlywheel()
     fw.process(game_time=100.0, leader_dist=2000.0)
-    # Establish near-zero speed (car barely moved)
-    fw.process(game_time=100.25, leader_dist=2000.1)
+    # Gradually ramp speed down — each tick must stay above 10% of previous speed
+    fw.process(game_time=100.25, leader_dist=2005.0)    # 20 m/s (25% of 80 — above 10%)
+    fw.process(game_time=100.50, leader_dist=2005.75)   # 3.0 m/s (15% of 20 — above 10%)
+    fw.process(game_time=100.75, leader_dist=2005.85)   # 0.4 m/s (13% of 3.0 — above 10%)
     assert fw.last_known_speed < 1.0, "Speed should be near zero"
 
     # Anomaly with near-zero speed
-    result = fw.process(game_time=140.0, leader_dist=2000.2)
+    result = fw.process(game_time=140.0, leader_dist=2005.95)
 
-    expected = 100.25 + 0.25  # fallback dt
+    expected = 100.75 + 0.25  # fallback dt
     assert result == pytest.approx(expected, abs=0.01), \
         f"Should use 0.25s fallback, got {result}"
 
@@ -249,3 +251,66 @@ def test_flywheel_boundary_11s_rejected():
 
     assert result != 106.0, f"6.0s delta should be rejected, got {result}"
     assert fw.is_active is True, "Flywheel should be active"
+
+
+# ──────────────────────────────────────────────
+# Speed-Based Lie Detector Tests
+# ──────────────────────────────────────────────
+
+def test_flywheel_speed_lie_detector_rejects_implausible_speed():
+    """Time delta within threshold (3s) but implied speed is <10% of last_known.
+    
+    Scenario: car at 80 m/s, camera swap causes 3s time jump but only 5m distance.
+    Implied speed = 5/3 = 1.67 m/s which is < 10% of 80 = 8.0 m/s → REJECT.
+    """
+    from tools.shm_leaderboard_server import PhysicsFlywheel
+
+    fw = PhysicsFlywheel()
+    fw.process(game_time=100.0, leader_dist=2000.0)
+    fw.process(game_time=100.25, leader_dist=2020.0)  # establish speed = 80 m/s
+    assert fw.last_known_speed == pytest.approx(80.0, abs=0.1)
+
+    # 3s delta (within 5.5s threshold) but only 5m moved → implied 1.67 m/s
+    result = fw.process(game_time=103.25, leader_dist=2025.0)
+
+    assert result != 103.25, f"Implausible speed frame should be rejected, got {result}"
+    assert fw.is_active is True, "Flywheel should be active"
+    assert fw.last_known_speed == pytest.approx(80.0, abs=0.1), \
+        "Speed should NOT update from rejected frame"
+
+
+def test_flywheel_speed_lie_detector_accepts_proportional_scrub():
+    """Time delta within threshold AND implied speed is proportional → ACCEPT.
+    
+    Scenario: 20x scrub, 5s time + 400m distance → implied 80 m/s → healthy.
+    """
+    from tools.shm_leaderboard_server import PhysicsFlywheel
+
+    fw = PhysicsFlywheel()
+    fw.process(game_time=100.0, leader_dist=2000.0)
+    fw.process(game_time=100.25, leader_dist=2020.0)  # establish speed = 80 m/s
+
+    # 5s delta + 400m → implied 80 m/s, well above 10% threshold
+    result = fw.process(game_time=105.25, leader_dist=2420.0)
+
+    assert result == 105.25, f"Proportional scrub should be accepted, got {result}"
+    assert fw.is_active is False
+
+
+def test_flywheel_speed_lie_detector_skips_backward_time():
+    """Speed lie detector should NOT trigger on backward time deltas (scrub backward).
+    
+    Backward scrub has actual_dt < 0, so the speed check is skipped (only time
+    threshold applies). This prevents false positives when scrubbing backward.
+    """
+    from tools.shm_leaderboard_server import PhysicsFlywheel
+
+    fw = PhysicsFlywheel()
+    fw.process(game_time=100.0, leader_dist=2000.0)
+    fw.process(game_time=100.25, leader_dist=2020.0)  # establish speed = 80 m/s
+
+    # Backward scrub: time goes back 3s, distance goes back
+    result = fw.process(game_time=97.25, leader_dist=1780.0)
+
+    assert result == 97.25, f"Backward scrub should be accepted, got {result}"
+    assert fw.is_active is False
