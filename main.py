@@ -63,11 +63,6 @@ class AutoDirectorApp:
         self.provider.start_udp()
         self.bridge.start(self.provider, self)
 
-    def _on_closing(self):
-        """Cleanup and close application."""
-        self.bridge.stop()
-        self.provider.stop_udp()
-        self.root.destroy()
         try:
             def on_key_event(e):
                 # Ignore releases
@@ -108,6 +103,12 @@ class AutoDirectorApp:
             for k in ['7', '8']:
                 self.root.bind_all(k, lambda e, key=k: setattr(self.camera, 'current_camera_type', 'tv_cam'))
             self.root.bind_all('9', lambda e: self._toggle_camera_change())
+
+    def _on_closing(self):
+        """Cleanup and close application."""
+        self.bridge.stop()
+        self.provider.stop_udp()
+        self.root.destroy()
 
     def _open_overlays(self):
         """Open the local dashboard portal in the default web browser."""
