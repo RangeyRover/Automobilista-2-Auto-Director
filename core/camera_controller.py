@@ -21,6 +21,17 @@ CAMERA_SET_MAP = {
     "Chase Far": "chase", 
     "Chase Bumper": "chase"
 }
+
+# Single source of truth: AMS2 number key → internal camera type
+KEY_TO_CAMERA = {
+    '1': 'cockpit',
+    '2': 'chase',
+    '3': 'roof',
+    '4': 'chase',
+    '5': 'chase',
+    '6': 'chase',
+    '7': 'tv_cam',
+}
 class CameraController:
     """Manages pyKey injection for AMS2 camera switching."""
 
@@ -43,9 +54,9 @@ class CameraController:
         
         # Default config if file is missing
         self.default_config = {
-            "trackside_keys": ["7", "8"],
-            "pool_close_racing": ["1", "1", "1", "2", "3", "7", "8"],
-            "pool_standard": ["7", "7", "7", "7", "8", "8", "2", "3"]
+            "trackside_keys": ["7"],
+            "pool_close_racing": ["1", "1", "1", "2", "3", "7"],
+            "pool_standard": ["7", "7", "7", "7", "2", "3"]
         }
 
     def _press_key(self, key: str):
@@ -171,12 +182,15 @@ class CameraController:
         
         self._tap_key(choice)
         
-        # Optimistically update the internal state
-        if choice in ('1', '2'):
-            self.current_camera_type = 'cockpit'
-        elif choice == '3':
-            self.current_camera_type = 'roof'
-        elif choice in trackside_keys:
-            self.current_camera_type = 'tv_cam'
-        else:
-            self.current_camera_type = 'chase'
+        # Update camera type from the single source of truth
+        self.update_camera_for_key(choice)
+
+    def update_camera_for_key(self, key: str):
+        """Update internal camera type based on a number key press.
+        
+        Uses KEY_TO_CAMERA as the single source of truth for both
+        auto director and human key presses.
+        """
+        cam_type = KEY_TO_CAMERA.get(key)
+        if cam_type:
+            self.current_camera_type = cam_type

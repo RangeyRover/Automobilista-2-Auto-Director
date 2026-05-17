@@ -64,6 +64,8 @@ class AutoDirectorApp:
         self.bridge.start(self.provider, self)
 
         try:
+            from core.camera_controller import KEY_TO_CAMERA
+
             def on_key_event(e):
                 # Ignore releases
                 if e.event_type != 'down':
@@ -71,21 +73,9 @@ class AutoDirectorApp:
                 
                 print(f"[KEYLOG] {e.name} pressed")
                 
-                if e.name == '1':
-                    print("[CAM EVENT] Key 1 triggered camera change to roof (Halo HUD)")
-                    self.camera.current_camera_type = 'roof'
-                elif e.name == '2':
-                    print("[CAM EVENT] Key 2 triggered camera change to chase")
-                    self.camera.current_camera_type = 'chase'
-                elif e.name == '3':
-                    print("[CAM EVENT] Key 3 triggered camera change to roof (Halo HUD)")
-                    self.camera.current_camera_type = 'roof'
-                elif e.name in ['4', '5', '6']:
-                    print(f"[CAM EVENT] Key {e.name} triggered camera change to chase (Onboard)")
-                    self.camera.current_camera_type = 'chase'
-                elif e.name in ['7', '8']:
-                    print(f"[CAM EVENT] Key {e.name} triggered camera change to tv_cam/trackside")
-                    self.camera.current_camera_type = 'tv_cam'
+                if e.name in KEY_TO_CAMERA:
+                    self.camera.update_camera_for_key(e.name)
+                    print(f"[CAM EVENT] Key {e.name} → {self.camera.current_camera_type}")
                 elif e.name == '9':
                     self.root.after(0, self._toggle_camera_change)
 
@@ -95,13 +85,8 @@ class AutoDirectorApp:
             print(f"Warning: Could not bind global hotkey: {e}")
             # Fallback to application-level global binding
             self.root.bind_all('<Control-space>', lambda e: self._toggle_director())
-            self.root.bind_all('1', lambda e: setattr(self.camera, 'current_camera_type', 'roof'))
-            self.root.bind_all('2', lambda e: setattr(self.camera, 'current_camera_type', 'chase'))
-            self.root.bind_all('3', lambda e: setattr(self.camera, 'current_camera_type', 'roof'))
-            for k in ['4', '5', '6']:
-                self.root.bind_all(k, lambda e, key=k: setattr(self.camera, 'current_camera_type', 'chase'))
-            for k in ['7', '8']:
-                self.root.bind_all(k, lambda e, key=k: setattr(self.camera, 'current_camera_type', 'tv_cam'))
+            for k in KEY_TO_CAMERA:
+                self.root.bind_all(k, lambda e, key=k: self.camera.update_camera_for_key(key))
             self.root.bind_all('9', lambda e: self._toggle_camera_change())
 
     def _on_closing(self):

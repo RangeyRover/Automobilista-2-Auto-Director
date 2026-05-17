@@ -221,7 +221,7 @@ class TestCameraSelection:
         controller.last_shot_was_special = True
         
         test_config = {
-            "trackside_keys": ["7", "8"],
+            "trackside_keys": ["7"],
             "pool_close_racing": ["1"],
             "pool_standard": ["2"]
         }
@@ -231,11 +231,11 @@ class TestCameraSelection:
              patch.object(controller, '_load_config', return_value=test_config), \
              patch('time.sleep'), \
              patch('random.choice') as mock_choice:
-            mock_choice.return_value = '8'
+            mock_choice.return_value = '7'
             controller.select_random_camera(is_close=True)
             
             # Should have chosen from trackside_keys, not pool_close_racing
-            mock_choice.assert_called_once_with(["7", "8"])
+            mock_choice.assert_called_once_with(["7"])
             assert controller.last_shot_was_special is False
 
     def test_config_loading(self, controller, key_log):
