@@ -1,4 +1,4 @@
-const WS_URL = "ws://127.0.0.1:8765";
+const WS_URL = `ws://${location.host}/ws`;
 let socket = null;
 let lastData = null;
 let expandAll = true;

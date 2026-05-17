@@ -24,7 +24,7 @@ pauseBtn.addEventListener("click", () => {
 });
 
 function connect() {
-    socket = new WebSocket("ws://127.0.0.1:8765");
+    socket = new WebSocket(`ws://${location.host}/ws`);
 
     socket.onopen = () => {
         statusIndicator.textContent = "Connected";
