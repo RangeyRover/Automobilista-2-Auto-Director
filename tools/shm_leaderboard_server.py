@@ -211,12 +211,17 @@ class PhysicsFlywheel:
     MIN_SPEED = 1.0           # m/s — below this, use FALLBACK_DT
     DEFAULT_SPEED = 80.0      # m/s — ~288 km/h, safe racing assumption
     SPEED_DROP_TOLERANCE = 0.1  # 10% — if implied speed < 10% of last_known_speed, reject
+    HEALTHY_TICK_MIN = 0.05   # seconds — minimum delta for a "healthy" game tick
+    HEALTHY_TICK_MAX = 1.0    # seconds — maximum delta for a "healthy" game tick
+    RESYNC_AFTER = 5          # consecutive healthy ticks before force-resync
     
     def __init__(self):
         self.internal_master_clock: float | None = None
         self.last_known_speed: float = self.DEFAULT_SPEED
         self.last_leader_distance: float | None = None
         self.is_active: bool = False
+        self._last_game_time: float | None = None  # tracks raw game time for sanity check
+        self._consecutive_healthy: int = 0          # consecutive healthy game-time deltas
     
     def reset(self, current_time: float, leader_dist: float) -> None:
         """Force-sync the Internal Master Clock on session reset (FR-007).
@@ -228,6 +233,8 @@ class PhysicsFlywheel:
         self.last_leader_distance = leader_dist
         self.is_active = False
         self.last_known_speed = self.DEFAULT_SPEED
+        self._last_game_time = current_time
+        self._consecutive_healthy = 0
     
     def _is_anomalous(self, game_time: float, distance_delta: float) -> bool:
         """Two-layer anomaly detection: time threshold AND speed lie detector."""
@@ -237,14 +244,30 @@ class PhysicsFlywheel:
         if time_delta > self.ANOMALY_THRESHOLD:
             return True
         
-        # Layer 2: Speed lie detector — reject if implied speed is physically impossible
+        # Layer 2: Speed lie detector — only on forward movement (distance_delta > 0)
+        # Negative distance_delta (lap transitions) is NOT a speed anomaly
         actual_dt = game_time - self.internal_master_clock
-        if actual_dt > 0 and self.last_known_speed >= self.MIN_SPEED:
+        if actual_dt > 0 and distance_delta > 0 and self.last_known_speed >= self.MIN_SPEED:
             implied_speed = distance_delta / actual_dt
             if implied_speed < self.last_known_speed * self.SPEED_DROP_TOLERANCE:
                 return True
         
         return False
+    
+    def _check_game_time_sanity(self, game_time: float) -> None:
+        """Track consecutive healthy game-time deltas for self-healing resync.
+        
+        If 5 consecutive raw mCurrentTime samples show healthy ~0.25s deltas,
+        the game clock is clearly stable and we should trust it — even if our
+        internal clock has drifted far away.
+        """
+        if self._last_game_time is not None:
+            raw_delta = game_time - self._last_game_time
+            if self.HEALTHY_TICK_MIN <= raw_delta <= self.HEALTHY_TICK_MAX:
+                self._consecutive_healthy += 1
+            else:
+                self._consecutive_healthy = 0
+        self._last_game_time = game_time
     
     def process(self, game_time: float, leader_dist: float) -> float:
         """Process a telemetry frame and return the stabilized time.
@@ -256,6 +279,9 @@ class PhysicsFlywheel:
         1. Time threshold: abs(delta) > 5.5s
         2. Speed lie detector: implied_speed < 10% of last_known_speed
         
+        Self-healing: if 5 consecutive raw game-time deltas are healthy,
+        force-resync regardless of internal clock drift.
+        
         Args:
             game_time: Raw mCurrentTime from AMS2 shared memory.
             leader_dist: Leader's total distance (compute_total_distance output).
@@ -263,6 +289,9 @@ class PhysicsFlywheel:
         Returns:
             Stabilized time value for downstream consumers.
         """
+        # Track raw game time health independent of internal clock
+        self._check_game_time_sanity(game_time)
+        
         # First tick — unconditionally sync (sentinel pattern)
         if self.internal_master_clock is None:
             self.internal_master_clock = game_time
@@ -271,6 +300,15 @@ class PhysicsFlywheel:
             return game_time
         
         distance_delta = leader_dist - self.last_leader_distance
+        
+        # Self-healing: if game time has been stable for 5+ ticks, trust it
+        if self.is_active and self._consecutive_healthy >= self.RESYNC_AFTER:
+            self.internal_master_clock = game_time
+            self.last_leader_distance = leader_dist
+            self.is_active = False
+            self._consecutive_healthy = 0
+            self.last_known_speed = self.DEFAULT_SPEED
+            return game_time
         
         if not self._is_anomalous(game_time, distance_delta):
             # ACCEPT — healthy frame or legitimate scrub

@@ -314,3 +314,90 @@ def test_flywheel_speed_lie_detector_skips_backward_time():
 
     assert result == 97.25, f"Backward scrub should be accepted, got {result}"
     assert fw.is_active is False
+
+
+# ──────────────────────────────────────────────
+# Negative Distance Delta (Lap Boundary Fix)
+# ──────────────────────────────────────────────
+
+def test_flywheel_negative_distance_delta_does_not_trigger_speed_lie_detector():
+    """Negative distance_delta (lap boundary) should NOT trigger the speed lie detector.
+    
+    At lap transitions, mLapDistance can momentarily decrease. This produces a
+    negative implied speed, which would falsely trigger the speed lie detector
+    if not guarded. Only the time threshold should evaluate negative deltas.
+    """
+    from tools.shm_leaderboard_server import PhysicsFlywheel
+
+    fw = PhysicsFlywheel()
+    fw.process(game_time=100.0, leader_dist=2000.0)
+    fw.process(game_time=100.25, leader_dist=2020.0)  # speed = 80 m/s
+
+    # Lap boundary: distance drops by 20m, but time delta is healthy (0.25s)
+    result = fw.process(game_time=100.50, leader_dist=2000.0)
+
+    # Time delta is 0.25s (well within 5.5s threshold), so should be ACCEPTED
+    # Speed lie detector should NOT fire because distance_delta is negative
+    assert result == 100.50, f"Negative distance_delta should not trigger lie detector, got {result}"
+    assert fw.is_active is False
+
+
+# ──────────────────────────────────────────────
+# Self-Healing Resync Tests
+# ──────────────────────────────────────────────
+
+def test_flywheel_self_healing_resyncs_after_consecutive_healthy_ticks():
+    """If flywheel is stuck active but game time shows 5 consecutive healthy
+    deltas (~0.25s), force-resync to real game time.
+    
+    This prevents permanent lock-in when the flywheel false-positives at startup
+    and drifts so far that normal ticks always exceed the time threshold.
+    """
+    from tools.shm_leaderboard_server import PhysicsFlywheel
+
+    fw = PhysicsFlywheel()
+    fw.process(game_time=100.0, leader_dist=2000.0)
+    
+    # Force the flywheel into a stuck state: massive time jump
+    fw.process(game_time=140.0, leader_dist=2020.0)
+    assert fw.is_active is True
+    
+    # Now simulate 6 consecutive healthy game-time ticks at 0.25s intervals
+    # The flywheel is stuck (internal clock ~100.25, game time ~140+)
+    # but the raw game time is advancing smoothly
+    for i in range(6):
+        game_t = 140.25 + i * 0.25
+        leader_d = 2040.0 + i * 20.0
+        result = fw.process(game_time=game_t, leader_dist=leader_d)
+    
+    # After 5+ healthy ticks, flywheel should have resynced
+    assert fw.is_active is False, "Flywheel should self-heal after 5 healthy ticks"
+    assert fw.internal_master_clock == game_t, \
+        f"Clock should resync to real game time {game_t}, got {fw.internal_master_clock}"
+
+
+def test_flywheel_self_healing_does_not_trigger_during_real_anomaly():
+    """Self-healing should NOT fire if game time deltas are erratic (real anomaly).
+    
+    If the raw game time is genuinely jumping around (camera swap), the
+    consecutive healthy counter should reset and the flywheel stays active.
+    """
+    from tools.shm_leaderboard_server import PhysicsFlywheel
+
+    fw = PhysicsFlywheel()
+    fw.process(game_time=100.0, leader_dist=2000.0)
+    
+    # Trigger anomaly
+    fw.process(game_time=140.0, leader_dist=2020.0)
+    assert fw.is_active is True
+    
+    # 3 healthy ticks then a bad one — should NOT resync
+    fw.process(game_time=140.25, leader_dist=2040.0)
+    fw.process(game_time=140.50, leader_dist=2060.0)
+    fw.process(game_time=140.75, leader_dist=2080.0)
+    fw.process(game_time=180.0, leader_dist=2100.0)   # another jump — resets counter
+    fw.process(game_time=180.25, leader_dist=2120.0)
+    fw.process(game_time=180.50, leader_dist=2140.0)
+    
+    # Only 2 consecutive healthy ticks since last bad one — should still be active
+    assert fw.is_active is True, "Should NOT resync with interrupted healthy sequence"
