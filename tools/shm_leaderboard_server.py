@@ -570,7 +570,7 @@ async def telemetry_loop(connected_clients: set, active_only: bool):
             if connected_clients:
                 await broadcast_telemetry(connected_clients, {"status": f"Error: {str(e)}"})
                 
-        await asyncio.sleep(0.25) # ~4Hz
+        await asyncio.sleep(0.5) # ~2Hz — matches spline min_interval for synchronized gap calculation
 
 async def main(host="127.0.0.1", port=8770, active_only=False):
     """Main entry point for the standalone server."""
