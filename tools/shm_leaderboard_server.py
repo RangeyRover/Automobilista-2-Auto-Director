@@ -206,7 +206,7 @@ class PhysicsFlywheel:
     (which produces ~5.0s per 0.25s polling tick).
     """
     
-    ANOMALY_THRESHOLD = 10.0  # seconds — max legitimate delta at 20x scrub is ~5s
+    ANOMALY_THRESHOLD = 5.5   # seconds — max legitimate delta at 20x scrub is ~5s, 0.5s headroom
     FALLBACK_DT = 0.25        # seconds — used when speed is near zero
     MIN_SPEED = 1.0           # m/s — below this, use FALLBACK_DT
     DEFAULT_SPEED = 80.0      # m/s — ~288 km/h, safe racing assumption

@@ -216,36 +216,36 @@ def test_flywheel_backward_scrub_accepted():
 
 
 def test_flywheel_boundary_9s_accepted():
-    """T033: Delta of exactly 9.9s must be ACCEPTED (below threshold)."""
+    """T033: Delta of exactly 5.4s must be ACCEPTED (below 5.5s threshold)."""
     from tools.shm_leaderboard_server import PhysicsFlywheel
 
     fw = PhysicsFlywheel()
     fw.process(game_time=100.0, leader_dist=2000.0)
-    result = fw.process(game_time=109.9, leader_dist=2792.0)
+    result = fw.process(game_time=105.4, leader_dist=2432.0)
 
-    assert result == 109.9, f"9.9s delta should be accepted, got {result}"
+    assert result == 105.4, f"5.4s delta should be accepted, got {result}"
     assert fw.is_active is False
 
 
 def test_flywheel_boundary_10s_exact_accepted():
-    """T034: Delta of exactly 10.0s must be ACCEPTED (<=10.0 per FR-003)."""
+    """T034: Delta of exactly 5.5s must be ACCEPTED (<=5.5 per FR-003)."""
     from tools.shm_leaderboard_server import PhysicsFlywheel
 
     fw = PhysicsFlywheel()
     fw.process(game_time=100.0, leader_dist=2000.0)
-    result = fw.process(game_time=110.0, leader_dist=2800.0)
+    result = fw.process(game_time=105.5, leader_dist=2440.0)
 
-    assert result == 110.0, f"Exactly 10.0s delta should be accepted, got {result}"
+    assert result == 105.5, f"Exactly 5.5s delta should be accepted, got {result}"
     assert fw.is_active is False
 
 
 def test_flywheel_boundary_11s_rejected():
-    """T035: Delta of 11.0s must be REJECTED (>10.0 per FR-003)."""
+    """T035: Delta of 6.0s must be REJECTED (>5.5 per FR-003)."""
     from tools.shm_leaderboard_server import PhysicsFlywheel
 
     fw = PhysicsFlywheel()
     fw.process(game_time=100.0, leader_dist=2000.0)
-    result = fw.process(game_time=111.0, leader_dist=2020.0)
+    result = fw.process(game_time=106.0, leader_dist=2020.0)
 
-    assert result != 111.0, f"11.0s delta should be rejected, got {result}"
+    assert result != 106.0, f"6.0s delta should be rejected, got {result}"
     assert fw.is_active is True, "Flywheel should be active"
