@@ -495,7 +495,7 @@ async def telemetry_loop(connected_clients: set, active_only: bool):
     import ctypes
     shm_name = "$pcars2$"
     shm_file = None
-    spline = DistanceTimeSpline()
+    spline = DistanceTimeSpline(min_interval=0.0)  # loop cadence is the sole rate limiter
     previous_spline = None
     last_leader_name = None
     last_session_state = None
