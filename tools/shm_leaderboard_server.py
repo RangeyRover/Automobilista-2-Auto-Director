@@ -367,7 +367,7 @@ def compute_time_gap(driver_total_dist: float, current_time: float, spline: Dist
         return None
     return max(0.0, current_time - leader_time_at_dist)
 
-def correlate_drivers(data: dict, active_only: bool = False, spline: DistanceTimeSpline = None, previous_spline: DistanceTimeSpline = None, pit_entry_times: dict = None, flywheel: PhysicsFlywheel = None) -> list:
+def correlate_drivers(data: dict, active_only: bool = False, spline: DistanceTimeSpline = None, pit_entry_times: dict = None, flywheel: PhysicsFlywheel = None) -> list:
     """Bundle indexed data arrays into a sorted list of driver dictionaries."""
     if not data or "mNumParticipants" not in data:
         return []
@@ -437,18 +437,15 @@ def correlate_drivers(data: dict, active_only: bool = False, spline: DistanceTim
             if i == 0 or d["_gap"] <= 0.0:
                 d["_time_gap"] = 0.0
             else:
-                time_gap = compute_time_gap(d["_total_dist"], current_time, spline)
-                if time_gap is None and previous_spline is not None:
-                    time_gap = compute_time_gap(d["_total_dist"], current_time, previous_spline)
-                d["_time_gap"] = time_gap
+                d["_time_gap"] = compute_time_gap(d["_total_dist"], current_time, spline)
             
     return drivers
 
-def process_shm(shm: SharedMemory, active_only: bool = False, spline: DistanceTimeSpline = None, previous_spline: DistanceTimeSpline = None, pit_entry_times: dict = None, flywheel: PhysicsFlywheel = None) -> dict:
+def process_shm(shm: SharedMemory, active_only: bool = False, spline: DistanceTimeSpline = None, pit_entry_times: dict = None, flywheel: PhysicsFlywheel = None) -> dict:
     """Process the raw ctypes struct into the final WebSocket payload."""
     raw_data = serialise_shm(shm)
     annotated = annotate_enums(raw_data)
-    leaderboard = correlate_drivers(annotated, active_only, spline, previous_spline, pit_entry_times, flywheel)
+    leaderboard = correlate_drivers(annotated, active_only, spline, pit_entry_times, flywheel)
     payload = {
         "raw": annotated,
         "leaderboard": leaderboard
@@ -496,8 +493,6 @@ async def telemetry_loop(connected_clients: set, active_only: bool):
     shm_name = "$pcars2$"
     shm_file = None
     spline = DistanceTimeSpline(min_interval=0.0)  # loop cadence is the sole rate limiter
-    previous_spline = None
-    last_leader_name = None
     last_session_state = None
     last_participants = 0
     pit_entry_times = {}
@@ -522,31 +517,17 @@ async def telemetry_loop(connected_clients: set, active_only: bool):
             
             if should_reset_spline(last_session_state, curr_state, last_participants, curr_participants):
                 spline.reset()
-                previous_spline = None
-                last_leader_name = None
                 pit_entry_times.clear()
                 flywheel.reset(shm.mCurrentTime, 0.0)
                 
             last_session_state = curr_state
             last_participants = curr_participants
             
-            payload = process_shm(shm, active_only=active_only, spline=spline, previous_spline=previous_spline, pit_entry_times=pit_entry_times, flywheel=flywheel)
+            payload = process_shm(shm, active_only=active_only, spline=spline, pit_entry_times=pit_entry_times, flywheel=flywheel)
             payload["status"] = "Connected"
             payload["flywheel_active"] = flywheel.is_active
             
-            # If flywheel force-resynced, the spline's time axis is corrupt — reset it
-            if flywheel.did_resync:
-                spline.reset()
-                previous_spline = None
-            
             leaderboard = payload.get("leaderboard", [])
-            leader_name = get_leader_name(leaderboard)
-            
-            if leader_name and leader_name != last_leader_name:
-                previous_spline = spline
-                spline = DistanceTimeSpline()
-                last_leader_name = leader_name
-                
             if leaderboard:
                 leader = leaderboard[0]
                 leader_dist = leader.get("_total_dist")
