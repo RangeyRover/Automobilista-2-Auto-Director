@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spline Debugger</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <h1>Leader Spline Debugger</h1>
+        <div class="header-controls">
+            <button id="pause-updates-btn" class="pause-btn">Pause Updates</button>
+            <div id="flywheel-indicator" style="display:none; padding: 6px 14px; border-radius: 6px; background: #e53e3e; color: #fff; font-weight: 700; font-size: 13px; letter-spacing: 0.5px; animation: pulse 1s infinite;">⚡ FLYWHEEL ACTIVE</div>
+            <div id="status-indicator" class="status-disconnected">Disconnected</div>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="panel" style="flex: 1;">
+            <h2>Distance-Time Spline History (Newest First)</h2>
+            <div style="font-family: monospace; padding: 10px; background: rgba(255, 255, 255, 0.05); border-radius: 8px;">
+                <table style="width: 100%; text-align: left; border-collapse: collapse;">
+                    <thead>
+                        <tr style="border-bottom: 1px solid var(--border-color);">
+                            <th style="padding: 8px;">Index</th>
+                            <th style="padding: 8px;">Distance (m)</th>
+                            <th style="padding: 8px;">Time (s)</th>
+                            <th style="padding: 8px;">Speed (m/s)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="spline-table-body">
+                        <!-- Spline entries go here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="panel" style="flex: 1;">
+            <h2>mCurrentTime History (~4Hz Polling)</h2>
+            <div style="font-family: monospace; padding: 10px; background: rgba(255, 255, 255, 0.05); border-radius: 8px;">
+                <table style="width: 100%; text-align: left; border-collapse: collapse;">
+                    <thead>
+                        <tr style="border-bottom: 1px solid var(--border-color);">
+                            <th style="padding: 8px;">Sample</th>
+                            <th style="padding: 8px;">mCurrentTime (s)</th>
+                            <th style="padding: 8px;">Delta (s)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="time-table-body">
+                        <!-- Time history entries go here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script src="spline.js"></script>
+</body>
+</html>

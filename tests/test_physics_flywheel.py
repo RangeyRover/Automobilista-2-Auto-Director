@@ -1,0 +1,251 @@
+"""TDD tests for PhysicsFlywheel — the dead-reckoning time stabilizer.
+
+These tests are written BEFORE implementation exists.
+They must all FAIL (ImportError) until the PhysicsFlywheel class is created.
+"""
+import pytest
+
+
+# ──────────────────────────────────────────────
+# Phase 2: Core Flywheel Logic (T003–T008)
+# ──────────────────────────────────────────────
+
+def test_flywheel_first_tick_syncs_clock():
+    """T003: First call to process() should sync the internal clock to game time."""
+    from tools.shm_leaderboard_server import PhysicsFlywheel
+
+    fw = PhysicsFlywheel()
+    result = fw.process(game_time=100.0, leader_dist=2000.0)
+
+    assert result == 100.0, f"First tick should return game_time exactly, got {result}"
+    assert fw.is_active is False, "Flywheel should NOT be active on first tick"
+
+
+def test_flywheel_normal_tick_accepts_time():
+    """T004: A normal 0.25s tick should be accepted and returned as-is."""
+    from tools.shm_leaderboard_server import PhysicsFlywheel
+
+    fw = PhysicsFlywheel()
+    fw.process(game_time=100.0, leader_dist=2000.0)
+    result = fw.process(game_time=100.25, leader_dist=2020.0)
+
+    assert result == 100.25, f"Normal tick should return game_time, got {result}"
+    assert fw.is_active is False, "Flywheel should NOT be active during normal ticks"
+
+
+def test_flywheel_normal_tick_updates_speed():
+    """T005: Speed should be calculated from healthy ticks: (2020-2000)/(100.25-100.0) = 80 m/s."""
+    from tools.shm_leaderboard_server import PhysicsFlywheel
+
+    fw = PhysicsFlywheel()
+    fw.process(game_time=100.0, leader_dist=2000.0)
+    fw.process(game_time=100.25, leader_dist=2020.0)
+
+    assert fw.last_known_speed == pytest.approx(80.0, abs=0.1), \
+        f"Speed should be 80.0 m/s, got {fw.last_known_speed}"
+
+
+def test_flywheel_rejects_massive_forward_jump():
+    """T006: A 40s forward jump should be REJECTED. Synthetic time returned instead."""
+    from tools.shm_leaderboard_server import PhysicsFlywheel
+
+    fw = PhysicsFlywheel()
+    fw.process(game_time=100.0, leader_dist=2000.0)
+    # 40s jump but only 20m distance — physically impossible
+    result = fw.process(game_time=140.0, leader_dist=2020.0)
+
+    assert result != 140.0, "Anomalous game time should be rejected"
+    assert result == pytest.approx(100.25, abs=0.1), \
+        f"Synthetic time should be ~100.25s (20m / 80 m/s default), got {result}"
+    assert fw.is_active is True, "Flywheel should be ACTIVE during anomaly"
+
+
+def test_flywheel_rejects_massive_backward_jump():
+    """T007: A 40s backward jump should also be REJECTED."""
+    from tools.shm_leaderboard_server import PhysicsFlywheel
+
+    fw = PhysicsFlywheel()
+    fw.process(game_time=100.0, leader_dist=2000.0)
+    # Backward jump — time goes from 100 to 60
+    result = fw.process(game_time=60.0, leader_dist=2020.0)
+
+    assert result != 60.0, "Backward anomaly should be rejected"
+    assert result == pytest.approx(100.25, abs=0.1), \
+        f"Synthetic time should be ~100.25s, got {result}"
+    assert fw.is_active is True, "Flywheel should be ACTIVE during backward anomaly"
+
+
+def test_flywheel_synthetic_time_uses_distance_over_speed():
+    """T008: Synthetic dt must be exactly distance_delta / last_known_speed."""
+    from tools.shm_leaderboard_server import PhysicsFlywheel
+
+    fw = PhysicsFlywheel()
+    # Tick 1: init
+    fw.process(game_time=100.0, leader_dist=2000.0)
+    # Tick 2: establish speed = 80 m/s
+    fw.process(game_time=100.25, leader_dist=2020.0)
+    # Tick 3: anomaly — leader moved 40m, time jumps 40s
+    result = fw.process(game_time=140.25, leader_dist=2060.0)
+
+    expected_dt = 40.0 / 80.0  # 0.5s
+    expected_time = 100.25 + expected_dt  # 100.75
+    assert result == pytest.approx(expected_time, abs=0.01), \
+        f"Synthetic time should be {expected_time}, got {result}"
+
+
+# ──────────────────────────────────────────────
+# Phase 4: Recovery & Edge Cases (T015–T018)
+# ──────────────────────────────────────────────
+
+def test_flywheel_recovery_relocks_to_game_time():
+    """T015: After anomaly ends, flywheel should re-lock to real game time."""
+    from tools.shm_leaderboard_server import PhysicsFlywheel
+
+    fw = PhysicsFlywheel()
+    fw.process(game_time=100.0, leader_dist=2000.0)
+    # Anomaly tick
+    synthetic = fw.process(game_time=140.0, leader_dist=2020.0)
+    assert fw.is_active is True
+
+    # Recovery tick — game time returns close to synthetic clock
+    result = fw.process(game_time=100.50, leader_dist=2040.0)
+
+    # Delta from synthetic (~100.25) to 100.50 is ~0.25s, well within 10s
+    assert result == 100.50, f"Should re-lock to real game time, got {result}"
+    assert fw.is_active is False, "Flywheel should deactivate after recovery"
+
+
+def test_flywheel_zero_speed_fallback():
+    """T016: If speed is near zero, use 0.25s fallback instead of dividing by zero."""
+    from tools.shm_leaderboard_server import PhysicsFlywheel
+
+    fw = PhysicsFlywheel()
+    fw.process(game_time=100.0, leader_dist=2000.0)
+    # Establish near-zero speed (car barely moved)
+    fw.process(game_time=100.25, leader_dist=2000.1)
+    assert fw.last_known_speed < 1.0, "Speed should be near zero"
+
+    # Anomaly with near-zero speed
+    result = fw.process(game_time=140.0, leader_dist=2000.2)
+
+    expected = 100.25 + 0.25  # fallback dt
+    assert result == pytest.approx(expected, abs=0.01), \
+        f"Should use 0.25s fallback, got {result}"
+
+
+def test_flywheel_negative_distance_delta_clamps_to_zero():
+    """T017: If distance decreases during anomaly (lap reset), clamp dt to 0."""
+    from tools.shm_leaderboard_server import PhysicsFlywheel
+
+    fw = PhysicsFlywheel()
+    fw.process(game_time=100.0, leader_dist=2000.0)
+    fw.process(game_time=100.25, leader_dist=2020.0)
+
+    # Anomaly where distance DECREASED (lap boundary reset)
+    result = fw.process(game_time=140.0, leader_dist=1900.0)
+
+    # With negative distance delta clamped to 0, synthetic dt = 0
+    expected = 100.25  # no advancement
+    assert result == pytest.approx(expected, abs=0.01), \
+        f"Negative distance delta should clamp to zero dt, got {result}"
+
+
+def test_flywheel_speed_not_updated_during_anomaly():
+    """T018: last_known_speed must NOT change during an anomalous frame (FR-002)."""
+    from tools.shm_leaderboard_server import PhysicsFlywheel
+
+    fw = PhysicsFlywheel()
+    fw.process(game_time=100.0, leader_dist=2000.0)
+    fw.process(game_time=100.25, leader_dist=2020.0)
+    speed_before = fw.last_known_speed  # should be 80.0
+
+    # Anomaly frame
+    fw.process(game_time=140.0, leader_dist=2020.0)
+
+    assert fw.last_known_speed == speed_before, \
+        f"Speed should remain {speed_before} during anomaly, got {fw.last_known_speed}"
+
+
+# ──────────────────────────────────────────────
+# Phase 5: Session Reset Hook (T026)
+# ──────────────────────────────────────────────
+
+def test_flywheel_reset_syncs_clock():
+    """T026: reset() should force-sync the clock and clear anomaly state."""
+    from tools.shm_leaderboard_server import PhysicsFlywheel
+
+    fw = PhysicsFlywheel()
+    fw.process(game_time=100.0, leader_dist=2000.0)
+    fw.process(game_time=140.0, leader_dist=2020.0)  # Trigger anomaly
+    assert fw.is_active is True
+
+    # Session reset
+    fw.reset(current_time=0.0, leader_dist=0.0)
+
+    assert fw.internal_master_clock == 0.0, "Clock should sync to reset time"
+    assert fw.is_active is False, "Anomaly state should be cleared"
+    assert fw.last_leader_distance == 0.0, "Distance should sync to reset distance"
+
+
+# ──────────────────────────────────────────────
+# Phase 6: Scrubbing Compatibility (T031–T035)
+# ──────────────────────────────────────────────
+
+def test_flywheel_20x_scrub_accepted():
+    """T031: 20x scrub (5s delta) must be ACCEPTED — within 10s threshold."""
+    from tools.shm_leaderboard_server import PhysicsFlywheel
+
+    fw = PhysicsFlywheel()
+    fw.process(game_time=100.0, leader_dist=2000.0)
+    result = fw.process(game_time=105.0, leader_dist=2400.0)
+
+    assert result == 105.0, f"20x scrub should be accepted, got {result}"
+    assert fw.is_active is False
+
+
+def test_flywheel_backward_scrub_accepted():
+    """T032: Backward scrub (5s backward delta) must be ACCEPTED."""
+    from tools.shm_leaderboard_server import PhysicsFlywheel
+
+    fw = PhysicsFlywheel()
+    fw.process(game_time=100.0, leader_dist=2000.0)
+    result = fw.process(game_time=95.0, leader_dist=1600.0)
+
+    assert result == 95.0, f"Backward scrub should be accepted, got {result}"
+    assert fw.is_active is False
+
+
+def test_flywheel_boundary_9s_accepted():
+    """T033: Delta of exactly 9.9s must be ACCEPTED (below threshold)."""
+    from tools.shm_leaderboard_server import PhysicsFlywheel
+
+    fw = PhysicsFlywheel()
+    fw.process(game_time=100.0, leader_dist=2000.0)
+    result = fw.process(game_time=109.9, leader_dist=2792.0)
+
+    assert result == 109.9, f"9.9s delta should be accepted, got {result}"
+    assert fw.is_active is False
+
+
+def test_flywheel_boundary_10s_exact_accepted():
+    """T034: Delta of exactly 10.0s must be ACCEPTED (<=10.0 per FR-003)."""
+    from tools.shm_leaderboard_server import PhysicsFlywheel
+
+    fw = PhysicsFlywheel()
+    fw.process(game_time=100.0, leader_dist=2000.0)
+    result = fw.process(game_time=110.0, leader_dist=2800.0)
+
+    assert result == 110.0, f"Exactly 10.0s delta should be accepted, got {result}"
+    assert fw.is_active is False
+
+
+def test_flywheel_boundary_11s_rejected():
+    """T035: Delta of 11.0s must be REJECTED (>10.0 per FR-003)."""
+    from tools.shm_leaderboard_server import PhysicsFlywheel
+
+    fw = PhysicsFlywheel()
+    fw.process(game_time=100.0, leader_dist=2000.0)
+    result = fw.process(game_time=111.0, leader_dist=2020.0)
+
+    assert result != 111.0, f"11.0s delta should be rejected, got {result}"
+    assert fw.is_active is True, "Flywheel should be active"
