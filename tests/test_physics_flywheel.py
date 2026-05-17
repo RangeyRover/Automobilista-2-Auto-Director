@@ -347,8 +347,8 @@ def test_flywheel_negative_distance_delta_does_not_trigger_speed_lie_detector():
 # ──────────────────────────────────────────────
 
 def test_flywheel_self_healing_resyncs_after_consecutive_healthy_ticks():
-    """If flywheel is stuck active but game time shows 5 consecutive healthy
-    deltas (~0.25s), force-resync to real game time.
+    """If flywheel is stuck active but game time shows 40 consecutive healthy
+    deltas (~10s), force-resync to real game time.
     
     This prevents permanent lock-in when the flywheel false-positives at startup
     and drifts so far that normal ticks always exceed the time threshold.
@@ -362,18 +362,43 @@ def test_flywheel_self_healing_resyncs_after_consecutive_healthy_ticks():
     fw.process(game_time=140.0, leader_dist=2020.0)
     assert fw.is_active is True
     
-    # Now simulate 6 consecutive healthy game-time ticks at 0.25s intervals
-    # The flywheel is stuck (internal clock ~100.25, game time ~140+)
-    # but the raw game time is advancing smoothly
-    for i in range(6):
+    # Simulate 40 consecutive healthy game-time ticks at 0.25s intervals
+    for i in range(40):
         game_t = 140.25 + i * 0.25
         leader_d = 2040.0 + i * 20.0
         result = fw.process(game_time=game_t, leader_dist=leader_d)
     
-    # After 5+ healthy ticks, flywheel should have resynced
-    assert fw.is_active is False, "Flywheel should self-heal after 5 healthy ticks"
+    # After 40+ healthy ticks, flywheel should have resynced
+    assert fw.is_active is False, "Flywheel should self-heal after 40 healthy ticks"
+    assert fw.did_resync is True, "did_resync flag should be set"
     assert fw.internal_master_clock == game_t, \
         f"Clock should resync to real game time {game_t}, got {fw.internal_master_clock}"
+
+
+def test_flywheel_self_healing_does_not_trigger_too_early():
+    """Self-healing should NOT fire before 40 consecutive healthy ticks.
+    
+    Camera swaps produce time jumps that stabilize quickly. We need to wait
+    10 seconds to distinguish from a permanent startup drift.
+    """
+    from tools.shm_leaderboard_server import PhysicsFlywheel
+
+    fw = PhysicsFlywheel()
+    fw.process(game_time=100.0, leader_dist=2000.0)
+    
+    # Trigger anomaly (camera swap — 40s jump)
+    fw.process(game_time=140.0, leader_dist=2020.0)
+    assert fw.is_active is True
+    
+    # 39 healthy ticks — just under the threshold
+    for i in range(39):
+        game_t = 140.25 + i * 0.25
+        leader_d = 2040.0 + i * 20.0
+        fw.process(game_time=game_t, leader_dist=leader_d)
+    
+    # Should still be active — not enough healthy ticks yet
+    assert fw.is_active is True, "Should NOT resync at only 39 healthy ticks"
+    assert fw.did_resync is False
 
 
 def test_flywheel_self_healing_does_not_trigger_during_real_anomaly():

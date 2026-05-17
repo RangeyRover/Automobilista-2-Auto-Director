@@ -213,15 +213,16 @@ class PhysicsFlywheel:
     SPEED_DROP_TOLERANCE = 0.1  # 10% — if implied speed < 10% of last_known_speed, reject
     HEALTHY_TICK_MIN = 0.05   # seconds — minimum delta for a "healthy" game tick
     HEALTHY_TICK_MAX = 1.0    # seconds — maximum delta for a "healthy" game tick
-    RESYNC_AFTER = 5          # consecutive healthy ticks before force-resync
+    RESYNC_AFTER = 40          # consecutive healthy ticks (~10s) before force-resync
     
     def __init__(self):
         self.internal_master_clock: float | None = None
         self.last_known_speed: float = self.DEFAULT_SPEED
         self.last_leader_distance: float | None = None
         self.is_active: bool = False
-        self._last_game_time: float | None = None  # tracks raw game time for sanity check
-        self._consecutive_healthy: int = 0          # consecutive healthy game-time deltas
+        self.did_resync: bool = False               # flag for callers to detect resync
+        self._last_game_time: float | None = None   # tracks raw game time for sanity check
+        self._consecutive_healthy: int = 0           # consecutive healthy game-time deltas
     
     def reset(self, current_time: float, leader_dist: float) -> None:
         """Force-sync the Internal Master Clock on session reset (FR-007).
@@ -291,6 +292,7 @@ class PhysicsFlywheel:
         """
         # Track raw game time health independent of internal clock
         self._check_game_time_sanity(game_time)
+        self.did_resync = False
         
         # First tick — unconditionally sync (sentinel pattern)
         if self.internal_master_clock is None:
@@ -301,13 +303,14 @@ class PhysicsFlywheel:
         
         distance_delta = leader_dist - self.last_leader_distance
         
-        # Self-healing: if game time has been stable for 5+ ticks, trust it
+        # Self-healing: if game time has been stable for 40+ ticks (~10s), trust it
         if self.is_active and self._consecutive_healthy >= self.RESYNC_AFTER:
             self.internal_master_clock = game_time
             self.last_leader_distance = leader_dist
             self.is_active = False
             self._consecutive_healthy = 0
             self.last_known_speed = self.DEFAULT_SPEED
+            self.did_resync = True
             return game_time
         
         if not self._is_anomalous(game_time, distance_delta):
@@ -519,6 +522,11 @@ async def telemetry_loop(connected_clients: set, active_only: bool):
             payload = process_shm(shm, active_only=active_only, spline=spline, previous_spline=previous_spline, pit_entry_times=pit_entry_times, flywheel=flywheel)
             payload["status"] = "Connected"
             payload["flywheel_active"] = flywheel.is_active
+            
+            # If flywheel force-resynced, the spline's time axis is corrupt — reset it
+            if flywheel.did_resync:
+                spline.reset()
+                previous_spline = None
             
             leaderboard = payload.get("leaderboard", [])
             leader_name = get_leader_name(leaderboard)
