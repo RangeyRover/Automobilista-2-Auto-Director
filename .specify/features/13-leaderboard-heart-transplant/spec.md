@@ -8,6 +8,14 @@
 
 The standalone SHM Leaderboard Tool (`tools/shm_leaderboard_server.py`) has proven a superior time-gap calculation system using distance-time splines, a physics flywheel for camera-swap jitter suppression, and real-time debugging HTML surfaces. This feature transplants those proven components into the main Auto Director program (`main.py` + `core/`) as first-class modules, while simultaneously enforcing a 500-line maximum on all Python files via strangler-pattern decomposition.
 
+## Clarifications
+
+### Session 2026-05-17
+- Q: Should the existing 24 flywheel/spline tests be migrated, duplicated, or supplemented with new integration tests for the main program? → A: Existing flywheel tests remain in place (they test the extracted module directly). New TDD integration tests are written before each transplant step to verify the main program's wiring consumes the spline/flywheel correctly. Two layers of coverage without duplication.
+- Q: Should the debugging HTML surfaces share the dashboard bridge WebSocket or use a separate port? → A: Single unified WebSocket endpoint — one server, one port. The payload includes both scoring/camera data and diagnostic data (spline, flywheel, leaderboard). Eliminates running two servers and ensures all consumers get the same tick of data.
+- Q: Does the 500-line limit count total lines or source-only lines (excluding blanks/comments)? → A: Total lines in file — simple line count, blanks and comments included. No custom tooling needed.
+- Q: Should there be a side-by-side comparison phase before the transplant, or a direct swap? → A: Direct swap — the standalone tool's results are already proven. No comparison phase needed; trust the existing test suite and validated behaviour.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 — Stable Time Gaps in Main Program (Priority: P1)
@@ -44,16 +52,6 @@ Several Python files currently exceed 500 lines (`tools/shm_leaderboard_server.p
 2. **Given** any file has been decomposed, **When** the full test suite runs, **Then** all existing tests pass with zero regressions.
 3. **Given** the decomposed modules, **When** a developer examines any single file, **Then** it has a single clear responsibility described in its module docstring.
 
----
-
-### User Story 4 — Comparison Validation Before Transplant (Priority: P1)
-Before the transplant, the user must be able to run both the old and new gap calculation methods side-by-side to validate that the new method produces superior results. This comparison informs confidence in the migration.
-
-**Why this priority**: A blind transplant without comparison data risks introducing regressions that are hard to diagnose after the fact.
-
-**Acceptance Scenarios**:
-1. **Given** the main program is running alongside the standalone SHM leaderboard tool, **When** both calculate time gaps for the same drivers simultaneously, **Then** the user can compare the two sets of values and confirm the spline-based method is more stable.
-2. **Given** the comparison data confirms the new method is superior, **When** the transplant is performed, **Then** the old gap calculation code is removed entirely (no dual-path maintenance).
 
 ## Requirements *(mandatory)*
 
@@ -71,7 +69,7 @@ Before the transplant, the user must be able to run both the old and new gap cal
 - **FR-007**: The main program MUST serve the spline debugger HTML page showing: distance-time history (newest first), speed column, mCurrentTime history with delta column.
 - **FR-008**: The main program MUST serve the SHM leaderboard HTML page showing: sorted driver list with position, name, lap, distance gap, time gap, pit status.
 - **FR-009**: Both HTML pages MUST display a real-time flywheel status badge ("FLYWHEEL ACTIVE" red badge when engaged, hidden when not).
-- **FR-010**: The debugging HTML pages MUST connect via WebSocket to the main program's existing or new WebSocket server.
+- **FR-010**: The main program MUST serve all data (scoring, camera, leaderboard, spline diagnostics) through a single unified WebSocket endpoint on one port. The HTML debugging pages connect to the same server as the dashboard.
 
 **Strangler Refactor**:
 - **FR-011**: No Python file in the project shall exceed 500 lines after the refactor.
@@ -83,6 +81,9 @@ Before the transplant, the user must be able to run both the old and new gap cal
   - `tools/shm_leaderboard_server.py` (586 lines)
   - `dashboard/bridge.py` (580 lines)
 
+**Testing Strategy**:
+- **FR-015**: Development MUST follow TDD — integration tests for each transplant step are written before the implementation code. The existing 24 `test_physics_flywheel.py` unit tests remain in place testing the extracted modules directly; new integration tests verify the main program's wiring and consumption of those modules.
+
 ### Key Entities
 - **DistanceTimeSpline**: Continuous distance-time reference curve recording the leader's trajectory. Used for all time-gap interpolation.
 - **PhysicsFlywheel**: System-clock time stabilizer that rejects anomalous `mCurrentTime` values and substitutes wall-clock-based synthetic time.
@@ -93,9 +94,9 @@ Before the transplant, the user must be able to run both the old and new gap cal
 
 - The existing test suite (282 tests) serves as the regression baseline — all tests must pass after every decomposition step.
 - The standalone `tools/shm_leaderboard_server.py` is the source of truth for the spline, flywheel, and gap calculation logic. The main program's existing gap logic is the deprecated target.
-- The 500-line limit applies to source lines of code, not including blank lines or comments.
+- The 500-line limit is total lines in the file (including blanks and comments) — measurable with a simple line count, no custom tooling required.
 - The HTML debugging surfaces are development/diagnostic tools, not end-user-facing — they do not require production-grade styling or error handling beyond functional correctness.
-- The WebSocket server for debugging can share the same port as the existing dashboard bridge or use a separate port.
+- The WebSocket server is a single unified endpoint — one port serves the dashboard, leaderboard, and spline debugger. No separate diagnostic server.
 
 ## Success Criteria *(mandatory)*
 
