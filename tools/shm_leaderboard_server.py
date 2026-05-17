@@ -1,6 +1,7 @@
 """Standalone WebSocket server and pure functions for the SHM Leaderboard Test Tool."""
 import sys
 import os
+import time as _time
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from shared_memory_struct import SharedMemory
 
@@ -195,14 +196,14 @@ class DistanceTimeSpline:
 
 
 class PhysicsFlywheel:
-    """Dead-reckoning time stabilizer for AMS2 replay telemetry.
+    """System-clock time stabilizer for AMS2 replay telemetry.
     
     During camera transitions in replays, mCurrentTime can jump by ~40 seconds
     before snapping back. This class maintains an Internal Master Clock that
-    rejects anomalous time deltas (>10.0s) and synthesizes replacement time
-    using distance_delta / last_known_speed.
+    rejects anomalous time deltas (>5.5s) and substitutes system wall-clock
+    elapsed time to keep the spline growing with realistic values.
     
-    The 10.0s threshold safely accommodates the maximum 20x replay scrub speed
+    The 5.5s threshold safely accommodates the maximum 20x replay scrub speed
     (which produces ~5.0s per 0.25s polling tick).
     """
     
@@ -215,7 +216,7 @@ class PhysicsFlywheel:
     HEALTHY_TICK_MAX = 1.0    # seconds — maximum delta for a "healthy" game tick
     RESYNC_AFTER = 40          # consecutive healthy ticks (~10s) before force-resync
     
-    def __init__(self):
+    def __init__(self, clock=None):
         self.internal_master_clock: float | None = None
         self.last_known_speed: float = self.DEFAULT_SPEED
         self.last_leader_distance: float | None = None
@@ -223,6 +224,8 @@ class PhysicsFlywheel:
         self.did_resync: bool = False               # flag for callers to detect resync
         self._last_game_time: float | None = None   # tracks raw game time for sanity check
         self._consecutive_healthy: int = 0           # consecutive healthy game-time deltas
+        self._clock = clock or _time.monotonic       # injectable clock for testing
+        self._last_system_time: float | None = None  # wall-clock time of last process() call
     
     def reset(self, current_time: float, leader_dist: float) -> None:
         """Force-sync the Internal Master Clock on session reset (FR-007).
@@ -236,6 +239,7 @@ class PhysicsFlywheel:
         self.last_known_speed = self.DEFAULT_SPEED
         self._last_game_time = current_time
         self._consecutive_healthy = 0
+        self._last_system_time = self._clock()
     
     def _is_anomalous(self, game_time: float, distance_delta: float) -> bool:
         """Two-layer anomaly detection: time threshold AND speed lie detector."""
@@ -258,7 +262,7 @@ class PhysicsFlywheel:
     def _check_game_time_sanity(self, game_time: float) -> None:
         """Track consecutive healthy game-time deltas for self-healing resync.
         
-        If 5 consecutive raw mCurrentTime samples show healthy ~0.25s deltas,
+        If 40 consecutive raw mCurrentTime samples show healthy ~0.25s deltas,
         the game clock is clearly stable and we should trust it — even if our
         internal clock has drifted far away.
         """
@@ -274,13 +278,17 @@ class PhysicsFlywheel:
         """Process a telemetry frame and return the stabilized time.
         
         Returns either the real game_time (if healthy) or a synthetic time
-        calculated via dead reckoning (if anomalous).
+        advanced by the system wall-clock delta (if anomalous).
         
         Detection uses two layers:
         1. Time threshold: abs(delta) > 5.5s
         2. Speed lie detector: implied_speed < 10% of last_known_speed
         
-        Self-healing: if 5 consecutive raw game-time deltas are healthy,
+        During anomalies, the internal clock advances by the real elapsed
+        system time (time.monotonic delta), not by distance/speed estimation.
+        This keeps the spline growing with realistic time intervals.
+        
+        Self-healing: if 40 consecutive raw game-time deltas are healthy,
         force-resync regardless of internal clock drift.
         
         Args:
@@ -290,6 +298,8 @@ class PhysicsFlywheel:
         Returns:
             Stabilized time value for downstream consumers.
         """
+        now = self._clock()
+        
         # Track raw game time health independent of internal clock
         self._check_game_time_sanity(game_time)
         self.did_resync = False
@@ -299,6 +309,7 @@ class PhysicsFlywheel:
             self.internal_master_clock = game_time
             self.last_leader_distance = leader_dist
             self.is_active = False
+            self._last_system_time = now
             return game_time
         
         distance_delta = leader_dist - self.last_leader_distance
@@ -311,6 +322,7 @@ class PhysicsFlywheel:
             self._consecutive_healthy = 0
             self.last_known_speed = self.DEFAULT_SPEED
             self.did_resync = True
+            self._last_system_time = now
             return game_time
         
         if not self._is_anomalous(game_time, distance_delta):
@@ -323,20 +335,19 @@ class PhysicsFlywheel:
             self.internal_master_clock = game_time
             self.last_leader_distance = leader_dist
             self.is_active = False
+            self._last_system_time = now
             return game_time
         else:
             # REJECT — anomalous frame (camera swap bug)
+            # Advance internal clock by SYSTEM TIME delta, not distance/speed
             # Do NOT update last_known_speed (FR-002)
-            distance_delta_clamped = max(0.0, distance_delta)
+            system_dt = now - self._last_system_time if self._last_system_time is not None else self.FALLBACK_DT
+            system_dt = max(0.0, min(system_dt, 2.0))  # clamp to [0, 2s] sanity range
             
-            if self.last_known_speed < self.MIN_SPEED:
-                synthetic_dt = self.FALLBACK_DT
-            else:
-                synthetic_dt = distance_delta_clamped / self.last_known_speed
-            
-            self.internal_master_clock += synthetic_dt
+            self.internal_master_clock += system_dt
             self.last_leader_distance = leader_dist
             self.is_active = True
+            self._last_system_time = now
             return self.internal_master_clock
 
 
