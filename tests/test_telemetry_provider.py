@@ -439,9 +439,12 @@ class TestHybridLogic:
         }
         
         # First poll
+        provider._last_poll_time -= 0.1
         provider.poll()
         assert provider._distance_history[0][0][1] == 1000.0
         
+        provider._last_poll_time -= 0.1
+    
         # Second poll
         provider._parse_udp_participants = lambda pkt: {
             0: {'name': 'Alice', 'is_active': True, 'lap_distance': 1100.0, 'current_lap': 1, 'gap_ahead': 0.0}
@@ -449,6 +452,7 @@ class TestHybridLogic:
         participants = provider.poll()
         
         # Speed should be calculated from the two polls
+        print(f"history: {provider._distance_history[0]}")
         assert 'speed' in participants[0]
         assert participants[0]['speed'] > 0.0
 

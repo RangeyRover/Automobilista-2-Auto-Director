@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SHM Leaderboard Tool</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <h1>SHM Leaderboard & Telemetry Inspector</h1>
+        <div class="header-controls">
+            <button id="pause-updates-btn" class="pause-btn">Pause Updates</button>
+            <div id="status-indicator" class="status-disconnected">Disconnected</div>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="panel" id="leaderboard-panel">
+            <h2>Leaderboard Sandbox</h2>
+            <div id="leaderboard-container">
+                <!-- Leaderboard entries go here -->
+            </div>
+        </div>
+
+        <div class="panel" id="inspector-panel">
+            <h2>Raw Telemetry Inspector</h2>
+            <div class="controls">
+                <input type="text" id="inspector-search" placeholder="Filter fields...">
+                <button id="toggle-expand">Expand All</button>
+            </div>
+            <pre id="raw-json-container">{}</pre>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

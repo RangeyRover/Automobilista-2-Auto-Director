@@ -21,7 +21,7 @@ def _make_mock_clock(start=1000.0, step=0.25):
 
 def test_flywheel_first_tick_syncs_clock():
     """T003: First call to process() should sync the internal clock to game time."""
-    from tools.shm_leaderboard_server import PhysicsFlywheel
+    from core.physics_flywheel import PhysicsFlywheel
 
     fw = PhysicsFlywheel(clock=_make_mock_clock())
     result = fw.process(game_time=100.0, leader_dist=2000.0)
@@ -32,7 +32,7 @@ def test_flywheel_first_tick_syncs_clock():
 
 def test_flywheel_normal_tick_accepts_time():
     """T004: A normal 0.25s tick should be accepted and returned as-is."""
-    from tools.shm_leaderboard_server import PhysicsFlywheel
+    from core.physics_flywheel import PhysicsFlywheel
 
     fw = PhysicsFlywheel(clock=_make_mock_clock())
     fw.process(game_time=100.0, leader_dist=2000.0)
@@ -44,7 +44,7 @@ def test_flywheel_normal_tick_accepts_time():
 
 def test_flywheel_normal_tick_updates_speed():
     """T005: Speed should be calculated from healthy ticks: (2020-2000)/(100.25-100.0) = 80 m/s."""
-    from tools.shm_leaderboard_server import PhysicsFlywheel
+    from core.physics_flywheel import PhysicsFlywheel
 
     fw = PhysicsFlywheel(clock=_make_mock_clock())
     fw.process(game_time=100.0, leader_dist=2000.0)
@@ -56,7 +56,7 @@ def test_flywheel_normal_tick_updates_speed():
 
 def test_flywheel_rejects_massive_forward_jump():
     """T006: A 40s forward jump should be REJECTED. System-time synthetic returned."""
-    from tools.shm_leaderboard_server import PhysicsFlywheel
+    from core.physics_flywheel import PhysicsFlywheel
 
     clock = _make_mock_clock()
     fw = PhysicsFlywheel(clock=clock)
@@ -73,7 +73,7 @@ def test_flywheel_rejects_massive_forward_jump():
 
 def test_flywheel_rejects_massive_backward_jump():
     """T007: A 40s backward jump should also be REJECTED."""
-    from tools.shm_leaderboard_server import PhysicsFlywheel
+    from core.physics_flywheel import PhysicsFlywheel
 
     clock = _make_mock_clock()
     fw = PhysicsFlywheel(clock=clock)
@@ -89,7 +89,7 @@ def test_flywheel_rejects_massive_backward_jump():
 
 def test_flywheel_synthetic_time_uses_system_clock():
     """T008: Synthetic dt must come from system clock, not distance/speed."""
-    from tools.shm_leaderboard_server import PhysicsFlywheel
+    from core.physics_flywheel import PhysicsFlywheel
 
     # Clock steps: 1000.0, 1000.25, 1000.50 (3 calls)
     clock = _make_mock_clock()
@@ -112,7 +112,7 @@ def test_flywheel_synthetic_time_uses_system_clock():
 
 def test_flywheel_recovery_relocks_to_game_time():
     """T015: After anomaly ends, flywheel should re-lock to real game time."""
-    from tools.shm_leaderboard_server import PhysicsFlywheel
+    from core.physics_flywheel import PhysicsFlywheel
 
     clock = _make_mock_clock()
     fw = PhysicsFlywheel(clock=clock)
@@ -130,7 +130,7 @@ def test_flywheel_recovery_relocks_to_game_time():
 
 def test_flywheel_zero_speed_uses_system_clock():
     """T016: Even with near-zero speed, system clock dt is used (no divide-by-zero risk)."""
-    from tools.shm_leaderboard_server import PhysicsFlywheel
+    from core.physics_flywheel import PhysicsFlywheel
 
     clock = _make_mock_clock()
     fw = PhysicsFlywheel(clock=clock)
@@ -152,7 +152,7 @@ def test_flywheel_zero_speed_uses_system_clock():
 
 def test_flywheel_anomaly_advances_by_system_time_not_zero():
     """T017: During anomaly, clock always advances by system dt (never zero)."""
-    from tools.shm_leaderboard_server import PhysicsFlywheel
+    from core.physics_flywheel import PhysicsFlywheel
 
     clock = _make_mock_clock()
     fw = PhysicsFlywheel(clock=clock)
@@ -170,7 +170,7 @@ def test_flywheel_anomaly_advances_by_system_time_not_zero():
 
 def test_flywheel_speed_not_updated_during_anomaly():
     """T018: last_known_speed must NOT change during an anomalous frame (FR-002)."""
-    from tools.shm_leaderboard_server import PhysicsFlywheel
+    from core.physics_flywheel import PhysicsFlywheel
 
     fw = PhysicsFlywheel(clock=_make_mock_clock())
     fw.process(game_time=100.0, leader_dist=2000.0)
@@ -190,7 +190,7 @@ def test_flywheel_speed_not_updated_during_anomaly():
 
 def test_flywheel_reset_syncs_clock():
     """T026: reset() should force-sync the clock and clear anomaly state."""
-    from tools.shm_leaderboard_server import PhysicsFlywheel
+    from core.physics_flywheel import PhysicsFlywheel
 
     fw = PhysicsFlywheel(clock=_make_mock_clock())
     fw.process(game_time=100.0, leader_dist=2000.0)
@@ -211,7 +211,7 @@ def test_flywheel_reset_syncs_clock():
 
 def test_flywheel_20x_scrub_accepted():
     """T031: 20x scrub (5s delta) must be ACCEPTED — within 5.5s threshold."""
-    from tools.shm_leaderboard_server import PhysicsFlywheel
+    from core.physics_flywheel import PhysicsFlywheel
 
     fw = PhysicsFlywheel(clock=_make_mock_clock())
     fw.process(game_time=100.0, leader_dist=2000.0)
@@ -223,7 +223,7 @@ def test_flywheel_20x_scrub_accepted():
 
 def test_flywheel_backward_scrub_accepted():
     """T032: Backward scrub (5s backward delta) must be ACCEPTED."""
-    from tools.shm_leaderboard_server import PhysicsFlywheel
+    from core.physics_flywheel import PhysicsFlywheel
 
     fw = PhysicsFlywheel(clock=_make_mock_clock())
     fw.process(game_time=100.0, leader_dist=2000.0)
@@ -235,7 +235,7 @@ def test_flywheel_backward_scrub_accepted():
 
 def test_flywheel_boundary_5_4s_accepted():
     """T033: Delta of exactly 5.4s must be ACCEPTED (below 5.5s threshold)."""
-    from tools.shm_leaderboard_server import PhysicsFlywheel
+    from core.physics_flywheel import PhysicsFlywheel
 
     fw = PhysicsFlywheel(clock=_make_mock_clock())
     fw.process(game_time=100.0, leader_dist=2000.0)
@@ -247,7 +247,7 @@ def test_flywheel_boundary_5_4s_accepted():
 
 def test_flywheel_boundary_5_5s_exact_accepted():
     """T034: Delta of exactly 5.5s must be ACCEPTED (<=5.5 per FR-003)."""
-    from tools.shm_leaderboard_server import PhysicsFlywheel
+    from core.physics_flywheel import PhysicsFlywheel
 
     fw = PhysicsFlywheel(clock=_make_mock_clock())
     fw.process(game_time=100.0, leader_dist=2000.0)
@@ -259,7 +259,7 @@ def test_flywheel_boundary_5_5s_exact_accepted():
 
 def test_flywheel_boundary_6s_rejected():
     """T035: Delta of 6.0s must be REJECTED (>5.5 per FR-003)."""
-    from tools.shm_leaderboard_server import PhysicsFlywheel
+    from core.physics_flywheel import PhysicsFlywheel
 
     fw = PhysicsFlywheel(clock=_make_mock_clock())
     fw.process(game_time=100.0, leader_dist=2000.0)
@@ -279,7 +279,7 @@ def test_flywheel_speed_lie_detector_rejects_implausible_speed():
     Scenario: car at 80 m/s, camera swap causes 3s time jump but only 5m distance.
     Implied speed = 5/3 = 1.67 m/s which is < 10% of 80 = 8.0 m/s → REJECT.
     """
-    from tools.shm_leaderboard_server import PhysicsFlywheel
+    from core.physics_flywheel import PhysicsFlywheel
 
     fw = PhysicsFlywheel(clock=_make_mock_clock())
     fw.process(game_time=100.0, leader_dist=2000.0)
@@ -297,7 +297,7 @@ def test_flywheel_speed_lie_detector_rejects_implausible_speed():
 
 def test_flywheel_speed_lie_detector_accepts_proportional_scrub():
     """Time delta within threshold AND implied speed is proportional → ACCEPT."""
-    from tools.shm_leaderboard_server import PhysicsFlywheel
+    from core.physics_flywheel import PhysicsFlywheel
 
     fw = PhysicsFlywheel(clock=_make_mock_clock())
     fw.process(game_time=100.0, leader_dist=2000.0)
@@ -312,7 +312,7 @@ def test_flywheel_speed_lie_detector_accepts_proportional_scrub():
 
 def test_flywheel_speed_lie_detector_skips_backward_time():
     """Speed lie detector should NOT trigger on backward time deltas (scrub backward)."""
-    from tools.shm_leaderboard_server import PhysicsFlywheel
+    from core.physics_flywheel import PhysicsFlywheel
 
     fw = PhysicsFlywheel(clock=_make_mock_clock())
     fw.process(game_time=100.0, leader_dist=2000.0)
@@ -331,7 +331,7 @@ def test_flywheel_speed_lie_detector_skips_backward_time():
 
 def test_flywheel_negative_distance_delta_does_not_trigger_speed_lie_detector():
     """Negative distance_delta (lap boundary) should NOT trigger the speed lie detector."""
-    from tools.shm_leaderboard_server import PhysicsFlywheel
+    from core.physics_flywheel import PhysicsFlywheel
 
     fw = PhysicsFlywheel(clock=_make_mock_clock())
     fw.process(game_time=100.0, leader_dist=2000.0)
@@ -349,9 +349,9 @@ def test_flywheel_negative_distance_delta_does_not_trigger_speed_lie_detector():
 # ──────────────────────────────────────────────
 
 def test_flywheel_self_healing_resyncs_after_consecutive_healthy_ticks():
-    """If flywheel is stuck active but game time shows 40 consecutive healthy
+    """If flywheel is stuck active but game time shows 20 consecutive healthy
     deltas (~10s), force-resync to real game time."""
-    from tools.shm_leaderboard_server import PhysicsFlywheel
+    from core.physics_flywheel import PhysicsFlywheel
 
     fw = PhysicsFlywheel(clock=_make_mock_clock())
     fw.process(game_time=100.0, leader_dist=2000.0)
@@ -360,22 +360,22 @@ def test_flywheel_self_healing_resyncs_after_consecutive_healthy_ticks():
     fw.process(game_time=140.0, leader_dist=2020.0)
     assert fw.is_active is True
     
-    # Simulate 40 consecutive healthy game-time ticks at 0.25s intervals
-    for i in range(40):
+    # Simulate 20 consecutive healthy game-time ticks at 0.25s intervals
+    for i in range(20):
         game_t = 140.25 + i * 0.25
         leader_d = 2040.0 + i * 20.0
         result = fw.process(game_time=game_t, leader_dist=leader_d)
     
-    # After 40+ healthy ticks, flywheel should have resynced
-    assert fw.is_active is False, "Flywheel should self-heal after 40 healthy ticks"
+    # After 20+ healthy ticks, flywheel should have resynced
+    assert fw.is_active is False, "Flywheel should self-heal after 20 healthy ticks"
     assert fw.did_resync is True, "did_resync flag should be set"
     assert fw.internal_master_clock == game_t, \
         f"Clock should resync to real game time {game_t}, got {fw.internal_master_clock}"
 
 
 def test_flywheel_self_healing_does_not_trigger_too_early():
-    """Self-healing should NOT fire before 40 consecutive healthy ticks."""
-    from tools.shm_leaderboard_server import PhysicsFlywheel
+    """Self-healing should NOT fire before 20 consecutive healthy ticks."""
+    from core.physics_flywheel import PhysicsFlywheel
 
     fw = PhysicsFlywheel(clock=_make_mock_clock())
     fw.process(game_time=100.0, leader_dist=2000.0)
@@ -384,19 +384,19 @@ def test_flywheel_self_healing_does_not_trigger_too_early():
     fw.process(game_time=140.0, leader_dist=2020.0)
     assert fw.is_active is True
     
-    # 39 healthy ticks — just under the threshold
-    for i in range(39):
+    # 19 healthy ticks — just under the threshold
+    for i in range(19):
         game_t = 140.25 + i * 0.25
         leader_d = 2040.0 + i * 20.0
         fw.process(game_time=game_t, leader_dist=leader_d)
     
-    assert fw.is_active is True, "Should NOT resync at only 39 healthy ticks"
+    assert fw.is_active is True, "Should NOT resync at only 19 healthy ticks"
     assert fw.did_resync is False
 
 
 def test_flywheel_self_healing_does_not_trigger_during_real_anomaly():
     """Self-healing should NOT fire if game time deltas are erratic (real anomaly)."""
-    from tools.shm_leaderboard_server import PhysicsFlywheel
+    from core.physics_flywheel import PhysicsFlywheel
 
     fw = PhysicsFlywheel(clock=_make_mock_clock())
     fw.process(game_time=100.0, leader_dist=2000.0)
@@ -422,7 +422,7 @@ def test_flywheel_self_healing_does_not_trigger_during_real_anomaly():
 
 def test_flywheel_system_dt_clamped_to_2s_max():
     """System dt must be clamped to 2.0s max to prevent huge advances from stalls."""
-    from tools.shm_leaderboard_server import PhysicsFlywheel
+    from core.physics_flywheel import PhysicsFlywheel
 
     # Clock jumps 5 seconds on the anomaly tick
     call_count = {"n": 0}

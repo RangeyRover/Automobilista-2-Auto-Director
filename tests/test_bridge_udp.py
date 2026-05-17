@@ -8,6 +8,10 @@ def bridge():
     class MockApp:
         pass
     class MockProvider:
+        def __init__(self):
+            self.spline_data = {}
+            self.flywheel_active = False
+            self.time_history = []
         def get_session_info(self, shm):
             return {}
     b = DashboardBridge()

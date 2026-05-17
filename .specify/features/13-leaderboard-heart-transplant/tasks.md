@@ -17,16 +17,16 @@
 
 ## Phase 1: Setup
 
-- [ ] T001 Verify baseline — run full test suite, confirm 282 tests pass in `tests/`
-- [ ] T002 Verify file line counts — record current lines for `core/telemetry_provider.py`, `main.py`, `tools/shm_leaderboard_server.py`, `dashboard/bridge.py`
+- [X] T001 Verify baseline — run full test suite, confirm 282 tests pass in `tests/`
+- [X] T002 Verify file line counts — record current lines for `core/telemetry_provider.py`, `main.py`, `tools/shm_leaderboard_server.py`, `dashboard/bridge.py`
 
 ---
 
 ## Phase 2: Foundational — Create Target Module Files
 
-- [ ] T003 Create empty `core/spline.py` with module docstring describing single responsibility
-- [ ] T004 [P] Create empty `core/physics_flywheel.py` with module docstring describing single responsibility
-- [ ] T005 [P] Create empty `core/shm_serialiser.py` with module docstring describing single responsibility
+- [X] T003 Create empty `core/spline.py` with module docstring describing single responsibility
+- [X] T004 [P] Create empty `core/physics_flywheel.py` with module docstring describing single responsibility
+- [X] T005 [P] Create empty `core/shm_serialiser.py` with module docstring describing single responsibility
 
 ---
 
@@ -34,27 +34,27 @@
 
 ### 3A: Extract `core/spline.py`
 
-- [ ] T006 [US1] **TEST** Write `tests/test_spline.py` importing `DistanceTimeSpline`, `compute_total_distance`, `compute_time_gap` from `core.spline` — audit `tests/test_physics_flywheel.py` and port spline-only tests (monotonicity, interpolation, extrapolation, reset, min_interval). Flywheel-coupled tests stay in `test_physics_flywheel.py`.
-- [ ] T007 [US1] Extract `DistanceTimeSpline` class from `tools/shm_leaderboard_server.py` (lines 118–195) into `core/spline.py`
-- [ ] T008 [US1] Extract `compute_total_distance()` function from `tools/shm_leaderboard_server.py` into `core/spline.py`
-- [ ] T009 [US1] Extract `compute_time_gap()` function from `tools/shm_leaderboard_server.py` into `core/spline.py`
-- [ ] T010 [US1] Update `tools/shm_leaderboard_server.py` to `from core.spline import DistanceTimeSpline, compute_total_distance, compute_time_gap`
-- [ ] T011 [US1] Run full test suite — confirm 282+ tests pass (baseline + new spline tests)
+- [X] T006 [US1] **TEST** Write `tests/test_spline.py` importing `DistanceTimeSpline`, `compute_total_distance`, `compute_time_gap` from `core.spline` — audit `tests/test_physics_flywheel.py` and port spline-only tests (monotonicity, interpolation, extrapolation, reset, min_interval). Flywheel-coupled tests stay in `test_physics_flywheel.py`.
+- [X] T007 [US1] Extract `DistanceTimeSpline` class from `tools/shm_leaderboard_server.py` (lines 118–195) into `core/spline.py`
+- [X] T008 [US1] Extract `compute_total_distance()` function from `tools/shm_leaderboard_server.py` into `core/spline.py`
+- [X] T009 [US1] Extract `compute_time_gap()` function from `tools/shm_leaderboard_server.py` into `core/spline.py`
+- [X] T010 [US1] Update `tools/shm_leaderboard_server.py` to `from core.spline import DistanceTimeSpline, compute_total_distance, compute_time_gap`
+- [X] T011 [US1] Run full test suite — confirm 282+ tests pass (baseline + new spline tests)
 
 ### 3B: Extract `core/physics_flywheel.py`
 
-- [ ] T012 [US1] **TEST** Update `tests/test_physics_flywheel.py` imports to `from core.physics_flywheel import PhysicsFlywheel` — existing 24 tests become the unit tests for the extracted module
-- [ ] T013 [US1] Extract `PhysicsFlywheel` class and constants (`ANOMALY_THRESHOLD`, `RESYNC_AFTER`, `MAX_SYSTEM_DT`, `MIN_HEALTHY_SPEED`) from `tools/shm_leaderboard_server.py` into `core/physics_flywheel.py`
-- [ ] T014 [US1] Update `tools/shm_leaderboard_server.py` to `from core.physics_flywheel import PhysicsFlywheel`
-- [ ] T015 [US1] Run full test suite — confirm all tests pass
+- [X] T012 [US1] Update `tests/test_physics_flywheel.py` imports to `from core.physics_flywheel import PhysicsFlywheel` (these will fail first).
+- [X] T013 [US1] Extract `PhysicsFlywheel` class and constants from `tools/shm_leaderboard_server.py` into `core/physics_flywheel.py`
+- [X] T014 [US1] Update `tools/shm_leaderboard_server.py` to `from core.physics_flywheel import PhysicsFlywheel`
+- [X] T015 [US1] Run test suite — confirm tests pass.
 
 ### 3C: Extract `core/shm_serialiser.py`
 
-- [ ] T016 [P] [US1] **TEST** Write `tests/test_shm_serialiser.py` with serialisation round-trip and enum annotation tests importing from `core.shm_serialiser`
-- [ ] T017 [US1] Extract `_serialise_struct()`, `serialise_shm()`, `ENUM_MAP`, `ARRAY_ENUM_MAP`, `annotate_enums()` from `tools/shm_leaderboard_server.py` into `core/shm_serialiser.py`
-- [ ] T018 [US1] Update `tools/shm_leaderboard_server.py` to `from core.shm_serialiser import serialise_shm, annotate_enums`
-- [ ] T019 [US1] Run full test suite — confirm all tests pass
-- [ ] T020 [US1] Verify `tools/shm_leaderboard_server.py` is now ≤ 500 lines (target ~280)
+- [X] T016 [US1] Extract `serialise_shm`, `_serialise_struct`, `annotate_enums` and Enum mapping dicts from `tools/shm_leaderboard_server.py` into `core/shm_serialiser.py`
+- [X] T017 [US1] **TEST** Write `tests/test_shm_serialiser.py` by auditing `tests/test_shm_dump_tool.py` and porting all Phase 1 `test_serialise_*` tests.
+- [X] T018 [US1] Update `tests/test_shm_serialiser.py` to import from `core.shm_serialiser`
+- [X] T019 [US1] Update `tools/shm_leaderboard_server.py` to `from core.shm_serialiser import serialise_shm, annotate_enums`
+- [X] T020 [US1] Run test suite — confirm all tests pass, and verify `tools/shm_leaderboard_server.py` is now ≤ 500 lines (target ~280)
 
 ---
 
@@ -70,18 +70,18 @@
 
 ### 4B: Replace `_calc_live_time_gaps()` in `core/telemetry_provider.py`
 
-- [ ] T026 [US1] Add `DistanceTimeSpline` and `PhysicsFlywheel` as instance attributes on `TelemetryProvider.__init__()` in `core/telemetry_provider.py`
-- [ ] T027 [US1] Wire flywheel stabilisation into `TelemetryProvider.poll()` — call `self._flywheel.process(game_time, leader_dist)` before gap calculation in `core/telemetry_provider.py`
-- [ ] T028 [US1] Wire spline recording into `TelemetryProvider.poll()` — call `self._spline.record(leader_dist, stabilized_time)` in same tick as gap calc in `core/telemetry_provider.py`
-- [ ] T029 [US1] Replace `_calc_live_time_gaps()` internals with `compute_time_gap(driver_dist, stabilized_time, self._spline)` for each driver in `core/telemetry_provider.py`
-- [ ] T030 [US1] Remove old `_car_splines` dict and `get_spline_time_at_distance()` inner function from `core/telemetry_provider.py`
-- [ ] T031 [US1] Wire session boundary — call `self._spline.reset()` and `self._flywheel.reset()` when `_detect_track_change()` fires OR session state changes (matching `should_reset_spline()` semantics) in `core/telemetry_provider.py`
-- [ ] T032 [US1] Run full test suite — confirm all integration tests (T021–T025) and existing 282+ tests pass
+- [X] T026 [US1] Add `DistanceTimeSpline` and `PhysicsFlywheel` as instance attributes on `TelemetryProvider.__init__()` in `core/telemetry_provider.py`
+- [X] T027 [US1] Wire flywheel stabilisation into `TelemetryProvider.poll()` — call `self._flywheel.process(game_time, leader_dist)` before gap calculation in `core/telemetry_provider.py`
+- [X] T028 [US1] Wire spline recording into `TelemetryProvider.poll()` — call `self._spline.record(leader_dist, stabilized_time)` in same tick as gap calc in `core/telemetry_provider.py`
+- [X] T029 [US1] Replace `_calc_live_time_gaps()` internals with `compute_time_gap(driver_dist, stabilized_time, self._spline)` for each driver in `core/telemetry_provider.py`
+- [X] T030 [US1] Remove old `_car_splines` dict and `get_spline_time_at_distance()` inner function from `core/telemetry_provider.py`
+- [X] T031 [US1] Wire session boundary — call `self._spline.reset()` and `self._flywheel.reset()` when `_detect_track_change()` fires OR session state changes (matching `should_reset_spline()` semantics) in `core/telemetry_provider.py`
+- [X] T032 [US1] Run full test suite — confirm all integration tests (T021–T025) and existing 282+ tests pass
 
 ### 4C: Expose Flywheel/Spline State
 
-- [ ] T033 [US1] Add `flywheel_active`, `spline_data`, `flywheel_internal_clock`, `time_history` properties to `TelemetryProvider` in `core/telemetry_provider.py`
-- [ ] T034 [US1] Run full test suite — confirm all tests pass
+- [X] T033 [US1] Add `flywheel_active`, `spline_data`, `flywheel_internal_clock`, `time_history` properties to `TelemetryProvider` in `core/telemetry_provider.py`
+- [X] T034 [US1] Run full test suite — confirm all tests pass
 
 ---
 
@@ -89,16 +89,16 @@
 
 ### 5A: Extend Bridge Payload
 
-- [ ] T035 [US2] **TEST** Write `tests/test_bridge_payload.py` testing that broadcast payload includes `spline`, `flywheel_active`, and `time_history` fields
-- [ ] T036 [US2] Extend `DashboardBridge._build_payload()` to include `spline`, `flywheel_active`, `time_history` from `TelemetryProvider` in `dashboard/bridge.py`
-- [ ] T037 [US2] Run full test suite — confirm payload tests pass
+- [X] T035 [US2] **TEST** Write `tests/test_bridge_payload.py` testing that broadcast payload includes `spline`, `flywheel_active`, and `time_history` fields
+- [X] T036 [US2] Extend `DashboardBridge._build_payload()` to include `spline`, `flywheel_active`, `time_history` from `TelemetryProvider` in `dashboard/bridge.py`
+- [X] T037 [US2] Run full test suite — confirm payload tests pass
 
 ### 5B: Add HTML Debugging Pages
 
-- [ ] T038 [P] [US2] Create `dashboard/spline_debugger.html` — copy from standalone tool, update WebSocket URL to `ws://localhost:8765`, verify flywheel status badge element exists (FR-009)
-- [ ] T039 [P] [US2] Create `dashboard/shm_leaderboard.html` — copy from standalone tool, update WebSocket URL to `ws://localhost:8765`, verify flywheel status badge element exists (FR-009)
-- [ ] T040 [US2] Register new HTML files in bridge's HTTP file server in `dashboard/bridge.py`
-- [ ] T041 [US2] Verify both pages accessible at `http://localhost:8765/spline_debugger.html` and `http://localhost:8765/shm_leaderboard.html`
+- [X] T038 [P] [US2] Create `dashboard/spline_debugger.html` — copy from standalone tool, update WebSocket URL to `ws://localhost:8765`, verify flywheel status badge element exists (FR-009)
+- [X] T039 [P] [US2] Create `dashboard/shm_leaderboard.html` — copy from standalone tool, update WebSocket URL to `ws://localhost:8765`, verify flywheel status badge element exists (FR-009)
+- [X] T040 [US2] Register new HTML files in bridge's HTTP file server in `dashboard/bridge.py`
+- [X] T041 [US2] Verify both pages accessible at `http://localhost:8765/spline_debugger.html` and `http://localhost:8765/shm_leaderboard.html`
 
 ---
 
@@ -114,33 +114,33 @@
 
 ### 6B: Decompose `main.py` (632 lines → target ≤ 500)
 
-- [ ] T047 [US3] **TEST** Write import-level tests for `core/gui_builder.py` in `tests/test_gui_builder.py`
-- [ ] T048 [US3] Extract `_build_ui()` and grid rendering methods (`_update_grid`) from `main.py` into `core/gui_builder.py`
-- [ ] T049 [US3] Update `main.py` to import from `core.gui_builder`
-- [ ] T050 [US3] Run full test suite — confirm all tests pass
-- [ ] T051 [US3] Verify `main.py` is ≤ 500 lines
+- [x] T047 [US3] **TEST** Write import-level tests for `core/gui_builder.py` in `tests/test_gui_builder.py`
+- [x] T048 [US3] Extract `_build_ui()` and grid rendering methods (`_update_grid`) from `main.py` into `core/gui_builder.py`
+- [x] T049 [US3] Update `main.py` to import from `core/gui_builder.py`
+- [x] T050 [US3] Run full test suite — confirm all tests pass
+- [x] T051 [US3] Verify `main.py` is ≤ 500 lines
 
 ### 6C: Decompose `dashboard/bridge.py` (581 lines → target ≤ 500)
 
-- [ ] T052 [US3] **TEST** Write import-level tests for `dashboard/payload_builder.py` in `tests/test_payload_builder.py`
-- [ ] T053 [US3] Extract payload building methods from `dashboard/bridge.py` into `dashboard/payload_builder.py`
-- [ ] T054 [US3] Update `dashboard/bridge.py` to import from `dashboard.payload_builder`
-- [ ] T055 [US3] Run full test suite — confirm all tests pass
-- [ ] T056 [US3] Verify `dashboard/bridge.py` is ≤ 500 lines
+- [x] T052 [US3] **TEST** Write import-level tests for `dashboard/payload_builder.py` in `tests/test_payload_builder.py`
+- [x] T053 [US3] Extract payload building methods from `dashboard/bridge.py` into `dashboard/payload_builder.py`
+- [x] T054 [US3] Update `dashboard/bridge.py` to import from `dashboard.payload_builder`
+- [x] T055 [US3] Run full test suite — confirm all tests pass
+- [x] T056 [US3] Verify `dashboard/bridge.py` is ≤ 500 lines
 
 ### 6D: Final Line Count Audit
 
-- [ ] T057 [US3] Run line count audit across ALL `.py` files — confirm no file exceeds 500 total lines
-- [ ] T058 [US3] Verify every decomposed module has a module-level docstring (FR-012)
+- [x] T057 [US3] Run line count audit across ALL `.py` files — confirm no file exceeds 500 total lines
+- [x] T058 [US3] Verify every decomposed module has a module-level docstring (FR-012)
 
 ---
 
 ## Phase 7: Polish & Cross-Cutting
 
-- [ ] T059 Run full test suite one final time — confirm all tests pass (target 310+)
-- [ ] T060 Update `tools/shm_leaderboard_server.py` to use shared imports from `core/` (if any remaining direct definitions)
-- [ ] T061 Remove dead code — delete `_calc_live_time_gaps()` remnants and unused `_car_splines` references across all files
-- [ ] T062 Commit final state on `13-leaderboard-heart-transplant` branch
+- [x] T059 Run full test suite one final time — confirm all tests pass (target 310+)
+- [x] T060 Update `tools/shm_leaderboard_server.py` to use shared imports from `core/` (if any remaining direct definitions)
+- [x] T061 Remove dead code — delete `_calc_live_time_gaps()` remnants and unused `_car_splines` references across all files
+- [x] T062 Commit final state on `13-leaderboard-heart-transplant` branch
 
 ---
 
