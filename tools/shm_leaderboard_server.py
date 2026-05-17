@@ -494,7 +494,9 @@ async def telemetry_loop(connected_clients: set, active_only: bool):
                 leader = leaderboard[0]
                 leader_dist = leader.get("_total_dist")
                 if leader_dist is not None:
-                    spline.record(leader_dist, shm.mCurrentTime)
+                    # Use flywheel-stabilized time, NOT raw shm.mCurrentTime
+                    stabilized_time = flywheel.internal_master_clock if flywheel.internal_master_clock is not None else shm.mCurrentTime
+                    spline.record(leader_dist, stabilized_time)
             
             time_history.append(shm.mCurrentTime)
             if len(time_history) > 200: # ~50 seconds of history at 4Hz
