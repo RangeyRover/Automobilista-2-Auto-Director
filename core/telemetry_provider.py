@@ -197,6 +197,11 @@ class TelemetryProvider(UDPParserMixin):
                 info['event_time_remaining'] = udp_info['event_time_remaining']
             if udp_info['laps_in_event'] > 0:
                 info['laps_in_event'] = udp_info['laps_in_event']
+                
+        # Override with stabilized time if available to prevent glitch-induced rewinds
+        if hasattr(self, '_flywheel') and self._flywheel.internal_master_clock is not None:
+            info['current_time'] = self._flywheel.internal_master_clock
+            
         return info
     def is_connected(self) -> bool:
         """True if the data source is actively providing data."""
