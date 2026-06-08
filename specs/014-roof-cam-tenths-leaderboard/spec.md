@@ -5,6 +5,12 @@
 **Status**: Draft  
 **Input**: User description: "When going to roof camera/halo hud it will not show the session info even if it is enabled. I tried clicking it as well and no dice. I tried to make the leaderboard go to tenths via Ai but didn't have any luck. Is there any chance that is something you might be able to do? I think it will clean up the look and will hide the pauses/gaps in data much better. Is it possible for that text to be bigger overall or is it maxed out for the leaderboard?"
 
+## Clarifications
+
+### Session 2026-06-08
+
+- Q: When "Tenths Timing" is enabled, should the bottom-center viewed driver's lap timer and active sector times also be formatted to tenths of a second, or should they always remain in thousandths (milliseconds)? → A: Keep bottom-center viewed driver timings always in thousandths.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Session Info Visibility on Roof Camera (Priority: P1)
@@ -82,7 +88,7 @@ The text on both the mini-leaderboard and full-leaderboard should be larger (e.g
 - **FR-004**: When "Tenths Timing" is enabled, leaderboard gaps in both mini-leaderboard and full-leaderboard MUST be formatted to 1 decimal place (tenths of a second) when they are numeric values.
 - **FR-005**: When "Tenths Timing" is enabled, last lap times in the full-leaderboard MUST be formatted to 1 decimal place (tenths of a second) when they are valid times.
 - **FR-006**: When "Tenths Timing" is disabled, leaderboard gaps and lap times MUST revert to their original millisecond (3 decimal places) formatting.
-- **FR-007**: Sector times in the viewed driver's lap-timer MUST retain their original millisecond (3 decimal places) formatting regardless of the Tenths Timing setting.
+- **FR-007**: Lap times and sector times in the viewed driver's lap-timer MUST retain their original millisecond (3 decimal places) formatting regardless of the Tenths Timing setting.
 - **FR-008**: Leaderboard font sizes MUST be increased from 13px to 15px.
 - **FR-009**: Leaderboard layout container width and row height MUST be expanded proportionally to accommodate the larger font size.
 
