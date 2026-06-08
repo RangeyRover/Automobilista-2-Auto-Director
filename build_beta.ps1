@@ -37,6 +37,6 @@ pyinstaller --name "AMS2_Auto_Director" `
             main.py
 
 Write-Host "Zipping the beta release..."
-Compress-Archive -Path "dist\AMS2_Auto_Director" -DestinationPath "AMS2_Auto_Director_v4.1.6-beta.zip" -Force
+Compress-Archive -Path "dist\AMS2_Auto_Director" -DestinationPath "AMS2_Auto_Director_v4.1.7-beta.zip" -Force
 
 Write-Host "Done!"

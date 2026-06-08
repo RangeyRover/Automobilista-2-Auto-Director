@@ -300,4 +300,52 @@ async def test_broadcast_telemetry():
     assert len(ws2.sent_messages) == 1
     assert ws1.sent_messages[0] == '{"test": "data"}'
 
-# --- Phase 2: Total Distance Tests ---
+def test_correlate_drivers_stabilized_pit_time():
+    from core.physics_flywheel import PhysicsFlywheel
+    
+    class MockClock:
+        def __init__(self, t):
+            self.t = t
+        def __call__(self):
+            return self.t
+
+    clock = MockClock(100.0)
+    flywheel = PhysicsFlywheel(clock=clock)
+    
+    data1 = {
+        "mNumParticipants": 1,
+        "mTrackLength": 5000.0,
+        "mCurrentTime": 100.0,
+        "mParticipantInfo": [
+            {"mIsActive": True, "mName": "P1", "mRacePosition": 1, "mCurrentLapDistance": 100.0, "mCurrentLap": 1}
+        ],
+        "mPitModes": [2]
+    }
+    
+    pit_entry_times = {}
+    
+    # First correlation (initiates pit entry)
+    drivers1 = correlate_drivers(data1, pit_entry_times=pit_entry_times, flywheel=flywheel)
+    assert len(drivers1) == 1
+    assert drivers1[0]["_pit_time"] == 0.0
+    assert pit_entry_times["P1"] == 100.0
+    
+    # Now simulate a raw time jump to 140.0 (a jump of 40 seconds)
+    # But only 1.0 seconds of system/monotonic time passes
+    clock.t = 101.0
+    data2 = {
+        "mNumParticipants": 1,
+        "mTrackLength": 5000.0,
+        "mCurrentTime": 140.0,
+        "mParticipantInfo": [
+            {"mIsActive": True, "mName": "P1", "mRacePosition": 1, "mCurrentLapDistance": 101.0, "mCurrentLap": 1}
+        ],
+        "mPitModes": [2]
+    }
+    
+    drivers2 = correlate_drivers(data2, pit_entry_times=pit_entry_times, flywheel=flywheel)
+    
+    # Stabilized time should be: 100.0 (initial) + 1.0 (system dt) = 101.0.
+    # So pit time should be 101.0 - 100.0 = 1.0.
+    assert drivers2[0]["_pit_time"] == pytest.approx(1.0)
+

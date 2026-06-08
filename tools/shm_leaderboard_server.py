@@ -42,22 +42,9 @@ def correlate_drivers(data: dict, active_only: bool = False, spline: DistanceTim
         dist = driver.get("mCurrentLapDistance", 0.0)
         driver["_total_dist"] = compute_total_distance(current_lap, track_len, dist)
         
-        current_time = data.get("mCurrentTime", 0.0)
-        pit_mode = driver.get("mPitModes", 0)
-        driver_name = driver.get("mName")
-        
+        # Initialize default pit fields
         driver["_in_pits"] = False
         driver["_pit_time"] = None
-        
-        if pit_mode > 0:
-            driver["_in_pits"] = True
-            if pit_entry_times is not None and driver_name:
-                if driver_name not in pit_entry_times:
-                    pit_entry_times[driver_name] = current_time
-                driver["_pit_time"] = current_time - pit_entry_times[driver_name]
-        else:
-            if pit_entry_times is not None and driver_name in pit_entry_times:
-                del pit_entry_times[driver_name]
         
         drivers.append(driver)
         
@@ -82,6 +69,30 @@ def correlate_drivers(data: dict, active_only: bool = False, spline: DistanceTim
                 d["_time_gap"] = 0.0
             else:
                 d["_time_gap"] = compute_time_gap(d["_total_dist"], current_time, spline)
+                
+            # Pitstop calculations using stabilized current_time
+            pit_mode = d.get("mPitModes", 0)
+            driver_name = d.get("mName")
+            
+            if pit_mode > 0:
+                d["_in_pits"] = True
+                if pit_entry_times is not None and driver_name:
+                    if driver_name not in pit_entry_times:
+                        pit_entry_times[driver_name] = current_time
+                    
+                    # Support both flat floats and dict structures in pit_entry_times
+                    entry_val = pit_entry_times[driver_name]
+                    if isinstance(entry_val, dict):
+                        entry_time = entry_val.get("entry_time", current_time)
+                    else:
+                        entry_time = entry_val
+                        
+                    d["_pit_time"] = current_time - entry_time
+            else:
+                d["_in_pits"] = False
+                d["_pit_time"] = None
+                if pit_entry_times is not None and driver_name in pit_entry_times:
+                    del pit_entry_times[driver_name]
             
     return drivers
 

@@ -406,7 +406,7 @@ def main():
     except Exception:
         pass
 
-    parser = argparse.ArgumentParser(description='AMS2 Auto Director v4.1.1')
+    parser = argparse.ArgumentParser(description='AMS2 Auto Director v4.1.7-beta')
     parser.add_argument('--mode', choices=['shared_memory', 'udp'],
                         default='shared_memory',
                         help='Data source mode (default: shared_memory)')
