@@ -263,6 +263,81 @@ class TestCameraSelection:
             mock_choice.assert_called_once_with(["1"])
             assert controller.last_shot_was_special is True
 
+    def test_camera_controller_filters_choices(self, controller, key_log):
+        """US2: Only choose cameras that are in enabled_cameras list."""
+        log, mock_press, mock_release = key_log
+        controller.disable_camera_change = False
+        controller.last_shot_was_special = False
+        
+        custom_config = {
+            "trackside_keys": ["7"],
+            "pool_close_racing": ["1", "2", "3", "7"],
+            "pool_standard": ["7", "2", "3"],
+            "enabled_cameras": ["2", "3"]
+        }
+        
+        with patch.object(controller, '_press_key', mock_press), \
+             patch.object(controller, '_release_key', mock_release), \
+             patch('time.sleep'), \
+             patch('os.path.exists', return_value=True), \
+             patch('builtins.open', unittest.mock.mock_open(read_data=json.dumps(custom_config))):
+            
+            # Run multiple times to verify randomness only picks from enabled_cameras
+            for _ in range(20):
+                controller.select_random_camera(is_close=True)
+                
+            press_events = [e[1] for e in log if e[0] == 'press']
+            assert len(press_events) == 20
+            for key in press_events:
+                assert key in ["2", "3"]
+
+    def test_camera_controller_fallback_all_when_none_enabled(self, controller, key_log):
+        """US2 Edge Case: Fallback to all choices when enabled_cameras is empty."""
+        log, mock_press, mock_release = key_log
+        controller.disable_camera_change = False
+        controller.last_shot_was_special = False
+        
+        custom_config = {
+            "trackside_keys": ["7"],
+            "pool_close_racing": ["1"],
+            "pool_standard": ["7"],
+            "enabled_cameras": []
+        }
+        
+        with patch.object(controller, '_press_key', mock_press), \
+             patch.object(controller, '_release_key', mock_release), \
+             patch('time.sleep'), \
+             patch('os.path.exists', return_value=True), \
+             patch('builtins.open', unittest.mock.mock_open(read_data=json.dumps(custom_config))):
+            
+            controller.select_random_camera(is_close=True)
+            press_events = [e[1] for e in log if e[0] == 'press']
+            assert len(press_events) == 1
+            assert press_events[0] == "1"
+
+    def test_camera_controller_respects_disable_camera_change_config(self, controller, key_log):
+        """US3: Skip automatic camera changes when disable_camera_change is True in config."""
+        log, mock_press, mock_release = key_log
+        controller.disable_camera_change = False
+        controller.last_shot_was_special = False
+        
+        custom_config = {
+            "trackside_keys": ["7"],
+            "pool_close_racing": ["1"],
+            "pool_standard": ["7"],
+            "disable_camera_change": True
+        }
+        
+        with patch.object(controller, '_press_key', mock_press), \
+             patch.object(controller, '_release_key', mock_release), \
+             patch('time.sleep'), \
+             patch('os.path.exists', return_value=True), \
+             patch('builtins.open', unittest.mock.mock_open(read_data=json.dumps(custom_config))):
+            
+            controller.select_random_camera(is_close=True)
+            # No keys should be pressed because automatic change is disabled
+            assert len(log) == 0
+
 
 # ── Asynchronous & Concurrency (T003 to T004, T008, T010) ──────────────────
 

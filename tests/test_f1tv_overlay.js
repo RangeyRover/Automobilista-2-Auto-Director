@@ -92,6 +92,15 @@ if (typeof presets !== 'undefined') window.presets = presets;
 if (typeof formatGapTenths !== 'undefined') window.formatGapTenths = formatGapTenths;
 if (typeof formatTimeTenths !== 'undefined') window.formatTimeTenths = formatTimeTenths;
 if (typeof updateVisibilityMode !== 'undefined') window.updateVisibilityMode = updateVisibilityMode;
+if (typeof state !== 'undefined') {
+    Object.defineProperty(window, 'state', {
+        get: () => state,
+        set: (v) => { state = v; }
+    });
+}
+window.updateAll = updateAll;
+window.updateVisibility = updateVisibility;
+
 `;
 vm.runInContext(jsCode + exposingCode, context);
 
@@ -193,4 +202,50 @@ try {
     console.error("✗ Test Session Info Onboard Visibility FAILED:", e.message);
 }
 
+// ----------------------------------------------------
+// Test 6: Interval Gaps Config & Leaderboard Calculations (TDD)
+// ----------------------------------------------------
+try {
+    console.log("Test: interval-gaps checkbox in components...");
+    const components = context.components;
+    const intervalComp = components.find(c => c.id === 'interval-gaps');
+    assert.ok(intervalComp, "interval-gaps component should be defined in components list");
+    assert.strictEqual(intervalComp.default, false, "interval-gaps should be disabled by default");
+
+    console.log("Test: interval gap calculation in updateAll()...");
+    // Setup state
+    context.state = {
+        viewed: { position: 1, name: 'VER' },
+        leaderboard: [
+            { pos: 1, name: 'VER', gap: 0.0, car_class: 'F1', nationality: 'nl', tyre_compound: 'Soft', tyre_stint_laps: 3, last_lap: 80.0 },
+            { pos: 2, name: 'HAM', gap: 2.5, car_class: 'F1', nationality: 'gb', tyre_compound: 'Soft', tyre_stint_laps: 3, last_lap: 81.0 },
+            { pos: 3, name: 'LEC', gap: 3.8, car_class: 'F1', nationality: 'mc', tyre_compound: 'Medium', tyre_stint_laps: 5, last_lap: 81.2 }
+        ],
+        weather: {},
+        session: {},
+        viewed_index: 0
+    };
+
+    // Enable interval gaps toggle in DOM
+    const intervalCb = context.document.getElementById('toggle-interval-gaps');
+    intervalCb.checked = true;
+
+    // Run updateAll
+    context.updateAll();
+
+    const miniHtml = mockElements['mini-leaderboard'].innerHTML;
+    const fullHtml = mockElements['full-leaderboard'].innerHTML;
+
+    // HAM interval gap should be 2.5s
+    assert.ok(miniHtml.includes('+2.5s'), "HAM gap of +2.5s should be rendered");
+    // LEC interval gap should be 1.3s (3.8 - 2.5 = 1.3s)
+    assert.ok(miniHtml.includes('+1.3s'), "LEC interval gap of +1.3s should be rendered instead of +3.8s");
+    assert.ok(!miniHtml.includes('+3.8s'), "LEC leader gap of +3.8s should NOT be rendered when interval gaps are active");
+
+    console.log("✓ Test Interval Gaps passed!");
+} catch (e) {
+    console.error("✗ Test Interval Gaps FAILED:", e.message);
+}
+
 console.log("TDD Test Suite execution finished.");
+

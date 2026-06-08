@@ -79,16 +79,39 @@
     <h1>F1TV Overlay Control Panel</h1>
     <p>Toggle elements here to instantly update the OBS overlay.</p>
     
-    <div class="card">
-        <div class="settings-grid" id="settings-checkboxes">
-            <!-- Populated by JS -->
+    <div style="display: flex; gap: 30px; flex-wrap: wrap;">
+        <div class="card" style="flex: 1; min-width: 300px;">
+            <div class="settings-grid" id="settings-checkboxes">
+                <!-- Populated by JS -->
+            </div>
+            
+            <div class="preset-btns">
+                <button class="preset-btn" onclick="applyPreset('broadcast')">Broadcast</button>
+                <button class="preset-btn" onclick="applyPreset('cockpit')">Cockpit</button>
+                <button class="preset-btn" onclick="applyPreset('all')">All On</button>
+                <button class="preset-btn" onclick="applyPreset('none')">All Off</button>
+            </div>
         </div>
-        
-        <div class="preset-btns">
-            <button class="preset-btn" onclick="applyPreset('broadcast')">Broadcast</button>
-            <button class="preset-btn" onclick="applyPreset('cockpit')">Cockpit</button>
-            <button class="preset-btn" onclick="applyPreset('all')">All On</button>
-            <button class="preset-btn" onclick="applyPreset('none')">All Off</button>
+
+        <div class="card" style="flex: 1; min-width: 300px;">
+            <h3 style="margin-top: 0; margin-bottom: 15px; font-size: 18px; color: #ffffff;">Auto Camera Pool Settings</h3>
+            <div class="settings-grid" id="camera-checkboxes" style="margin-bottom: 20px;">
+                <label><input type="checkbox" class="cam-cb" value="1"> 1. Cockpit</label>
+                <label><input type="checkbox" class="cam-cb" value="2"> 2. Chase</label>
+                <label><input type="checkbox" class="cam-cb" value="3"> 3. Roof</label>
+                <label><input type="checkbox" class="cam-cb" value="4"> 4. Bonnet</label>
+                <label><input type="checkbox" class="cam-cb" value="5"> 5. Bumper</label>
+                <label><input type="checkbox" class="cam-cb" value="6"> 6. Onboard</label>
+                <label><input type="checkbox" class="cam-cb" value="7"> 7. Trackside</label>
+            </div>
+            
+            <div style="border-top: 1px solid #333; padding-top: 15px; display: flex; flex-direction: column; gap: 8px;">
+                <label>
+                    <input type="checkbox" id="toggle-disable-camera-change"> 
+                    <strong>Disable Auto Cam Switch</strong>
+                </label>
+                <p style="margin: 0; font-size: 13px; color: #888;">Freeze camera angle switching while keeping auto focus driver tracking active.</p>
+            </div>
         </div>
     </div>
 
@@ -107,11 +130,19 @@
             { id: 'pit-window', name: 'Pit Window', default: true, type: 'broadcast' },
             { id: 'pit-timer', name: 'Pit Timer', default: true, type: 'broadcast' },
             { id: 'connection-status', name: 'Connection Status', default: true, type: 'broadcast' },
-            { id: 'tenths-timing', name: 'Tenths Timing', default: true, type: 'broadcast' }
+            { id: 'tenths-timing', name: 'Tenths Timing', default: true, type: 'broadcast' },
+            { id: 'interval-gaps', name: 'Interval Gaps', default: false, type: 'broadcast' }
         ];
 
         let ws;
         const config = {};
+        let cameraConfig = {
+            trackside_keys: ["7"],
+            pool_close_racing: ["1", "1", "1", "2", "3", "7"],
+            pool_standard: ["7", "7", "7", "7", "2", "3"],
+            enabled_cameras: [],
+            disable_camera_change: false
+        };
 
         function init() {
             const grid = document.getElementById('settings-checkboxes');
@@ -136,7 +167,66 @@
                 grid.appendChild(label);
             });
             
+            // Wire up camera config listeners
+            document.querySelectorAll('.cam-cb').forEach(cb => {
+                cb.addEventListener('change', saveCameraConfig);
+            });
+            const disableSwitchCb = document.getElementById('toggle-disable-camera-change');
+            if (disableSwitchCb) {
+                disableSwitchCb.addEventListener('change', saveCameraConfig);
+            }
+
+            loadCameraConfig();
             connect();
+        }
+
+        async function loadCameraConfig() {
+            try {
+                const res = await fetch('camera_config.json?t=' + new Date().getTime());
+                if (res.ok) {
+                    const data = await res.json();
+                    cameraConfig = Object.assign(cameraConfig, data);
+                    applyCameraConfigToUI();
+                }
+            } catch (e) {
+                console.error("Failed to load camera_config.json", e);
+            }
+        }
+
+        function applyCameraConfigToUI() {
+            const enabledList = cameraConfig.enabled_cameras || [];
+            document.querySelectorAll('.cam-cb').forEach(cb => {
+                cb.checked = enabledList.length === 0 || enabledList.includes(cb.value);
+            });
+            const disableSwitchCb = document.getElementById('toggle-disable-camera-change');
+            if (disableSwitchCb) {
+                disableSwitchCb.checked = !!cameraConfig.disable_camera_change;
+            }
+        }
+
+        function saveCameraConfig() {
+            const enabledList = [];
+            document.querySelectorAll('.cam-cb').forEach(cb => {
+                if (cb.checked) {
+                    enabledList.push(cb.value);
+                }
+            });
+            
+            const allChecked = enabledList.length === 7;
+            cameraConfig.enabled_cameras = allChecked ? [] : enabledList;
+            
+            const disableSwitchCb = document.getElementById('toggle-disable-camera-change');
+            if (disableSwitchCb) {
+                cameraConfig.disable_camera_change = disableSwitchCb.checked;
+            }
+            
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                    type: "save_json",
+                    path: "camera_config.json",
+                    content: cameraConfig
+                }));
+            }
         }
 
         const presets = {
@@ -173,8 +263,9 @@
             ws.onopen = () => {
                 statusEl.innerText = "CONNECTED";
                 statusEl.style.background = "#00A85C";
-                // Send current config immediately on connect
                 sendConfig();
+                // Push cameraConfig on load to sync with backend state
+                saveCameraConfig();
             };
             
             ws.onclose = () => {

@@ -52,6 +52,7 @@ class CameraController:
         self._switch_lock = threading.Lock()
         self._switching_in_progress = False
         self.bypass_threading = False
+        self._pending_select_camera: bool | None = None
         
         # Determine paths
         core_dir = os.path.dirname(os.path.abspath(__file__))
@@ -61,7 +62,9 @@ class CameraController:
         self.default_config = {
             "trackside_keys": ["7"],
             "pool_close_racing": ["1", "1", "1", "2", "3", "7"],
-            "pool_standard": ["7", "7", "7", "7", "2", "3"]
+            "pool_standard": ["7", "7", "7", "7", "2", "3"],
+            "enabled_cameras": [],
+            "disable_camera_change": False
         }
 
     def _press_key(self, key: str):
@@ -161,23 +164,30 @@ class CameraController:
 
             if pending_close is not None:
                 config = self._load_config()
-                trackside_keys = config.get("trackside_keys", self.default_config["trackside_keys"])
-                if self.last_shot_was_special:
-                    choices = trackside_keys
+                if getattr(self, "disable_camera_change", False) or config.get("disable_camera_change", False):
+                    pass
                 else:
-                    if pending_close:
-                        choices = config.get("pool_close_racing", self.default_config["pool_close_racing"])
+                    trackside_keys = config.get("trackside_keys", self.default_config["trackside_keys"])
+                    if self.last_shot_was_special:
+                        choices = trackside_keys
                     else:
-                        choices = config.get("pool_standard", self.default_config["pool_standard"])
-                if not choices:
-                    choices = trackside_keys
-                choice = random.choice(choices)
-                self.last_shot_was_special = choice not in trackside_keys
-                
-                # Stabilization sleep
-                time.sleep(0.2)
-                self._tap_key(choice)
-                self.update_camera_for_key(choice)
+                        if pending_close:
+                            choices = config.get("pool_close_racing", self.default_config["pool_close_racing"])
+                        else:
+                            choices = config.get("pool_standard", self.default_config["pool_standard"])
+                    if not choices:
+                        choices = trackside_keys
+                    
+                    enabled = config.get("enabled_cameras", [])
+                    choices = self._filter_choices(choices, enabled)
+                    
+                    choice = random.choice(choices)
+                    self.last_shot_was_special = choice not in trackside_keys
+                    
+                    # Stabilization sleep
+                    time.sleep(0.2)
+                    self._tap_key(choice)
+                    self.update_camera_for_key(choice)
 
             elapsed = time.time() - start_time
             print(f"[CAM EVENT] Switch completed to P{target_pos} (took {elapsed:.2f}s)")
@@ -198,19 +208,31 @@ class CameraController:
         """Update the internal camera type based on the AMS2 camera set name."""
         self.current_camera_type = CAMERA_SET_MAP.get(camera_set_name, "tv_cam")
 
+    def _filter_choices(self, choices: list[str], enabled: list[str]) -> list[str]:
+        if not enabled:
+            return choices
+        filtered = [c for c in choices if c in enabled]
+        if not filtered:
+            return enabled
+        return filtered
+
     def _load_config(self) -> dict:
         """Load the camera configuration from disk, with a fallback to defaults."""
+        config = dict(self.default_config)
         try:
             if os.path.exists(self.config_path):
                 with open(self.config_path, 'r', encoding='utf-8') as f:
-                    return json.load(f)
+                    loaded = json.load(f)
+                    if isinstance(loaded, dict):
+                        config.update(loaded)
         except Exception:
             pass
-        return self.default_config
+        return config
 
     def select_random_camera(self, is_close: bool):
         """Select a random camera based on proximity rules and anchor logic (Non-Blocking)."""
-        if getattr(self, 'disable_camera_change', False):
+        config = self._load_config()
+        if getattr(self, 'disable_camera_change', False) or config.get("disable_camera_change", False):
             return
 
         with self._switch_lock:
@@ -245,6 +267,10 @@ class CameraController:
                     choices = config.get("pool_standard", self.default_config["pool_standard"])
             if not choices:
                 choices = trackside_keys
+            
+            enabled = config.get("enabled_cameras", [])
+            choices = self._filter_choices(choices, enabled)
+            
             choice = random.choice(choices)
             self.last_shot_was_special = choice not in trackside_keys
             
@@ -261,9 +287,6 @@ class CameraController:
 
     def manual_switch_to_key(self, key: str):
         """Manually trigger a camera keypress sequence (Non-Blocking)."""
-        if getattr(self, 'disable_camera_change', False):
-            return
-
         with self._switch_lock:
             if self._switching_in_progress:
                 return

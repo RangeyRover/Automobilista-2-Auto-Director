@@ -12,7 +12,8 @@ const components = [
             { id: 'pit-window', name: 'Pit Window', default: true, type: 'broadcast' },
             { id: 'pit-timer', name: 'Pit Timer', default: true, type: 'broadcast' },
             { id: 'connection-status', name: 'Connection Status', default: true, type: 'broadcast' },
-            { id: 'tenths-timing', name: 'Tenths Timing', default: true, type: 'broadcast' }
+            { id: 'tenths-timing', name: 'Tenths Timing', default: true, type: 'broadcast' },
+            { id: 'interval-gaps', name: 'Interval Gaps', default: false, type: 'broadcast' }
         ];
 
         let state = null;
@@ -403,10 +404,14 @@ const components = [
             const tenthsTimingCb = document.getElementById('toggle-tenths-timing');
             const useTenths = tenthsTimingCb ? tenthsTimingCb.checked : true;
 
+            // Interval Gaps Config
+            const intervalGapsCb = document.getElementById('toggle-interval-gaps');
+            const useIntervalGaps = intervalGapsCb ? intervalGapsCb.checked : false;
+
             // Main Leaderboard
             const mlb = document.getElementById('mini-leaderboard');
             let mlbHTML = "";
-            state.leaderboard.forEach(driver => {
+            state.leaderboard.forEach((driver, idx) => {
                 const isViewed = driver.name === vn;
                 const tc = getTeamColor(driver.name, driver.car_class);
                 
@@ -418,6 +423,15 @@ const components = [
                     else if (comp.includes('inter')) tCol = "#00FF00";
                     else if (comp.includes('wet')) tCol = "#0000FF";
                 }
+
+                let gapVal = driver.gap;
+                if (useIntervalGaps && idx > 0) {
+                    const prevDriver = state.leaderboard[idx - 1];
+                    if (typeof driver.gap === 'number' && typeof prevDriver.gap === 'number') {
+                        gapVal = driver.gap - prevDriver.gap;
+                    }
+                }
+                const formattedGap = driver.pos === 1 ? 'LEADER' : (useTenths ? formatGapTenths(gapVal) : formatGap(gapVal));
 
                 mlbHTML += `
                     <div class="lb-row ${isViewed ? 'viewed' : ''}">
@@ -430,7 +444,7 @@ const components = [
                         <div class="tyre-info">
                             <span style="color:${tCol}; margin-right: 2px; font-size: 12px;" title="${driver.tyre_compound}">●</span>${driver.tyre_stint_laps > 0 ? driver.tyre_stint_laps : 'NEW'}
                         </div>
-                        <div style="text-align:right; width:70px; flex-shrink:0;">${driver.pos === 1 ? 'LEADER' : (useTenths ? formatGapTenths(driver.gap) : formatGap(driver.gap))}</div>
+                        <div style="text-align:right; width:70px; flex-shrink:0;">${formattedGap}</div>
                     </div>
                 `;
             });
@@ -439,7 +453,7 @@ const components = [
             // Full Leaderboard
             const flb = document.getElementById('full-leaderboard');
             let flbHTML = "";
-            state.leaderboard.forEach(driver => {
+            state.leaderboard.forEach((driver, idx) => {
                 const isViewed = driver.name === vn;
                 const tc = getTeamColor(driver.name, driver.car_class);
                 
@@ -451,6 +465,15 @@ const components = [
                     else if (comp.includes('inter')) tCol = "#00FF00";
                     else if (comp.includes('wet')) tCol = "#0000FF";
                 }
+
+                let gapVal = driver.gap;
+                if (useIntervalGaps && idx > 0) {
+                    const prevDriver = state.leaderboard[idx - 1];
+                    if (typeof driver.gap === 'number' && typeof prevDriver.gap === 'number') {
+                        gapVal = driver.gap - prevDriver.gap;
+                    }
+                }
+                const formattedGap = driver.pos === 1 ? 'LEADER' : (useTenths ? formatGapTenths(gapVal) : formatGap(gapVal));
 
                 flbHTML += `
                     <div class="flb-row ${isViewed ? 'viewed' : ''}">
@@ -464,7 +487,7 @@ const components = [
                             <span style="color:${tCol}; margin-right: 2px; font-size: 12px;" title="${driver.tyre_compound}">●</span>${driver.tyre_stint_laps > 0 ? driver.tyre_stint_laps : 'NEW'}
                         </div>
                         <div style="width:70px; text-align:right; flex-shrink:0;">${useTenths ? formatTimeTenths(driver.last_lap) : formatTime(driver.last_lap)}</div>
-                        <div style="width:70px; text-align:right; flex-shrink:0;">${driver.pos === 1 ? 'LEADER' : (useTenths ? formatGapTenths(driver.gap) : formatGap(driver.gap))}</div>
+                        <div style="width:70px; text-align:right; flex-shrink:0;">${formattedGap}</div>
                         ${driver.pit > 0 ? `<div style="background:var(--f1-red); color:white; padding:0 4px; border-radius:2px; font-size:10px; flex-shrink:0;" title="${driver.laps_since_last_pit > 0 ? driver.laps_since_last_pit + ' laps since pit' : ''}">P${driver.pit}</div>` : ''}
                     </div>
                 `;

@@ -8,7 +8,7 @@ class GUIBuilder:
     def build_ui(self):
         """Build the tkinter GUI."""
         self.app.root = tk.Tk()
-        self.app.root.title("AMS2 Auto Director v4.1.7-beta")
+        self.app.root.title("AMS2 Auto Director v4.1.8-beta")
         self.app.root.configure(bg='#1a1a2e')
         self.app.root.geometry('1100x700')
 
@@ -38,7 +38,7 @@ class GUIBuilder:
         status_frame = ttk.Frame(self.app.root, style='Panel.TFrame')
         status_frame.pack(fill=tk.X, padx=5, pady=5)
 
-        self.app.lbl_title = ttk.Label(status_frame, text='AMS2 AUTO DIRECTOR v4.1.7-beta', style='Header.TLabel')
+        self.app.lbl_title = ttk.Label(status_frame, text='AMS2 AUTO DIRECTOR v4.1.8-beta', style='Header.TLabel')
         self.app.lbl_title.pack(side=tk.LEFT, padx=10)
 
         self.app.lbl_connection = ttk.Label(status_frame, text='⏳ Waiting for AMS2...', style='Status.TLabel')

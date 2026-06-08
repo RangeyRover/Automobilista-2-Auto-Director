@@ -37,6 +37,16 @@ function connect() {
         if (isPaused) return;
         
         const data = JSON.parse(event.data);
+        if (data.type === "f1tv_config") {
+            if (data.config && data.config['interval-gaps'] !== undefined) {
+                localStorage.setItem('toggle-interval-gaps', data.config['interval-gaps']);
+                if (lastData && lastData.leaderboard) {
+                    renderLeaderboard(lastData.leaderboard);
+                }
+            }
+            return;
+        }
+
         if (data.status && !data.leaderboard) {
             // Waiting for AMS2
             statusIndicator.textContent = data.status;
@@ -69,6 +79,8 @@ function renderLeaderboard(leaderboard) {
         return;
     }
 
+    const useIntervalGaps = localStorage.getItem('toggle-interval-gaps') === 'true';
+
     let html = `
         <div class="driver-row" style="background: transparent; border-left: none; padding-bottom: 4px; border-bottom: 1px solid var(--border-color); border-radius: 0;">
             <div class="driver-pos" style="font-size: 0.9rem; color: var(--text-muted);">Pos</div>
@@ -83,7 +95,7 @@ function renderLeaderboard(leaderboard) {
         </div>
     `;
     
-    leaderboard.forEach(driver => {
+    leaderboard.forEach((driver, idx) => {
         const pos = driver.mRacePosition || '-';
         const name = driver.mName || 'Unknown';
         const car = driver.mCarNames || 'Unknown Car';
@@ -109,7 +121,14 @@ function renderLeaderboard(leaderboard) {
                 distGap = `+${driver._gap.toFixed(1)}m`;
             }
             if (driver._time_gap !== undefined && driver._time_gap !== null) {
-                timeGap = `+${driver._time_gap.toFixed(3)}s`;
+                let timeGapVal = driver._time_gap;
+                if (useIntervalGaps && idx > 0) {
+                    const prevDriver = leaderboard[idx - 1];
+                    if (prevDriver && prevDriver._time_gap !== undefined && prevDriver._time_gap !== null) {
+                        timeGapVal = driver._time_gap - prevDriver._time_gap;
+                    }
+                }
+                timeGap = `+${timeGapVal.toFixed(3)}s`;
             } else {
                 timeGap = '—';
             }
