@@ -48,6 +48,11 @@ class CameraController:
         self.disable_camera_change = False
         self.last_shot_was_special = False
         
+        import threading
+        self._switch_lock = threading.Lock()
+        self._switching_in_progress = False
+        self.bypass_threading = False
+        
         # Determine paths
         core_dir = os.path.dirname(os.path.abspath(__file__))
         self.config_path = os.path.join(os.path.dirname(core_dir), "dashboard", "camera_config.json")
@@ -90,7 +95,7 @@ class CameraController:
     def _tap_key(self, key: str):
         """Press, hold, release a single key with configured timing."""
         if not getattr(self, 'bypass_focus_check', False) and not self._is_ams2_focused():
-            return
+            raise InterruptedError("Automobilista 2 lost focus")
             
         self._press_key(key)
         time.sleep(self.key_hold_ms)
@@ -98,35 +103,92 @@ class CameraController:
         time.sleep(self.key_gap_ms)
 
     def move_to_position(self, target_pos: int, current_pos: int | None):
-        """Navigate to target position using delta keypresses.
-
-        Args:
-            target_pos: Race position to navigate to (1-32).
-            current_pos: Current position, or None for fallback scroll-to-top.
-        """
-        # Guard: invalid positions
+        """Navigate to target position using delta keypresses (Non-Blocking)."""
         if target_pos < 1 or target_pos > 32:
             return
 
-        if current_pos is None:
-            # Fallback: scroll to top (32x UP) then down to target
-            for _ in range(32):
-                self._tap_key('UP')
-            for _ in range(target_pos - 1):
-                self._tap_key('DOWN')
-        else:
-            delta = target_pos - current_pos
-            if delta == 0:
-                return  # No movement needed, do not send ENTER
-            elif delta > 0:
-                for _ in range(delta):
-                    self._tap_key('DOWN')
-            elif delta < 0:
-                for _ in range(abs(delta)):
-                    self._tap_key('UP')
+        if current_pos is not None and target_pos - current_pos == 0:
+            return
 
-        # Confirm selection
-        self._tap_key('ENTER')
+        with self._switch_lock:
+            if self._switching_in_progress:
+                print("[CAM EVENT] Switch ignored: another switch in progress")
+                return
+            self._switching_in_progress = True
+            self._pending_select_camera = None
+
+        if getattr(self, 'bypass_threading', False):
+            self._execute_switch_sequence(target_pos, current_pos)
+            return
+
+        # Start background thread
+        import threading
+        self._switch_thread = threading.Thread(
+            target=self._execute_switch_sequence,
+            args=(target_pos, current_pos),
+            daemon=True
+        )
+        self._switch_thread.start()
+
+    def _execute_switch_sequence(self, target_pos: int, current_pos: int | None):
+        start_time = time.time()
+        print(f"[CAM EVENT] Switch started to P{target_pos}")
+        try:
+            if current_pos is None:
+                # Fallback: scroll to top (32x UP) then down to target
+                for _ in range(32):
+                    self._tap_key('UP')
+                for _ in range(target_pos - 1):
+                    self._tap_key('DOWN')
+            else:
+                delta = target_pos - current_pos
+                if delta > 0:
+                    for _ in range(delta):
+                        self._tap_key('DOWN')
+                elif delta < 0:
+                    for _ in range(abs(delta)):
+                        self._tap_key('UP')
+
+            # Confirm selection
+            self._tap_key('ENTER')
+
+            # Short sleep to allow select_random_camera to run in main thread
+            time.sleep(0.01)
+
+            with self._switch_lock:
+                pending_close = self._pending_select_camera
+                self._pending_select_camera = None
+
+            if pending_close is not None:
+                config = self._load_config()
+                trackside_keys = config.get("trackside_keys", self.default_config["trackside_keys"])
+                if self.last_shot_was_special:
+                    choices = trackside_keys
+                else:
+                    if pending_close:
+                        choices = config.get("pool_close_racing", self.default_config["pool_close_racing"])
+                    else:
+                        choices = config.get("pool_standard", self.default_config["pool_standard"])
+                if not choices:
+                    choices = trackside_keys
+                choice = random.choice(choices)
+                self.last_shot_was_special = choice not in trackside_keys
+                
+                # Stabilization sleep
+                time.sleep(0.2)
+                self._tap_key(choice)
+                self.update_camera_for_key(choice)
+
+            elapsed = time.time() - start_time
+            print(f"[CAM EVENT] Switch completed to P{target_pos} (took {elapsed:.2f}s)")
+        except InterruptedError as e:
+            print(f"[CAM EVENT] Switch aborted: {e}")
+        except Exception as e:
+            print(f"[CAM ERROR] Switch sequence failed: {e}")
+        finally:
+            with self._switch_lock:
+                self._switching_in_progress = False
+                self._pending_select_camera = None
 
     def press_enter(self):
         """Confirm camera selection."""
@@ -147,43 +209,93 @@ class CameraController:
         return self.default_config
 
     def select_random_camera(self, is_close: bool):
-        """Select a random camera based on proximity rules and anchor logic.
-        
-        Args:
-            is_close: True if the target driver is in a close battle.
-        """
+        """Select a random camera based on proximity rules and anchor logic (Non-Blocking)."""
         if getattr(self, 'disable_camera_change', False):
             return
-            
-        config = self._load_config()
-        trackside_keys = config.get("trackside_keys", self.default_config["trackside_keys"])
-        
-        # Enforce Trackside Anchor Rule
-        if self.last_shot_was_special:
-            choices = trackside_keys
-        else:
-            if is_close:
-                choices = config.get("pool_close_racing", self.default_config["pool_close_racing"])
+
+        with self._switch_lock:
+            if self._switching_in_progress:
+                # Set pending flag for active thread
+                self._pending_select_camera = is_close
+                return
+            self._switching_in_progress = True
+
+        if getattr(self, 'bypass_threading', False):
+            self._execute_direct_camera_change(is_close)
+            return
+
+        import threading
+        self._switch_thread = threading.Thread(
+            target=self._execute_direct_camera_change,
+            args=(is_close,),
+            daemon=True
+        )
+        self._switch_thread.start()
+
+    def _execute_direct_camera_change(self, is_close: bool):
+        try:
+            config = self._load_config()
+            trackside_keys = config.get("trackside_keys", self.default_config["trackside_keys"])
+            if self.last_shot_was_special:
+                choices = trackside_keys
             else:
-                choices = config.get("pool_standard", self.default_config["pool_standard"])
-                
-        # Ensure choices isn't empty due to a bad config
-        if not choices:
-            choices = trackside_keys
+                if is_close:
+                    choices = config.get("pool_close_racing", self.default_config["pool_close_racing"])
+                else:
+                    choices = config.get("pool_standard", self.default_config["pool_standard"])
+            if not choices:
+                choices = trackside_keys
+            choice = random.choice(choices)
+            self.last_shot_was_special = choice not in trackside_keys
             
-        choice = random.choice(choices)
-        
-        # Update Anchor State
-        self.last_shot_was_special = choice not in trackside_keys
-        
-        # Pause briefly to allow AMS2 to process the driver switch (ENTER)
-        # before we attempt to change the camera angle
-        time.sleep(0.2)
-        
-        self._tap_key(choice)
-        
-        # Update camera type from the single source of truth
-        self.update_camera_for_key(choice)
+            time.sleep(0.2)
+            self._tap_key(choice)
+            self.update_camera_for_key(choice)
+        except InterruptedError as e:
+            print(f"[CAM EVENT] Direct camera switch aborted: {e}")
+        except Exception as e:
+            print(f"[CAM ERROR] Direct camera switch failed: {e}")
+        finally:
+            with self._switch_lock:
+                self._switching_in_progress = False
+
+    def manual_switch_to_key(self, key: str):
+        """Manually trigger a camera keypress sequence (Non-Blocking)."""
+        if getattr(self, 'disable_camera_change', False):
+            return
+
+        with self._switch_lock:
+            if self._switching_in_progress:
+                return
+            self._switching_in_progress = True
+
+        if getattr(self, 'bypass_threading', False):
+            self._execute_manual_key_change(key)
+            return
+
+        import threading
+        self._switch_thread = threading.Thread(
+            target=self._execute_manual_key_change,
+            args=(key,),
+            daemon=True
+        )
+        self._switch_thread.start()
+
+    def _execute_manual_key_change(self, key: str):
+        start_time = time.time()
+        print(f"[CAM EVENT] Manual switch started to key {key}")
+        try:
+            self._tap_key(key)
+            self.update_camera_for_key(key)
+            elapsed = time.time() - start_time
+            print(f"[CAM EVENT] Manual switch completed to key {key} (took {elapsed:.2f}s)")
+        except InterruptedError as e:
+            print(f"[CAM EVENT] Manual switch to key {key} aborted: {e}")
+        except Exception as e:
+            print(f"[CAM ERROR] Manual switch to key {key} failed: {e}")
+        finally:
+            with self._switch_lock:
+                self._switching_in_progress = False
 
     def update_camera_for_key(self, key: str):
         """Update internal camera type based on a number key press.
@@ -194,3 +306,4 @@ class CameraController:
         cam_type = KEY_TO_CAMERA.get(key)
         if cam_type:
             self.current_camera_type = cam_type
+

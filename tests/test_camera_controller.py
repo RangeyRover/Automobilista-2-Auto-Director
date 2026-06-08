@@ -13,6 +13,7 @@ from core.camera_controller import CameraController
 def controller():
     cc = CameraController()
     cc.bypass_focus_check = True
+    cc.bypass_threading = True
     return cc
 
 
@@ -261,3 +262,164 @@ class TestCameraSelection:
             
             mock_choice.assert_called_once_with(["1"])
             assert controller.last_shot_was_special is True
+
+
+# ── Asynchronous & Concurrency (T003 to T004, T008, T010) ──────────────────
+
+class TestCameraControllerAsync:
+    def test_move_to_position_async_non_blocking(self, controller, key_log):
+        """T003: move_to_position returns immediately and executes in background thread."""
+        import time
+        import threading
+        log, mock_press, mock_release = key_log
+        controller.bypass_threading = False
+        
+        # We patch time.sleep to do a small real sleep via Event().wait
+        def slow_sleep(sec):
+            threading.Event().wait(0.01) # 10ms
+            
+        with patch.object(controller, '_press_key', mock_press), \
+             patch.object(controller, '_release_key', mock_release), \
+             patch('time.sleep', side_effect=slow_sleep):
+            
+            start = time.time()
+            controller.move_to_position(5, 1)
+            duration = time.time() - start
+            
+            # Should return immediately on calling thread
+            assert duration < 0.015
+            
+            # Wait for background thread to complete
+            if hasattr(controller, '_switch_thread') and controller._switch_thread:
+                controller._switch_thread.join(timeout=1.0)
+                
+        # Key presses should still be executed in the background thread
+        down_presses = [e for e in log if e == ('press', 'DOWN')]
+        assert len(down_presses) == 4
+        assert log[-1] == ('release', 'ENTER')
+
+    def test_concurrent_switches_ignored(self, controller, key_log):
+        """T004: Subsequent switch requests are ignored while switching."""
+        import time
+        import threading
+        log, mock_press, mock_release = key_log
+        controller.bypass_threading = False
+        
+        # We want the background thread to stay active so we can trigger a second one
+        def slow_sleep(sec):
+            threading.Event().wait(0.05) # Sleep 50ms in the background thread
+            
+        with patch.object(controller, '_press_key', mock_press), \
+             patch.object(controller, '_release_key', mock_release), \
+             patch('time.sleep', side_effect=slow_sleep):
+            
+            # First switch
+            controller.move_to_position(5, 1)
+            
+            # Immediately trigger second switch (should be ignored)
+            controller.move_to_position(10, 1)
+            
+            # Wait for background thread to finish
+            if hasattr(controller, '_switch_thread') and controller._switch_thread:
+                controller._switch_thread.join(timeout=2.0)
+                
+        # Total keys logged should only belong to the first switch (P5)
+        # P5 requires 4x DOWN + 1x ENTER.
+        # P10 would require 9x DOWN + 1x ENTER.
+        # If P10 was run, we'd have 13x DOWN presses. If ignored, only 4.
+        down_presses = [e for e in log if e == ('press', 'DOWN')]
+        assert len(down_presses) == 4
+        
+    def test_select_random_camera_async(self, controller, key_log):
+        """T008: select_random_camera is non-blocking and executes in background thread."""
+        import time
+        import threading
+        log, mock_press, mock_release = key_log
+        controller.disable_camera_change = False
+        controller.bypass_threading = False
+        
+        def slow_sleep(sec):
+            threading.Event().wait(0.01) # 10ms
+            
+        with patch.object(controller, '_press_key', mock_press), \
+             patch.object(controller, '_release_key', mock_release), \
+             patch('time.sleep', side_effect=slow_sleep), \
+             patch('random.choice', return_value='7'):
+            
+            start = time.time()
+            controller.select_random_camera(is_close=True)
+            duration = time.time() - start
+            
+            assert duration < 0.015
+            
+            if hasattr(controller, '_switch_thread') and controller._switch_thread:
+                controller._switch_thread.join(timeout=1.0)
+                
+        press_events = [e for e in log if e[0] == 'press']
+        assert len(press_events) == 1
+        assert press_events[0] == ('press', '7')
+
+    def test_manual_switch_async(self, controller, key_log):
+        """T010: manual_switch_to_key is non-blocking and executes in background thread."""
+        import time
+        import threading
+        log, mock_press, mock_release = key_log
+        controller.disable_camera_change = False
+        controller.bypass_threading = False
+        
+        def slow_sleep(sec):
+            threading.Event().wait(0.01) # 10ms
+            
+        with patch.object(controller, '_press_key', mock_press), \
+             patch.object(controller, '_release_key', mock_release), \
+             patch('time.sleep', side_effect=slow_sleep):
+            
+            start = time.time()
+            controller.manual_switch_to_key('7')
+            duration = time.time() - start
+            
+            assert duration < 0.015
+            
+            if hasattr(controller, '_switch_thread') and controller._switch_thread:
+                controller._switch_thread.join(timeout=1.0)
+                
+        press_events = [e for e in log if e[0] == 'press']
+        assert len(press_events) == 1
+        assert press_events[0] == ('press', '7')
+
+    def test_focus_loss_aborts_sequence(self, controller, key_log):
+        """T013: If Automobilista 2 loses focus mid-sequence, the execution aborts."""
+        import time
+        import threading
+        log, mock_press, mock_release = key_log
+        controller.disable_camera_change = False
+        controller.bypass_threading = False
+        controller.bypass_focus_check = False
+        
+        # Mock _is_ams2_focused to return True once, then False
+        focus_returns = [True, False, False]
+        def mock_focus():
+            if focus_returns:
+                return focus_returns.pop(0)
+            return False
+            
+        with patch.object(controller, '_press_key', mock_press), \
+             patch.object(controller, '_release_key', mock_release), \
+             patch.object(controller, '_is_ams2_focused', side_effect=mock_focus), \
+             patch('time.sleep'):
+            
+            controller.move_to_position(5, 1) # Requires 4x DOWN + ENTER
+            
+            if hasattr(controller, '_switch_thread') and controller._switch_thread:
+                controller._switch_thread.join(timeout=1.0)
+                
+        # The first key tap (DOWN) should succeed (because _is_ams2_focused returned True first),
+        # but the second tap (DOWN) should fail because _is_ams2_focused returns False, raising InterruptedError.
+        # So we should only see 1 'press' for DOWN.
+        down_presses = [e for e in log if e == ('press', 'DOWN')]
+        assert len(down_presses) == 1
+        # Reentrancy flag is cleared in finally block
+        assert controller._switching_in_progress is False
+
+
+
