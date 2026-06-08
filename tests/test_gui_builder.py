@@ -1,4 +1,3 @@
-import pytest
 import tkinter as tk
 from core.gui_builder import GUIBuilder
 

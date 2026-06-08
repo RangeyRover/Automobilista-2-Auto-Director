@@ -1,6 +1,5 @@
 import tkinter as tk
-from tkinter import ttk, filedialog
-import webbrowser
+from tkinter import ttk
 
 class GUIBuilder:
     def __init__(self, app):

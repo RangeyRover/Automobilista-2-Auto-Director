@@ -1,6 +1,4 @@
 """Tests for DashboardBridge payload generation."""
-import pytest
-import json
 from dashboard.bridge import DashboardBridge
 from core.telemetry_provider import TelemetryProvider
 

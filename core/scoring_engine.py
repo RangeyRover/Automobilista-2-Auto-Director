@@ -10,8 +10,6 @@ Calculates a composite interest score for each participant based on:
 No external dependencies. No GUI imports. Fully testable in isolation.
 """
 import os
-import time
-import logging
 from core.timeline_parser import TimelineParser
 
 class ScoringEngine:

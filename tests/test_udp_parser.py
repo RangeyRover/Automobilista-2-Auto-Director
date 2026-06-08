@@ -1,6 +1,4 @@
 """Tests for UDP parser functions extracted from TelemetryProvider."""
-import pytest
-from core.udp_parser import UDPParserMixin
 def test_parse_udp_names():
     pass
 

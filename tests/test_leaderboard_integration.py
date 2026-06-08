@@ -1,6 +1,4 @@
 """Integration tests for the transplanted Leaderboard Heart (Flywheel + Spline)."""
-import pytest
-import time
 from core.telemetry_provider import TelemetryProvider
 from tests.conftest import MockParticipantInfo
 
@@ -96,3 +94,65 @@ def test_session_reset_clears_spline(mock_shared_memory):
     
     assert provider._leader_spline.sample_count == 1
     assert provider._leader_spline.distances[0] == 0.0
+
+def test_flywheel_resync_trims_spline(mock_shared_memory):
+    """T005: Simulate flywheel resync, verify future spline points are discarded."""
+    provider = TelemetryProvider(mode='shared_memory')
+    
+    # 1. Establish normal baseline spline point (t=10.0, dist=100m)
+    provider.poll(mock_shared_memory(mCurrentTime=10.0, mParticipantInfo=[
+        MockParticipantInfo(race_position=1, lap_distance=100.0, laps_completed=0, is_active=True)
+    ] + [MockParticipantInfo(is_active=False)] * 31))
+    
+    # 2. Simulate future spline points added (e.g. from a drifted flywheel clock)
+    provider._leader_spline.record(300.0, 15.0)
+    provider._leader_spline.record(400.0, 20.0)
+    assert provider._leader_spline.sample_count == 3
+    assert provider._leader_spline.times[-1] == 20.0
+    
+    # 3. Simulate a resync by forcing did_resync = True
+    provider._flywheel.did_resync = True
+    
+    # We call poll() with current_time = 12.0 (representing the resynced stable game clock).
+    # Since did_resync is True, poll() should trigger trim_future_points(12.0).
+    # Distance is 250.0m (implied speed = 150m / 2s = 75m/s which is healthy).
+    provider.poll(mock_shared_memory(mCurrentTime=12.0, mParticipantInfo=[
+        MockParticipantInfo(race_position=1, lap_distance=250.0, laps_completed=0, is_active=True)
+    ] + [MockParticipantInfo(is_active=False)] * 31))
+    
+    # The points at 15.0 and 20.0 must be discarded.
+    # The spline should have only the initial point (t=10.0) plus the new point from the current poll (t=12.0).
+    assert provider._leader_spline.sample_count == 2
+    assert provider._leader_spline.times == [10.0, 12.0]
+    assert provider._leader_spline.distances == [100.0, 250.0]
+
+def test_rewind_trims_spline(mock_shared_memory):
+    """T008: Simulate replay rewind (negative time step), verify future spline points are discarded."""
+    provider = TelemetryProvider(mode='shared_memory')
+    
+    # 1. Record spline points up to t=20.0
+    provider.poll(mock_shared_memory(mCurrentTime=10.0, mParticipantInfo=[
+        MockParticipantInfo(race_position=1, lap_distance=100.0, laps_completed=0, is_active=True)
+    ] + [MockParticipantInfo(is_active=False)] * 31))
+    
+    provider.poll(mock_shared_memory(mCurrentTime=15.0, mParticipantInfo=[
+        MockParticipantInfo(race_position=1, lap_distance=150.0, laps_completed=0, is_active=True)
+    ] + [MockParticipantInfo(is_active=False)] * 31))
+    
+    provider.poll(mock_shared_memory(mCurrentTime=20.0, mParticipantInfo=[
+        MockParticipantInfo(race_position=1, lap_distance=200.0, laps_completed=0, is_active=True)
+    ] + [MockParticipantInfo(is_active=False)] * 31))
+    
+    assert provider._leader_spline.sample_count == 3
+    assert provider._leader_spline.times == [10.0, 15.0, 20.0]
+    
+    # 2. Simulate rewind to t=16.0.
+    # The provider poll() should detect stable_time < last spline time (16.0 < 20.0)
+    # and trim points > 16.0.
+    # The point at t=20.0 should be discarded, and the new point at t=16.0 should be added.
+    provider.poll(mock_shared_memory(mCurrentTime=16.0, mParticipantInfo=[
+        MockParticipantInfo(race_position=1, lap_distance=160.0, laps_completed=0, is_active=True)
+    ] + [MockParticipantInfo(is_active=False)] * 31))
+    
+    assert provider._leader_spline.times == [10.0, 15.0, 16.0]
+    assert provider._leader_spline.distances == [100.0, 150.0, 160.0]

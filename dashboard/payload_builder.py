@@ -12,22 +12,26 @@ class PayloadBuilder:
             
         changed = False
 
+        # Fetch a thread-safe snapshot of all packet buffers in a single lock acquisition
+        if hasattr(b, 'provider') and b.provider and hasattr(b.provider, 'get_packet_buffer_snapshot'):
+            snapshot = b.provider.get_packet_buffer_snapshot(client='bridge')
+        else:
+            snapshot = b.packet_buffer
+
         # --- Viewed Index Debouncing ---
         raw_viewed_index = b.state["viewed_index"]
-        p559 = b.packet_buffer.get(559) or b.packet_buffer.get(556)
+        p559 = snapshot.get(559) or snapshot.get(556)
         
-        # Poll SHM at 60Hz if in shared_memory mode AND not in UDP effective source
+        # Get thread-safe shared memory snapshot if in hybrid mode
         shm = None
         effective_source = getattr(b.main_app, '_effective_source', 'hybrid')
-        if effective_source == 'hybrid' and getattr(b.main_app, '_mode', '') == 'shared_memory':
-            shm = b.main_app._read_shared_memory()
+        if effective_source == 'hybrid':
+            shm = getattr(b.main_app, 'shm_snapshot', None) or getattr(b.main_app, '_shm', None)
             if shm is not None:
                 current_time = getattr(shm, 'mCurrentTime', 0.0)
                 if current_time != getattr(b, '_last_shm_time', -1.0):
                     b._last_shm_time = current_time
                     changed = True
-        elif effective_source == 'hybrid':
-            shm = getattr(b.main_app, '_shm', None)
         
         if p559:
             raw_viewed_index = p559[12]
@@ -79,7 +83,7 @@ class PayloadBuilder:
                     b._tyre_compound_cache[b.state["viewed_index"]] = compounds[0]
 
         # 308 bytes - RaceData
-        p308 = b.packet_buffer.get(308)
+        p308 = snapshot.get(308)
         if p308 and p308 != b.last_packets.get(308):
             b.last_packets[308] = p308
             changed = True
@@ -97,7 +101,7 @@ class PayloadBuilder:
                 pass
 
         # 24 bytes - GameState
-        p24 = b.packet_buffer.get(24)
+        p24 = snapshot.get(24)
         if p24 and p24 != b.last_packets.get(24):
             b.last_packets[24] = p24
             changed = True
@@ -111,13 +115,13 @@ class PayloadBuilder:
                 pass
 
         # 1136 bytes - Participants
-        p1136 = b.packet_buffer.get(1136)
+        p1136 = snapshot.get(1136)
         if p1136 and p1136 != b.last_packets.get(1136):
             b.last_packets[1136] = p1136
             changed = True
 
         # 1063 bytes - Timings
-        p1063 = b.packet_buffer.get(1063)
+        p1063 = snapshot.get(1063)
         if p1063 and p1063 != b.last_packets.get(1063):
             b.last_packets[1063] = p1063
             changed = True
@@ -130,7 +134,7 @@ class PayloadBuilder:
                 pass
 
         # 1040 bytes - TimeStats
-        p1040 = b.packet_buffer.get(1040)
+        p1040 = snapshot.get(1040)
         if p1040 and p1040 != b.last_packets.get(1040):
             b.last_packets[1040] = p1040
             changed = True
@@ -144,8 +148,8 @@ class PayloadBuilder:
             except Exception:
                 pass
 
-        # Post-processing updates using main_app participants (from UDP or Shared Memory)
-        participants = getattr(b.main_app, '_participants', {})
+        # Post-processing updates using main_app participants snapshot
+        participants = getattr(b.main_app, 'participants_snapshot', None) or getattr(b.main_app, '_participants', {})
             
         if participants:
             viewed_idx = b.state["viewed_index"]
@@ -269,7 +273,7 @@ class PayloadBuilder:
             b.state["session"]["session_state"] = session_info.get("session_state", 0)
             b.state["session"]["yellow_flag_state"] = session_info.get("yellow_flag_state", 0)
             
-            participants_dict = getattr(b.main_app, '_participants', {})
+            participants_dict = getattr(b.main_app, 'participants_snapshot', None) or getattr(b.main_app, '_participants', {})
             
             b.pit_manager.update(participants_dict, getattr(b, '_last_current_time', 0.0))
             b.state["pit_events"] = b.pit_manager.pit_events

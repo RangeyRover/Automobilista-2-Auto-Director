@@ -8,12 +8,11 @@ import time
 import socket
 import threading
 import struct
-import json
-import os
 from core.utils import ctypes_serializer
-from core.spline import DistanceTimeSpline, compute_time_gap
+from core.spline import DistanceTimeSpline
 from core.physics_flywheel import PhysicsFlywheel
-from core.udp_parser import UDPParserMixin
+from core.udp_parser import UDPParserMixin, PacketBuffer
+
 class TelemetryProvider(UDPParserMixin):
     """Abstraction over SharedMemory and UDP data sources."""
     def __init__(self, mode: str = 'shared_memory'):
@@ -30,7 +29,10 @@ class TelemetryProvider(UDPParserMixin):
         self._tyre_stint_start_lap: dict[int, int] = {}
         self._car_splines: dict[int, list[tuple[float, float]]] = {}  # {idx: [(true_distance, game_time)]}
         self._last_poll_time = time.time()
-        self._packet_buffer: dict[int, bytes] = {}  # keyed by packet size
+        self._lock = threading.Lock()
+        self._udp_lock = threading.Lock()
+        self._packet_buffer_lock = threading.RLock()
+        self._packet_buffer = PacketBuffer(self)
         self._last_num_participants = 0
         self._leader_spline = DistanceTimeSpline()
         self._flywheel = PhysicsFlywheel()
@@ -49,10 +51,29 @@ class TelemetryProvider(UDPParserMixin):
         self._udp_car_classes: dict[int, str] = {}
         # Diagnostics
         self._time_history: list[dict] = []
+        self._dropped_packets_counter = 0
+        self._received_packets_counter = 0
+        self._poll_count = 0
+        self._poll_latencies: list[float] = []
+        self._last_diag_time = time.time()
     # ── Public API ──────────────────────────────────────────────────────────
+    def get_packet_buffer_snapshot(self, client: str = 'bridge') -> dict[int, bytes]:
+        """Return a snapshot of raw bytes for all buffered packets, marking them read by client."""
+        snapshot = {}
+        with self._packet_buffer_lock:
+            for size, slot in self._packet_buffer.items():
+                if slot.packet is not None:
+                    snapshot[size] = slot.packet
+                    if client == 'poll':
+                        slot.read_by_poll = True
+                    elif client == 'bridge':
+                        slot.read_by_bridge = True
+        return snapshot
     def udp_has_track_length(self) -> bool:
         """Return True if a 308-byte packet is buffered with track_length > 0."""
-        packet = self._packet_buffer.get(308)
+        with self._packet_buffer_lock:
+            slot = self._packet_buffer.get(308)
+            packet = slot.packet if slot else None
         if not packet or len(packet) < 48:
             return False
         try:
@@ -62,109 +83,146 @@ class TelemetryProvider(UDPParserMixin):
             return False
     def udp_has_participant_names(self) -> bool:
         """Return True if at least one participant name is cached from UDP."""
-        return len(self._udp_participant_names) > 0
+        with self._udp_lock:
+            return len(self._udp_participant_names) > 0
     def get_udp_car_names(self) -> dict[int, str]:
         """Return cached car names parsed from UDP Strings packets."""
-        return dict(self._udp_car_names)
+        with self._udp_lock:
+            return dict(self._udp_car_names)
     def get_udp_car_classes(self) -> dict[int, str]:
         """Return cached car classes parsed from UDP Strings packets."""
-        return dict(self._udp_car_classes)
+        with self._udp_lock:
+            return dict(self._udp_car_classes)
     def poll(self, shared_memory_obj=None) -> dict[int, dict] | None:
         """Read current telemetry. Returns participants dict keyed 0-31,
         or None if data source unavailable."""
-        participants = None
-        track_info = {}
-        session_info = {}
-        # Primary Source: Shared Memory
-        if self._mode == 'shared_memory' and shared_memory_obj is not None:
-            track_info = self._extract_track_info(shared_memory_obj)
-            session_info = self._extract_session_info(shared_memory_obj)
-            participants = self._extract_all_participants(shared_memory_obj)
-            self._update_connection_state(data_available=True)
-        # Fallback/Exclusive Source: UDP
-        elif self._mode == 'udp' or (self._mode == 'shared_memory' and shared_memory_obj is None):
-            track_info_packet = self._packet_buffer.get(308)
-            if track_info_packet:
-                track_info = self._extract_udp_track_info(track_info_packet)
-            session_info = self._extract_udp_session_info()
-            participants = self._parse_udp_participants(self._packet_buffer.get(1063))
-            if participants is not None:
+        t_start = time.time()
+        self._lock.acquire()
+        try:
+            participants = None
+            track_info = {}
+            # Primary Source: Shared Memory
+            if self._mode == 'shared_memory' and shared_memory_obj is not None:
+                track_info = self._extract_track_info(shared_memory_obj)
+                self._extract_session_info(shared_memory_obj)
+                participants = self._extract_all_participants(shared_memory_obj)
                 self._update_connection_state(data_available=True)
-            else:
-                self._update_connection_state(data_available=False)
-        if participants is None:
-            return None
-        curr_participants = len(participants) if participants else 0
-        # Session Boundary Detection
-        if curr_participants != self._last_num_participants:
-            self._distance_history.clear()
-            self._car_splines.clear()
-            self._tyre_stint_start_lap.clear()
-        self._last_num_participants = curr_participants
-        if participants is None:
-            return None
-        if self._detect_track_change(track_info):
-            self._distance_history.clear()
-            self._car_splines.clear()
-            self._tyre_stint_start_lap.clear()
-            self._leader_spline.reset()
-            self._flywheel.reset(0.0, 0.0)
-        # Calculate derived fields
-        track_length = track_info.get('track_length', 1.0)
-        for idx, p in participants.items():
-            laps_completed = max(0, p['current_lap'] - 1)
-            p['true_distance'] = self._calc_true_distance(
-                laps_completed, p['lap_distance'], track_length
-            )
-            # Track tyre stint laps (assume pitstop = new tyres)
-            if p.get('pit_mode', 0) != 0:
-                self._tyre_stint_start_lap[idx] = p['current_lap']
-            p['tyre_stint_laps'] = max(0, p['current_lap'] - self._tyre_stint_start_lap.get(idx, 1))
-        self._calc_gaps(participants)
-        self._calc_cars_ahead(participants, track_length)
-        game_time = time.time()
-        if self._mode == 'shared_memory' and shared_memory_obj is not None:
-            game_time = getattr(shared_memory_obj, 'mCurrentTime', game_time)
-        else:
-            udp_info = self._extract_udp_session_info()
-            if udp_info.get('current_time', 0.0) > 0:
-                game_time = udp_info['current_time']
-        # Get leader info
-        active_list = [(idx, p) for idx, p in participants.items() if p.get('is_active', False) and p.get('race_position', 999) > 0]
-        leader_dist = 0.0
-        if active_list:
-            active_list.sort(key=lambda x: x[1].get('race_position', 999))
-            leader_dist = active_list[0][1].get('true_distance', 0.0)
-        # 1. Flywheel Stabilization
-        stable_time = self._flywheel.process(game_time, leader_dist)
-        # 2. Leader Spline Recording
-        if active_list:
-            self._leader_spline.record(leader_dist, stable_time)
-        # 3. Gap Calculation using spline
-        self._calc_live_time_gaps(participants, track_length, stable_time)
-        now = time.time()
-        dt = now - self._last_poll_time
-        if dt <= 0:
-            dt = 0.001
-        # Calculate speeds with time delay protection
-        if dt >= 0.05:
+            # Fallback/Exclusive Source: UDP
+            elif self._mode == 'udp' or (self._mode == 'shared_memory' and shared_memory_obj is None):
+                snapshot = self.get_packet_buffer_snapshot(client='poll')
+                track_info_packet = snapshot.get(308)
+                if track_info_packet:
+                    track_info = self._extract_udp_track_info(track_info_packet)
+                self._extract_udp_session_info()
+                participants = self._parse_udp_participants(snapshot.get(1063))
+                if participants is not None:
+                    self._update_connection_state(data_available=True)
+                else:
+                    self._update_connection_state(data_available=False)
+            if participants is None:
+                return None
+            curr_participants = len(participants) if participants else 0
+            # Session Boundary Detection
+            if curr_participants != self._last_num_participants:
+                self._distance_history.clear()
+                self._car_splines.clear()
+                self._tyre_stint_start_lap.clear()
+            self._last_num_participants = curr_participants
+            if participants is None:
+                return None
+            if self._detect_track_change(track_info):
+                self._distance_history.clear()
+                self._car_splines.clear()
+                self._tyre_stint_start_lap.clear()
+                self._leader_spline.reset()
+                self._flywheel.reset(0.0, 0.0)
+            # Calculate derived fields
+            track_length = track_info.get('track_length', 1.0)
             for idx, p in participants.items():
-                if 'true_distance' in p:
-                    self._distance_history.setdefault(idx, []).append((now, p['true_distance']))
-                    # keep last 5
-                    self._distance_history[idx] = self._distance_history[idx][-5:]
-                    speed = self._calc_speed(idx, track_length)
-                    if speed is not None:
-                        p['speed'] = speed
-                    p['closing_speed'] = self._calc_closing_speed(idx, p.get('gap_ahead', 0.0), dt)
-            self._last_poll_time = now
-        return participants
+                laps_completed = max(0, p['current_lap'] - 1)
+                p['true_distance'] = self._calc_true_distance(
+                    laps_completed, p['lap_distance'], track_length
+                )
+                # Track tyre stint laps (assume pitstop = new tyres)
+                if p.get('pit_mode', 0) != 0:
+                    self._tyre_stint_start_lap[idx] = p['current_lap']
+                p['tyre_stint_laps'] = max(0, p['current_lap'] - self._tyre_stint_start_lap.get(idx, 1))
+            self._calc_gaps(participants)
+            self._calc_cars_ahead(participants, track_length)
+            game_time = time.time()
+            if self._mode == 'shared_memory' and shared_memory_obj is not None:
+                game_time = getattr(shared_memory_obj, 'mCurrentTime', game_time)
+            else:
+                udp_info = self._extract_udp_session_info()
+                if udp_info.get('current_time', 0.0) > 0:
+                    game_time = udp_info['current_time']
+            # Get leader info
+            active_list = [(idx, p) for idx, p in participants.items() if p.get('is_active', False) and p.get('race_position', 999) > 0]
+            leader_dist = 0.0
+            if active_list:
+                active_list.sort(key=lambda x: x[1].get('race_position', 999))
+                leader_dist = active_list[0][1].get('true_distance', 0.0)
+            # 1. Flywheel Stabilization
+            stable_time = self._flywheel.process(game_time, leader_dist)
+            # 2. Trimming triggers (US1 & US2)
+            if self._leader_spline.times:
+                if stable_time < self._leader_spline.times[-1] or self._flywheel.did_resync:
+                    self._leader_spline.trim_future_points(stable_time)
+            # 3. Leader Spline Recording
+            if active_list:
+                self._leader_spline.record(leader_dist, stable_time)
+            # 4. Gap Calculation using spline
+            self._calc_live_time_gaps(participants, track_length, stable_time)
+            now = time.time()
+            dt = now - self._last_poll_time
+            if dt <= 0:
+                dt = 0.001
+            # Calculate speeds with time delay protection
+            if dt >= 0.05:
+                for idx, p in participants.items():
+                    if 'true_distance' in p:
+                        self._distance_history.setdefault(idx, []).append((now, p['true_distance']))
+                        # keep last 5
+                        self._distance_history[idx] = self._distance_history[idx][-5:]
+                        speed = self._calc_speed(idx, track_length)
+                        if speed is not None:
+                            p['speed'] = speed
+                        p['closing_speed'] = self._calc_closing_speed(idx, p.get('gap_ahead', 0.0), dt)
+                self._last_poll_time = now
+            return participants
+        finally:
+            self._lock.release()
+            t_end = time.time()
+            self._poll_count += 1
+            self._poll_latencies.append(t_end - t_start)
+            if t_end - self._last_diag_time >= 10.0:
+                self._print_diagnostics(t_end)
+
+    def _print_diagnostics(self, current_time: float):
+        """Prints performance diagnostics (loop frequencies, latencies, packet stats)."""
+        duration = current_time - self._last_diag_time
+        if duration <= 0:
+            duration = 1.0
+        poll_hz = self._poll_count / duration
+        avg_latency_ms = (sum(self._poll_latencies) / len(self._poll_latencies) * 1000) if self._poll_latencies else 0.0
+        with self._packet_buffer_lock:
+            received = self._received_packets_counter
+            dropped = self._dropped_packets_counter
+        print(f"[PERF DIAGNOSTICS] Duration: {duration:.1f}s | "
+              f"Poll Frequency: {poll_hz:.2f} Hz | "
+              f"Average Poll Latency: {avg_latency_ms:.2f} ms | "
+              f"UDP Packets: Received={received}, Dropped={dropped}")
+        # Reset counters/history
+        self._poll_count = 0
+        self._poll_latencies.clear()
+        self._last_diag_time = current_time
     @property
     def spline_data(self) -> dict:
-        return {
-            "distances": self._leader_spline.distances if hasattr(self, '_leader_spline') else [],
-            "times": self._leader_spline.times if hasattr(self, '_leader_spline') else [],
-        }
+        with self._lock:
+            return {
+                "distances": list(self._leader_spline.distances) if hasattr(self, '_leader_spline') else [],
+                "times": list(self._leader_spline.times) if hasattr(self, '_leader_spline') else [],
+            }
     @property
     def flywheel_active(self) -> bool:
         return self._flywheel.is_active if hasattr(self, '_flywheel') else False
@@ -358,7 +416,7 @@ class TelemetryProvider(UDPParserMixin):
         if last_lap > 10.0 and track_length > 100.0:
             avg_speed = track_length / last_lap
         for i in range(len(active)):
-            idx = active[i][0]
+            active[i][0]
             p = active[i][1]
             my_dist = p.get('true_distance', 0.0)
             # Physical distance to the overall leader
@@ -392,6 +450,8 @@ class TelemetryProvider(UDPParserMixin):
         dump_data = {}
         try:
             import mmap
+            import ctypes
+            import shared_memory_struct
             shm = mmap.mmap(0, ctypes.sizeof(shared_memory_struct.SharedMemory), "$pcars2$")
             shared_memory_obj = shared_memory_struct.SharedMemory.from_buffer_copy(shm)
             shm.close()
@@ -402,17 +462,22 @@ class TelemetryProvider(UDPParserMixin):
     def get_debug_dump_udp(self) -> dict:
         """FR-001/002: Generate raw struct data JSON on-demand."""
         udp_dump = {}
-        for size, packet in self._packet_buffer.items():
+        with self._packet_buffer_lock:
+            # Create a local copy of raw packet bytes under lock
+            packets_copy = {size: slot.packet for size, slot in self._packet_buffer.items() if slot.packet}
+            
+        for size, packet in packets_copy.items():
             udp_dump[f"packet_{size}_hex"] = packet.hex()
-        if self._packet_buffer.get(1063):
-            udp_dump["parsed_participants"] = self._parse_udp_participants(self._packet_buffer.get(1063))
-        if self._packet_buffer.get(308):
-            udp_dump["parsed_track_info"] = self._extract_udp_track_info(self._packet_buffer.get(308))
+        if packets_copy.get(1063):
+            udp_dump["parsed_participants"] = self._parse_udp_participants(packets_copy.get(1063))
+        if packets_copy.get(308):
+            udp_dump["parsed_track_info"] = self._extract_udp_track_info(packets_copy.get(308))
         udp_dump["parsed_session_info"] = self._extract_udp_session_info()
         # Include internal string caches
-        udp_dump["parsed_names"] = self._udp_participant_names
-        udp_dump["parsed_nationalities"] = self._udp_participant_nationalities
-        udp_dump["parsed_car_names"] = self._udp_car_names
-        udp_dump["parsed_car_classes"] = self._udp_car_classes
-        udp_dump["parsed_time_splits"] = self._udp_time_splits
+        with self._udp_lock:
+            udp_dump["parsed_names"] = dict(self._udp_participant_names)
+            udp_dump["parsed_nationalities"] = dict(self._udp_participant_nationalities)
+            udp_dump["parsed_car_names"] = dict(self._udp_car_names)
+            udp_dump["parsed_car_classes"] = dict(self._udp_car_classes)
+            udp_dump["parsed_time_splits"] = dict(self._udp_time_splits)
         return {"udp": udp_dump}

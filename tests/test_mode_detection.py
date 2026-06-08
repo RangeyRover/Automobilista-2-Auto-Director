@@ -5,7 +5,6 @@ implementation code. All tests should FAIL initially, then pass
 as implementation is completed.
 """
 import struct
-import pytest
 
 # Import the provider to test detection signals
 from core.telemetry_provider import TelemetryProvider

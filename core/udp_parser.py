@@ -4,6 +4,53 @@ import threading
 import struct
 import time
 
+class PacketSlot:
+    """A thread-safe container for packets to track sequence and read flags."""
+    def __init__(self):
+        self.packet: bytes | None = None
+        self.seq = 0
+        self.read_by_poll = False
+        self.read_by_bridge = False
+
+    def __getitem__(self, index):
+        if self.packet is None:
+            raise IndexError("Packet is empty")
+        return self.packet[index]
+
+    def __len__(self):
+        return len(self.packet) if self.packet is not None else 0
+
+    def __eq__(self, other):
+        if isinstance(other, bytes):
+            return self.packet == other
+        if isinstance(other, PacketSlot):
+            return self.packet == other.packet and self.seq == other.seq
+        return False
+
+    def __bytes__(self):
+        return self.packet or b''
+
+
+class PacketBuffer(dict):
+    """
+    A custom dictionary that ensures backward compatibility with unit tests
+    which directly write bytes or check values.
+    """
+    def __init__(self, provider=None):
+        super().__init__()
+        self._provider = provider
+
+    def __setitem__(self, key, value):
+        if isinstance(value, bytes):
+            slot = PacketSlot()
+            slot.packet = value
+            slot.seq = 1
+            slot.read_by_poll = False
+            slot.read_by_bridge = False
+            super().__setitem__(key, slot)
+        else:
+            super().__setitem__(key, value)
+
 UDP_NATIONALITY_HASHES = {
     933178424:  'BR', # Brazil
     1004104139: 'UY', # Uruguay
@@ -56,6 +103,7 @@ class UDPParserMixin:
         self._udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         # Allow port reuse
         self._udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self._udp_socket.settimeout(0.5)
         try:
             self._udp_socket.bind(("", self._udp_port))
         except Exception as e:
@@ -81,6 +129,8 @@ class UDPParserMixin:
                             self._udp_time_splits[local_index] = split_ahead
                     except struct.error:
                         pass
+            except (socket.timeout, TimeoutError):
+                continue
             except Exception as e:
                 if not self._udp_running:
                     break  # Socket closed gracefully
@@ -89,7 +139,21 @@ class UDPParserMixin:
 
     def _add_packet_to_buffer(self, packet: bytes):
         """Add a UDP packet to the buffer, keyed by packet size."""
-        self._packet_buffer[len(packet)] = packet
+        size = len(packet)
+        with self._packet_buffer_lock:
+            slot = self._packet_buffer.get(size)
+            if slot is None:
+                slot = PacketSlot()
+                self._packet_buffer[size] = slot
+            else:
+                if slot.packet is not None and not (slot.read_by_poll and slot.read_by_bridge):
+                    self._dropped_packets_counter += 1
+            
+            slot.packet = packet
+            slot.seq += 1
+            slot.read_by_poll = False
+            slot.read_by_bridge = False
+            self._received_packets_counter += 1
 
     def _parse_udp_names(self, packet: bytes):
         """Parse Strings packet to cache driver names, car names, and car classes.
@@ -100,7 +164,7 @@ class UDPParserMixin:
         """
         pkt_len = len(packet)
         if pkt_len == 1136:
-            print(f"[UDP NAT DEBUG] Parsing 1136-byte Strings Packet...")
+            print("[UDP NAT DEBUG] Parsing 1136-byte Strings Packet...")
 
         if pkt_len >= 1367:
             # 1367-byte layout: header(12) + timestamp(4) + 16×64 names(1024) + 16×64 car names(starts at 1040)
@@ -129,52 +193,53 @@ class UDPParserMixin:
         partial_idx = packet[8]
         base_idx = (partial_idx - 1) * 16 if partial_idx > 0 else 0
 
-        # Parse participant names
-        for i in range(16):
-            offset = name_block_start + (i * name_stride)
-            if offset + name_stride <= pkt_len:
-                raw_name = packet[offset:offset + name_stride]
-                name = raw_name.split(b'\x00')[0].decode('utf-8', errors='replace').strip()
-                if name:
-                    abs_idx = base_idx + i
-                    self._udp_participant_names[abs_idx] = name
-
-        # Parse nationalities
-        if nationality_block_start != -1:
+        with self._udp_lock:
+            # Parse participant names
             for i in range(16):
-                offset = nationality_block_start + (i * nationality_stride)
-                if offset + nationality_stride <= pkt_len:
-                    try:
-                        nat_hash = struct.unpack_from('<I', packet, offset)[0]
+                offset = name_block_start + (i * name_stride)
+                if offset + name_stride <= pkt_len:
+                    raw_name = packet[offset:offset + name_stride]
+                    name = raw_name.split(b'\x00')[0].decode('utf-8', errors='replace').strip()
+                    if name:
                         abs_idx = base_idx + i
-                        found_nat = UDP_NATIONALITY_HASHES.get(nat_hash, "")
-                        self._udp_participant_nationalities[abs_idx] = found_nat
-                        
-                        if self._udp_participant_names.get(abs_idx):
-                            print(f"[UDP NAT DEBUG] Player Index {abs_idx} ({self._udp_participant_names[abs_idx]}) | Raw Hash from AMS2: {nat_hash} | Resolved To: '{found_nat}'")
+                        self._udp_participant_names[abs_idx] = name
+
+            # Parse nationalities
+            if nationality_block_start != -1:
+                for i in range(16):
+                    offset = nationality_block_start + (i * nationality_stride)
+                    if offset + nationality_stride <= pkt_len:
+                        try:
+                            nat_hash = struct.unpack_from('<I', packet, offset)[0]
+                            abs_idx = base_idx + i
+                            found_nat = UDP_NATIONALITY_HASHES.get(nat_hash, "")
+                            self._udp_participant_nationalities[abs_idx] = found_nat
                             
-                    except struct.error:
-                        pass
+                            if self._udp_participant_names.get(abs_idx):
+                                print(f"[UDP NAT DEBUG] Player Index {abs_idx} ({self._udp_participant_names[abs_idx]}) | Raw Hash from AMS2: {nat_hash} | Resolved To: '{found_nat}'")
+                                
+                        except struct.error:
+                            pass
 
-        # Parse car names
-        if car_name_block_start != -1:
-            for i in range(16):
-                offset = car_name_block_start + (i * car_name_stride)
-                if offset + car_name_stride <= pkt_len:
-                    raw = packet[offset:offset + car_name_stride]
-                    car_name = raw.split(b'\x00')[0].decode('utf-8', errors='replace').strip()
-                    if car_name:
-                        self._udp_car_names[i] = car_name
+            # Parse car names
+            if car_name_block_start != -1:
+                for i in range(16):
+                    offset = car_name_block_start + (i * car_name_stride)
+                    if offset + car_name_stride <= pkt_len:
+                        raw = packet[offset:offset + car_name_stride]
+                        car_name = raw.split(b'\x00')[0].decode('utf-8', errors='replace').strip()
+                        if car_name:
+                            self._udp_car_names[i] = car_name
 
-        # Parse car classes (if within packet bounds)
-        if car_class_block_start != -1:
-            for i in range(16):
-                offset = car_class_block_start + (i * car_class_stride)
-                if offset + car_class_stride <= pkt_len:
-                    raw = packet[offset:offset + car_class_stride]
-                    car_class = raw.split(b'\x00')[0].decode('utf-8', errors='replace').strip()
-                    if car_class:
-                        self._udp_car_classes[i] = car_class
+            # Parse car classes (if within packet bounds)
+            if car_class_block_start != -1:
+                for i in range(16):
+                    offset = car_class_block_start + (i * car_class_stride)
+                    if offset + car_class_stride <= pkt_len:
+                        raw = packet[offset:offset + car_class_stride]
+                        car_class = raw.split(b'\x00')[0].decode('utf-8', errors='replace').strip()
+                        if car_class:
+                            self._udp_car_classes[i] = car_class
 
     def _extract_udp_track_info(self, packet: bytes | None) -> dict:
         """Extract track info from 308-byte UDP packet."""
@@ -197,12 +262,14 @@ class UDPParserMixin:
             'session_state': 0,
             'yellow_flag_state': 0
         }
-        # In PCars2 UDP, EventTimeRemaining and LapsInEvent are found in GameState or RaceData packet.
-        # Note: PCars2 RaceData (308 bytes) does not contain EventTimeRemaining directly.
-        # If the specific GameState packet (24 bytes) or TimingsData (1063 bytes) contains it, we parse it.
-        # For the sake of the TDD fallback, we assume it's stored in a specific format or we just mock the return if we can't find it.
-        # We will parse 1063 byte packet offset 14 (float, event time remaining) - this is an approximation for PCars2 protocol.
-        packet = self._packet_buffer.get(1063)
+        with self._packet_buffer_lock:
+            slot1063 = self._packet_buffer.get(1063)
+            packet = slot1063.packet if slot1063 else None
+            slot308 = self._packet_buffer.get(308)
+            packet_race = slot308.packet if slot308 else None
+            slot24 = self._packet_buffer.get(24)
+            packet_game_state = slot24.packet if slot24 else None
+
         if packet and len(packet) >= 1063:
             try:
                 # Based on SMS_UDP_Definitions_AMS2_RR.hpp:
@@ -219,7 +286,6 @@ class UDPParserMixin:
             except struct.error:
                 pass
                 
-        packet_race = self._packet_buffer.get(308)
         if packet_race and len(packet_race) >= 308:
             try:
                 laps_time = struct.unpack_from('<H', packet_race, 304)[0]
@@ -234,7 +300,6 @@ class UDPParserMixin:
             except struct.error:
                 pass
                 
-        packet_game_state = self._packet_buffer.get(24)
         if packet_game_state and len(packet_game_state) >= 24:
             try:
                 game_state_raw = struct.unpack_from('<B', packet_game_state, 14)[0]
@@ -293,8 +358,9 @@ class UDPParserMixin:
                 pit_mode = pit_mode_byte & 0x07
 
                 # Lookup name and nationality from cache
-                name = self._udp_participant_names.get(i, f"Driver {i}")
-                nationality = self._udp_participant_nationalities.get(i, "")
+                with self._udp_lock:
+                    name = self._udp_participant_names.get(i, f"Driver {i}")
+                    nationality = self._udp_participant_nationalities.get(i, "")
 
                 if name.lower().startswith('safety car'):
                     is_active = False

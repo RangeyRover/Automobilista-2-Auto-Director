@@ -11,7 +11,7 @@
 
 **Purpose**: Test framework and test environment setup
 
-- [ ] T001 Create blank test suite file `tests/test_f1tv_overlay.js`
+- [x] T001 Create blank test suite file `tests/test_f1tv_overlay.js`
 
 ---
 
@@ -21,8 +21,8 @@
 
 **⚠️ CRITICAL**: No implementation work can begin until this phase is complete and the tests are verified as failing.
 
-- [ ] T002 Implement unit tests in `tests/test_f1tv_overlay.js` for timing formats (`formatGapTenths`, `formatTimeTenths`) and visibility presets.
-- [ ] T003 Execute test suite `node tests/test_f1tv_overlay.js` and verify that all assertions fail (timing functions undefined, HTML structures unchanged).
+- [x] T002 Implement unit tests in `tests/test_f1tv_overlay.js` for timing formats (`formatGapTenths`, `formatTimeTenths`) and visibility presets.
+- [x] T003 Execute test suite `node tests/test_f1tv_overlay.js` and verify that all assertions fail (timing functions undefined, HTML structures unchanged).
 
 **Checkpoint**: TDD base ready - all tests are verified in a failing state. User story implementation can now begin.
 
@@ -36,10 +36,10 @@
 
 ### Implementation for User Story 1
 
-- [ ] T004 [US1] Modify `#session-info` class from `broadcast-only` to `always-visible` in `dashboard/f1tv_overlay.html`
-- [ ] T005 [US1] Update `presets` in `dashboard/js/f1tv_overlay.js` to ensure `session-info` is enabled in `broadcast` preset list and excluded from `cockpit` preset list
-- [ ] T006 [US1] Update `presets` in `dashboard/f1tv_control.html` to align with javascript presets
-- [ ] T007 [US1] Run `node tests/test_f1tv_overlay.js` and verify User Story 1 visibility test passes
+- [x] T004 [US1] Modify `#session-info` class from `broadcast-only` to `always-visible` in `dashboard/f1tv_overlay.html`
+- [x] T005 [US1] Update `presets` in `dashboard/js/f1tv_overlay.js` to ensure `session-info` is enabled in `broadcast` preset list and excluded from `cockpit` preset list
+- [x] T006 [US1] Update `presets` in `dashboard/f1tv_control.html` to align with javascript presets
+- [x] T007 [US1] Run `node tests/test_f1tv_overlay.js` and verify User Story 1 visibility test passes
 
 **Checkpoint**: User Story 1 is fully functional, verified by automated tests, and testable independently.
 
@@ -53,12 +53,12 @@
 
 ### Implementation for User Story 2
 
-- [ ] T008 [US2] Add dummy hidden div with ID `tenths-timing` in `dashboard/f1tv_overlay.html`
-- [ ] T009 [US2] Add component `tenths-timing` to settings lists and presets in `dashboard/js/f1tv_overlay.js` and `dashboard/f1tv_control.html`
-- [ ] T010 [US2] Implement helper functions `formatGapTenths(gap)` and `formatTimeTenths(sec)` in `dashboard/js/f1tv_overlay.js`
-- [ ] T011 [US2] Update Mini Leaderboard gap formatting to respect `tenths-timing` toggle in `dashboard/js/f1tv_overlay.js`
-- [ ] T012 [US2] Update Full Leaderboard gap and lap time formatting to respect `tenths-timing` toggle in `dashboard/js/f1tv_overlay.js`
-- [ ] T013 [US2] Run `node tests/test_f1tv_overlay.js` and verify timing format tests pass
+- [x] T008 [US2] Add dummy hidden div with ID `tenths-timing` in `dashboard/f1tv_overlay.html`
+- [x] T009 [US2] Add component `tenths-timing` to settings lists and presets in `dashboard/js/f1tv_overlay.js` and `dashboard/f1tv_control.html`
+- [x] T010 [US2] Implement helper functions `formatGapTenths(gap)` and `formatTimeTenths(sec)` in `dashboard/js/f1tv_overlay.js`
+- [x] T011 [US2] Update Mini Leaderboard gap formatting to respect `tenths-timing` toggle in `dashboard/js/f1tv_overlay.js`
+- [x] T012 [US2] Update Full Leaderboard gap and lap time formatting to respect `tenths-timing` toggle in `dashboard/js/f1tv_overlay.js`
+- [x] T013 [US2] Run `node tests/test_f1tv_overlay.js` and verify timing format tests pass
 
 **Checkpoint**: User Story 2 is fully functional and verified by automated tests.
 
@@ -72,10 +72,10 @@
 
 ### Implementation for User Story 3
 
-- [ ] T014 [US3] Add CSS variable `--leaderboard-font-size: 15px` to `:root` and apply to `#mini-leaderboard` and `.flb-row` in `dashboard/css/f1tv_overlay.css`
-- [ ] T015 [US3] Increase container widths and row heights in `dashboard/css/f1tv_overlay.css` to accommodate larger font
-- [ ] T016 [US3] Update injected column width values (Pos: 24px, Gaps: 70px, Tyre info: 50px) in `dashboard/js/f1tv_overlay.js`
-- [ ] T017 [US3] Verify visually in browser that the expanded font displays cleanly with zero clipping
+- [x] T014 [US3] Add CSS variable `--leaderboard-font-size: 15px` to `:root` and apply to `#mini-leaderboard` and `.flb-row` in `dashboard/css/f1tv_overlay.css`
+- [x] T015 [US3] Increase container widths and row heights in `dashboard/css/f1tv_overlay.css` to accommodate larger font
+- [x] T016 [US3] Update injected column width values (Pos: 24px, Gaps: 70px, Tyre info: 50px) in `dashboard/js/f1tv_overlay.js`
+- [x] T017 [US3] Verify visually in browser that the expanded font displays cleanly with zero clipping
 
 **Checkpoint**: Leaderboard size is scaled, readable, and functional.
 
@@ -85,8 +85,8 @@
 
 **Purpose**: Verification and documentation cleanup
 
-- [ ] T018 Execute full unit test suite `node tests/test_f1tv_overlay.js` and verify all tests pass
-- [ ] T019 Perform final manual verification on the live app server per quickstart instructions
+- [x] T018 Execute full unit test suite `node tests/test_f1tv_overlay.js` and verify all tests pass
+- [x] T019 Perform final manual verification on the live app server per quickstart instructions
 
 ---
 

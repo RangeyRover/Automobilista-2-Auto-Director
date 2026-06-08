@@ -1,4 +1,3 @@
-import pytest
 import time
 from core.models.sector_tracker import SectorTracker
 

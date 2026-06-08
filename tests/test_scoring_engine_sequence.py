@@ -87,7 +87,7 @@ class TestScoringEngineSequence(unittest.TestCase):
         session_info = {'laps_in_event': 10}
         track_info = {'track_length': 4000}
         
-        results = self.scorer.calculate_scores(participants, session_info, track_info, current_time=100.0)
+        self.scorer.calculate_scores(participants, session_info, track_info, current_time=100.0)
         
         self.assertIn('P1', self.scorer.finished_participants)
         # P1 is both finished AND the sweep target (within dwell), so they get 5000 not 0

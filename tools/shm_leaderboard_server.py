@@ -1,7 +1,6 @@
 """Standalone WebSocket server and pure functions for the SHM Leaderboard Test Tool."""
 import sys
 import os
-import time as _time
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from shared_memory_struct import SharedMemory
 
@@ -210,11 +209,11 @@ async def main(host="127.0.0.1", port=8770, active_only=False):
         finally:
             connected_clients.remove(websocket)
             
-    server = await websockets.serve(handler, host, port)
+    await websockets.serve(handler, host, port)
     print(f"SHM Leaderboard Server started on ws://{host}:{port}")
     print(f"Active Only Mode: {active_only}")
     
-    loop_task = asyncio.create_task(telemetry_loop(connected_clients, active_only))
+    asyncio.create_task(telemetry_loop(connected_clients, active_only))
     await asyncio.Future()
 
 if __name__ == "__main__":

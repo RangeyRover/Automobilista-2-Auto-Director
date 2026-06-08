@@ -16,7 +16,7 @@
         #halo-hud img { position: absolute; }
         #halo-hud .hud-layer { position: absolute; }
         #halo-hud.mode-hidden { display: none !important; }
-        :root {
+         :root {
             --f1-red: #E10600;
             --f1-white: #FFFFFF;
             --f1-black: #15151E;
@@ -28,6 +28,7 @@
             --panel-bg: rgba(21,21,30,0.85);
             --panel-border: rgba(255,255,255,0.1);
             --transition-speed: 0.6s;
+            --leaderboard-font-size: 15px;
         }
         body {
             margin: 0;
@@ -181,12 +182,13 @@
             left: 10px;
             border-radius: 4px;
             overflow: hidden;
-            font-size: 13px;
-            min-width: 420px;
+            font-size: var(--leaderboard-font-size, 15px);
+            width: 440px;
         }
         .lb-row {
             display: flex;
-            padding: 6px 12px;
+            padding: 0 12px;
+            height: 36px;
             gap: 12px;
             align-items: center;
             font-variant-numeric: tabular-nums;
@@ -240,15 +242,15 @@
             background: var(--panel-bg);
             border-radius: 4px;
             overflow-y: auto;
-            width: 460px;
+            width: 480px;
         }
         .flb-row {
             display: flex;
             padding: 0 12px;
-            height: 32px;
+            height: 36px;
             align-items: center;
             gap: 12px;
-            font-size: 13px;
+            font-size: var(--leaderboard-font-size, 15px);
             font-variant-numeric: tabular-nums;
         }
         .flb-row:nth-child(odd) { background: var(--f1-black); }
@@ -260,7 +262,7 @@
         }
         
         .tyre-info {
-            display: flex; align-items: center; font-size: 10px; color: var(--f1-light-grey); width: 45px; justify-content: flex-end; flex-shrink: 0;
+            display: flex; align-items: center; font-size: 11px; color: var(--f1-light-grey); width: 50px; justify-content: flex-end; flex-shrink: 0;
         }
         .lb-row.viewed .tyre-info, .flb-row.viewed .tyre-info {
             color: var(--f1-dark-grey);

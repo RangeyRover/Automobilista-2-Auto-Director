@@ -11,7 +11,8 @@ const components = [
             { id: 'weather-panel', name: 'Weather', default: true, type: 'broadcast' },
             { id: 'pit-window', name: 'Pit Window', default: true, type: 'broadcast' },
             { id: 'pit-timer', name: 'Pit Timer', default: true, type: 'broadcast' },
-            { id: 'connection-status', name: 'Connection Status', default: true, type: 'broadcast' }
+            { id: 'connection-status', name: 'Connection Status', default: true, type: 'broadcast' },
+            { id: 'tenths-timing', name: 'Tenths Timing', default: true, type: 'broadcast' }
         ];
 
         let state = null;
@@ -109,8 +110,8 @@ const components = [
         }
 
         const presets = {
-            'broadcast': ['full-leaderboard', 'mini-leaderboard', 'driver-name', 'lap-timer', 'ahead-behind', 'session-info', 'fastest-lap', 'fastest-sectors', 'weather-panel', 'pit-window', 'pit-timer', 'connection-status'],
-            'cockpit': ['mini-leaderboard', 'fastest-lap', 'weather-panel', 'pit-window', 'pit-timer']
+            'broadcast': ['full-leaderboard', 'mini-leaderboard', 'driver-name', 'lap-timer', 'ahead-behind', 'session-info', 'fastest-lap', 'fastest-sectors', 'weather-panel', 'pit-window', 'pit-timer', 'connection-status', 'tenths-timing'],
+            'cockpit': ['mini-leaderboard', 'fastest-lap', 'weather-panel', 'pit-window', 'pit-timer', 'tenths-timing']
         };
 
         function applyPreset(preset) {
@@ -231,10 +232,25 @@ const components = [
             return `${m}:${s.toString().padStart(2, '0')}.${ms.toString().padStart(3, '0')}`;
         }
 
+        function formatTimeTenths(sec) {
+            if (sec <= 0 || isNaN(sec)) return "--:--.-";
+            const totalTenths = Math.round(sec * 10);
+            const m = Math.floor(totalTenths / 600);
+            const s = Math.floor((totalTenths % 600) / 10);
+            const tenths = totalTenths % 10;
+            return `${m}:${s.toString().padStart(2, '0')}.${tenths}`;
+        }
+
         function formatGap(gap) {
             if (typeof gap === 'string') return gap;
             if (gap <= 0) return "";
             return `+${gap.toFixed(3)}s`;
+        }
+
+        function formatGapTenths(gap) {
+            if (typeof gap === 'string') return gap;
+            if (gap <= 0 || isNaN(gap)) return "";
+            return `+${gap.toFixed(1)}s`;
         }
         
         function getLastName(name) {
@@ -383,6 +399,10 @@ const components = [
                 <div style="font-variant-numeric:tabular-nums;">${tStr}</div>
             `;
 
+            // Tenths Timing Config
+            const tenthsTimingCb = document.getElementById('toggle-tenths-timing');
+            const useTenths = tenthsTimingCb ? tenthsTimingCb.checked : true;
+
             // Main Leaderboard
             const mlb = document.getElementById('mini-leaderboard');
             let mlbHTML = "";
@@ -401,8 +421,8 @@ const components = [
 
                 mlbHTML += `
                     <div class="lb-row ${isViewed ? 'viewed' : ''}">
-                        <div style="width:20px; text-align:right; flex-shrink:0;">${driver.pos}</div>
-                        <div class="team-strip" style="background:${tc}; width:4px; height:16px; flex-shrink:0;"></div>
+                        <div style="width:24px; text-align:right; flex-shrink:0;">${driver.pos}</div>
+                        <div class="team-strip" style="background:${tc}; width:4px; height:20px; flex-shrink:0;"></div>
                         <div style="flex-grow:1; min-width:140px; display:flex; align-items:center; font-weight:bold; overflow:hidden; white-space:nowrap; text-overflow:ellipsis;">
                             ${driver.nationality ? `<img src="https://flagcdn.com/w20/${driver.nationality}.png" height="11" style="margin-right:8px; border-radius:1px; flex-shrink:0;">` : ''}
                             <span style="overflow:hidden; text-overflow:ellipsis;">${getLastName(driver.name)}</span>
@@ -410,7 +430,7 @@ const components = [
                         <div class="tyre-info">
                             <span style="color:${tCol}; margin-right: 2px; font-size: 12px;" title="${driver.tyre_compound}">●</span>${driver.tyre_stint_laps > 0 ? driver.tyre_stint_laps : 'NEW'}
                         </div>
-                        <div style="text-align:right; width:65px; flex-shrink:0;">${driver.pos === 1 ? 'LEADER' : formatGap(driver.gap)}</div>
+                        <div style="text-align:right; width:70px; flex-shrink:0;">${driver.pos === 1 ? 'LEADER' : (useTenths ? formatGapTenths(driver.gap) : formatGap(driver.gap))}</div>
                     </div>
                 `;
             });
@@ -434,8 +454,8 @@ const components = [
 
                 flbHTML += `
                     <div class="flb-row ${isViewed ? 'viewed' : ''}">
-                        <div style="width:20px; text-align:right; flex-shrink:0;">${driver.pos}</div>
-                        <div class="team-strip" style="background:${tc}; width:4px; height:16px; flex-shrink:0;"></div>
+                        <div style="width:24px; text-align:right; flex-shrink:0;">${driver.pos}</div>
+                        <div class="team-strip" style="background:${tc}; width:4px; height:20px; flex-shrink:0;"></div>
                         <div style="flex-grow:1; min-width:140px; display:flex; align-items:center; font-weight:bold; overflow:hidden; white-space:nowrap; text-overflow:ellipsis;">
                             ${driver.nationality ? `<img src="https://flagcdn.com/w20/${driver.nationality}.png" height="11" style="margin-right:8px; border-radius:1px; flex-shrink:0;">` : ''}
                             <span style="overflow:hidden; text-overflow:ellipsis;">${getLastName(driver.name)}</span>
@@ -443,8 +463,8 @@ const components = [
                         <div class="tyre-info" style="margin-right: 5px;">
                             <span style="color:${tCol}; margin-right: 2px; font-size: 12px;" title="${driver.tyre_compound}">●</span>${driver.tyre_stint_laps > 0 ? driver.tyre_stint_laps : 'NEW'}
                         </div>
-                        <div style="width:65px; text-align:right; flex-shrink:0;">${formatTime(driver.last_lap)}</div>
-                        <div style="width:65px; text-align:right; flex-shrink:0;">${driver.pos === 1 ? 'LEADER' : formatGap(driver.gap)}</div>
+                        <div style="width:70px; text-align:right; flex-shrink:0;">${useTenths ? formatTimeTenths(driver.last_lap) : formatTime(driver.last_lap)}</div>
+                        <div style="width:70px; text-align:right; flex-shrink:0;">${driver.pos === 1 ? 'LEADER' : (useTenths ? formatGapTenths(driver.gap) : formatGap(driver.gap))}</div>
                         ${driver.pit > 0 ? `<div style="background:var(--f1-red); color:white; padding:0 4px; border-radius:2px; font-size:10px; flex-shrink:0;" title="${driver.laps_since_last_pit > 0 ? driver.laps_since_last_pit + ' laps since pit' : ''}">P${driver.pit}</div>` : ''}
                     </div>
                 `;

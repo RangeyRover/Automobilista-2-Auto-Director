@@ -1,4 +1,3 @@
-import pytest
 from core.camera_controller import CameraController, CAMERA_SET_MAP
 
 def test_camera_type_default_is_tv_cam():

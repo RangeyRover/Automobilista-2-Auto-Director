@@ -1,5 +1,4 @@
 import socket
-import struct
 import threading
 import tkinter as tk
 from tkinter import ttk
@@ -258,7 +257,7 @@ class UDPInspector(tk.Tk):
                 if len(data) == self.target_size:
                     self.target_size = None  # Reset so we only capture one
                     self.after(0, self.decode_packet, data)
-            except:
+            except Exception:
                 pass
                 
     def decode_packet(self, data):
@@ -305,7 +304,7 @@ class UDPInspector(tk.Tk):
         self.running = False
         try:
             self.sock.close()
-        except:
+        except Exception:
             pass
         self.destroy()
 

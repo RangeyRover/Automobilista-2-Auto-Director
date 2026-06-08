@@ -1,4 +1,3 @@
-import pytest
 from dashboard.payload_builder import PayloadBuilder
 
 def test_payload_builder_initialisation():

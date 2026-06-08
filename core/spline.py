@@ -9,8 +9,8 @@ class DistanceTimeSpline:
     """Maintains a history of distance-time pairs for gap interpolation."""
     def __init__(self, min_interval: float = 0.5):
         self.min_interval = min_interval
-        self.distances = []
-        self.times = []
+        self.distances: list[float] = []
+        self.times: list[float] = []
         
     def reset(self):
         """Clear all recorded samples."""
@@ -42,6 +42,18 @@ class DistanceTimeSpline:
         self.distances.append(distance)
         self.times.append(time)
         return True
+        
+    def trim_future_points(self, current_time: float) -> None:
+        """
+        Remove all recorded spline points with timestamps strictly greater than current_time.
+        Assures len(distances) == len(times) is preserved.
+        """
+        if not self.times:
+            return
+        idx = bisect.bisect_right(self.times, current_time)
+        if idx < len(self.times):
+            self.times = self.times[:idx]
+            self.distances = self.distances[:idx]
         
     def interpolate_time(self, distance: float) -> float | None:
         """

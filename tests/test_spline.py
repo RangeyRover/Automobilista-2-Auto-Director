@@ -1,7 +1,6 @@
 """
 TDD tests for DistanceTimeSpline and associated standalone gap calculation functions.
 """
-import pytest
 from core.spline import DistanceTimeSpline, compute_total_distance, compute_time_gap
 
 # --- Phase 1: Distance Calculation ---
@@ -137,3 +136,80 @@ def test_time_gap_speed_variation():
     assert gap_slow == 1.0
     assert gap_fast == 0.25
     assert gap_slow > gap_fast
+
+# --- Phase 4: Spline Trimming (FR-001) ---
+
+def test_spline_trim_future_points_basic():
+    spline = DistanceTimeSpline()
+    spline.record(0.0, 0.0)
+    spline.record(10.0, 1.0)
+    spline.record(20.0, 2.0)
+    spline.record(30.0, 3.0)
+    
+    # Trim to current_time = 1.5. Points at t=2.0 and t=3.0 should be discarded.
+    spline.trim_future_points(1.5)
+    
+    assert spline.sample_count == 2
+    assert spline.times == [0.0, 1.0]
+    assert spline.distances == [0.0, 10.0]
+    assert len(spline.distances) == len(spline.times)
+
+def test_spline_trim_future_points_exact():
+    spline = DistanceTimeSpline()
+    spline.record(0.0, 0.0)
+    spline.record(10.0, 1.0)
+    
+    # Trim to exact time. Only points strictly greater than 1.0 should be discarded.
+    # So t=1.0 remains.
+    spline.trim_future_points(1.0)
+    assert spline.sample_count == 2
+    assert spline.times == [0.0, 1.0]
+
+def test_spline_trim_future_points_noop():
+    spline = DistanceTimeSpline()
+    spline.record(0.0, 0.0)
+    spline.record(10.0, 1.0)
+    
+    # Trim to time in future. No-op.
+    spline.trim_future_points(5.0)
+    assert spline.sample_count == 2
+    assert spline.times == [0.0, 1.0]
+
+def test_spline_trim_future_points_all():
+    spline = DistanceTimeSpline()
+    spline.record(10.0, 1.0)
+    spline.record(20.0, 2.0)
+    
+    # Trim to time before all points. Spline becomes empty.
+    spline.trim_future_points(0.5)
+    assert spline.sample_count == 0
+    assert spline.times == []
+    assert spline.distances == []
+
+def test_spline_trim_future_points_empty():
+    spline = DistanceTimeSpline()
+    # Trim empty spline. No-op.
+    spline.trim_future_points(1.0)
+    assert spline.sample_count == 0
+
+def test_spline_trim_to_insufficient_points_fallback():
+    spline = DistanceTimeSpline()
+    spline.record(0.0, 0.0)
+    spline.record(10.0, 1.0)
+    spline.record(20.0, 2.0)
+    
+    # Trim to current_time = 0.5. Spline is trimmed to 1 point (at t=0.0).
+    spline.trim_future_points(0.5)
+    assert spline.sample_count == 1
+    
+    # Gap calculation should fallback to None for interpolation since < 2 points
+    assert spline.interpolate_time(10.0) is None
+    
+    # If we compute a time gap using compute_time_gap, it should return None
+    assert compute_time_gap(10.0, 5.0, spline) is None
+
+    # Trim to current_time = -1.0. Spline is trimmed to 0 points.
+    spline.trim_future_points(-1.0)
+    assert spline.sample_count == 0
+    assert spline.interpolate_time(10.0) is None
+    assert compute_time_gap(10.0, 5.0, spline) is None

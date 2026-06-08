@@ -62,7 +62,7 @@ class CameraController:
     def _press_key(self, key: str):
         """Press a key. Override in tests via monkeypatch."""
         try:
-            import pyKey
+            import pyKey  # type: ignore
             pyKey.pressKey(key)
         except ImportError:
             pass
@@ -70,7 +70,7 @@ class CameraController:
     def _release_key(self, key: str):
         """Release a key. Override in tests via monkeypatch."""
         try:
-            import pyKey
+            import pyKey  # type: ignore
             pyKey.releaseKey(key)
         except ImportError:
             pass

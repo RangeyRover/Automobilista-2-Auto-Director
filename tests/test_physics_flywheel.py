@@ -118,7 +118,7 @@ def test_flywheel_recovery_relocks_to_game_time():
     fw = PhysicsFlywheel(clock=clock)
     fw.process(game_time=100.0, leader_dist=2000.0)
     # Anomaly tick
-    synthetic = fw.process(game_time=140.0, leader_dist=2020.0)
+    fw.process(game_time=140.0, leader_dist=2020.0)
     assert fw.is_active is True
 
     # Recovery tick — game time returns close to synthetic clock
@@ -364,7 +364,7 @@ def test_flywheel_self_healing_resyncs_after_consecutive_healthy_ticks():
     for i in range(20):
         game_t = 140.25 + i * 0.25
         leader_d = 2040.0 + i * 20.0
-        result = fw.process(game_time=game_t, leader_dist=leader_d)
+        fw.process(game_time=game_t, leader_dist=leader_d)
     
     # After 20+ healthy ticks, flywheel should have resynced
     assert fw.is_active is False, "Flywheel should self-heal after 20 healthy ticks"
@@ -434,7 +434,7 @@ def test_flywheel_system_dt_clamped_to_2s_max():
     
     fw = PhysicsFlywheel(clock=stalling_clock)
     fw.process(game_time=100.0, leader_dist=2000.0)   # clock=1000.0
-    result = fw.process(game_time=140.0, leader_dist=2020.0)  # clock=1000.25, anomaly
+    fw.process(game_time=140.0, leader_dist=2020.0)  # clock=1000.25, anomaly
     # Next anomaly tick would see system dt = 1005.0 - 1000.25 = 4.75s → clamped to 2.0
     result2 = fw.process(game_time=140.25, leader_dist=2040.0)
     

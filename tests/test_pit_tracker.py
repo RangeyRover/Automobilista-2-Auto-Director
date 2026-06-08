@@ -1,4 +1,3 @@
-import time
 import pytest
 from dashboard.state_engine.pit_tracker import PitTracker
 
@@ -19,7 +18,7 @@ def test_pit_entry_recorded(pit_tracker):
     assert 0 in pit_tracker._pit_tracker
     assert len(pit_tracker._pit_tracker[0]) == 1
     assert pit_tracker._pit_tracker[0][-1].get("entry_time") == 100.0
-    assert pit_tracker._pit_tracker[0][-1].get("in_progress") == True
+    assert pit_tracker._pit_tracker[0][-1].get("in_progress")
     assert pit_tracker._pit_mode_state[0].get("prev_pit_mode") == 1
     assert pit_tracker._pit_tracker[0][-1].get("pit_count", 0) == 1
 
@@ -40,7 +39,7 @@ def test_pit_exit_calculates_duration(pit_tracker):
     
     pit_tracker.update(participants, 125.5)
         
-    assert pit_tracker._pit_tracker[0][-1].get("in_progress") == False
+    assert not pit_tracker._pit_tracker[0][-1].get("in_progress")
     assert pit_tracker._pit_tracker[0][-1].get("duration") == pytest.approx(25.5)
     assert pit_tracker._pit_tracker[0][-1].get("exit_lap") == 10
 
@@ -95,8 +94,8 @@ def test_multiple_drivers_pit_simultaneously(pit_tracker):
     
     pit_tracker.update(participants, 100.0)
     
-    assert pit_tracker._pit_tracker[0][-1].get("in_progress") == True
-    assert pit_tracker._pit_tracker[1][-1].get("in_progress") == True
+    assert pit_tracker._pit_tracker[0][-1].get("in_progress")
+    assert pit_tracker._pit_tracker[1][-1].get("in_progress")
 
 def test_pit_events_list_contains_recent(pit_tracker):
     participants = {

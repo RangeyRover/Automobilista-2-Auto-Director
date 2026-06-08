@@ -1,5 +1,4 @@
 """TDD tests for F1TV bridge UDP parsing extensions."""
-import struct
 import pytest
 from dashboard.bridge import DashboardBridge
 
@@ -169,7 +168,7 @@ def test_director_state_broadcast(bridge):
     bridge.packet_buffer = {}
     bridge._parse_packets()
     assert bridge.state["director"]["camera_type"] == "cockpit"
-    assert bridge.state["director"]["is_auto_directing"] == True
+    assert bridge.state["director"]["is_auto_directing"]
 
 def test_udp_fallback_session_data(make_udp_race_data_packet, bridge):
     bridge.main_app._shm = None

@@ -106,7 +106,8 @@
             { id: 'weather-panel', name: 'Weather', default: true, type: 'broadcast' },
             { id: 'pit-window', name: 'Pit Window', default: true, type: 'broadcast' },
             { id: 'pit-timer', name: 'Pit Timer', default: true, type: 'broadcast' },
-            { id: 'connection-status', name: 'Connection Status', default: true, type: 'broadcast' }
+            { id: 'connection-status', name: 'Connection Status', default: true, type: 'broadcast' },
+            { id: 'tenths-timing', name: 'Tenths Timing', default: true, type: 'broadcast' }
         ];
 
         let ws;
@@ -139,8 +140,8 @@
         }
 
         const presets = {
-            'broadcast': ['full-leaderboard', 'mini-leaderboard', 'driver-name', 'lap-timer', 'ahead-behind', 'session-info', 'fastest-lap', 'fastest-sectors', 'weather-panel', 'pit-window', 'pit-timer', 'connection-status'],
-            'cockpit': ['mini-leaderboard', 'fastest-lap', 'weather-panel', 'pit-window', 'pit-timer']
+            'broadcast': ['full-leaderboard', 'mini-leaderboard', 'driver-name', 'lap-timer', 'ahead-behind', 'session-info', 'fastest-lap', 'fastest-sectors', 'weather-panel', 'pit-window', 'pit-timer', 'connection-status', 'tenths-timing'],
+            'cockpit': ['mini-leaderboard', 'fastest-lap', 'weather-panel', 'pit-window', 'pit-timer', 'tenths-timing']
         };
 
         function applyPreset(preset) {

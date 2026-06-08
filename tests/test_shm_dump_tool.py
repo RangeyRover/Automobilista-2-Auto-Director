@@ -1,9 +1,7 @@
 """Tests for the Shared Memory Leaderboard Test Tool (tools/shm_leaderboard_server.py)."""
 import pytest
 import ctypes
-import json
 from shared_memory_struct import SharedMemory
-from tools.shm_leaderboard_server import serialise_shm
 
 @pytest.fixture
 def zero_shm():
@@ -250,13 +248,11 @@ def test_pipeline_integration_active_only(zero_shm):
     assert len(payload["raw"]["mParticipantInfo"]) == 64
     assert payload["raw"]["mParticipantInfo"][1]["mName"] == "Inactive"
 
-import asyncio
 import pytest
 
 # --- Phase 10: Server Loop Tracking Tests ---
 
 from tools.shm_leaderboard_server import should_reset_spline, get_leader_name
-from core.spline import DistanceTimeSpline
 
 def test_session_reset_detection():
     # Only reset when leaving SESSION_RACE (5) or participants drop to 0

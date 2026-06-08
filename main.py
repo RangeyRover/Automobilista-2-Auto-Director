@@ -3,8 +3,7 @@
 Thin tkinter GUI shell. All business logic lives in core/ modules.
 This file owns no scoring, telemetry, or camera logic.
 """
-import tkinter as tk
-from tkinter import ttk, filedialog
+from tkinter import filedialog
 import argparse
 import time
 import mmap
@@ -52,6 +51,7 @@ class AutoDirectorApp:
         self._last_logged_cam = None
 
         # Shared memory handle
+        self._state_lock = threading.Lock()
         self._shm = None
         self._shm_file = None
 
@@ -95,6 +95,26 @@ class AutoDirectorApp:
         self.provider.stop_udp()
         self.root.destroy()
 
+    @property
+    def participants_snapshot(self) -> dict[int, dict]:
+        with self._state_lock:
+            return {k: dict(v) for k, v in self._participants.items()}
+
+    @property
+    def scores_snapshot(self) -> dict[int, dict]:
+        with self._state_lock:
+            return {k: dict(v) for k, v in self._scores.items()}
+
+    @property
+    def shm_snapshot(self):
+        with self._state_lock:
+            if self._shm is None:
+                return None
+            try:
+                return self._shm.__class__.from_buffer_copy(self._shm)
+            except Exception:
+                return None
+
     def _open_overlays(self):
         """Open the local dashboard portal in the default web browser."""
         import webbrowser
@@ -132,7 +152,6 @@ class AutoDirectorApp:
         """Toggle Auto Director status (Ctrl+Space)."""
         self._director_enabled = not self._director_enabled
         status = "ACTIVE" if self._director_enabled else "PAUSED"
-        color = '#00ff00' if self._director_enabled else '#ffaa00'
         
         self.lbl_director.configure(text=f'Director: {status}')
         
@@ -266,7 +285,7 @@ class AutoDirectorApp:
             self._effective_source = 'hybrid'
 
         self._update_source_label()
-        self._participants = self.provider.poll(sm) or {}
+        participants = self.provider.poll(sm) or {}
         
         track_info = None
         session_info = None
@@ -312,12 +331,16 @@ class AutoDirectorApp:
         cur_time = session_info.get('current_time', 0.0) if session_info else None
 
         # Score
-        self._scores = self.scorer.calculate_scores(
-            self._participants,
+        scores = self.scorer.calculate_scores(
+            participants,
             session_info=session_info,
             track_info=track_info,
             current_time=cur_time
         )
+
+        with self._state_lock:
+            self._participants = participants
+            self._scores = scores
 
         # Auto director camera switch
         if self._director_enabled and self.provider.is_connected():
